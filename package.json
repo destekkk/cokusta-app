@@ -3,17 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "prisma generate && next build",
-    "start": "next start",
-    "lint": "eslint",
-    "db:generate": "prisma generate",
-    "db:push": "prisma db push",
-    "db:migrate": "prisma migrate dev",
-    "db:seed": "tsx scripts/seed-from-json.ts",
-    "db:studio": "prisma studio",
-    "deploy:setup": "prisma generate && prisma db push"
-  },
+    
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "@vercel/blob": "^0.27.4",
