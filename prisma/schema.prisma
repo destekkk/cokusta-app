@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
 }
 
 enum QuoteStatus {
@@ -88,10 +88,10 @@ model Provider {
   launchMemberNumber Int?           @map("launch_member_number")
   launchBonusGranted Boolean        @default(false) @map("launch_bonus_granted")
 
-  quotes             QuoteRequest[]
-  portfolio          ProviderPortfolioItem[]
-  platformPurchases  ProviderPlatformPurchase[]
-  certificates       ProviderCertificate[]
+  quotes            QuoteRequest[]
+  portfolio         ProviderPortfolioItem[]
+  platformPurchases ProviderPlatformPurchase[]
+  certificates      ProviderCertificate[]
 
   @@index([status])
   @@index([phone])
@@ -146,20 +146,20 @@ model Customer {
 }
 
 model Invoice {
-  id              String               @id @db.VarChar(64)
-  invoiceNo       String               @map("invoice_no") @db.VarChar(64)
-  referenceType   InvoiceReferenceType @map("reference_type")
-  referenceId     String               @map("reference_id") @db.VarChar(64)
-  recipientName   String               @map("recipient_name") @db.VarChar(255)
-  recipientEmail  String?              @map("recipient_email") @db.VarChar(255)
-  recipientPhone  String?              @map("recipient_phone") @db.VarChar(32)
-  description     String               @db.Text
-  subtotal        Float
-  vatRate         Float                @map("vat_rate")
-  vatAmount       Float                @map("vat_amount")
-  total           Float
-  period          String               @db.VarChar(16)
-  issuedAt        DateTime             @map("issued_at")
+  id             String               @id @db.VarChar(64)
+  invoiceNo      String               @map("invoice_no") @db.VarChar(64)
+  referenceType  InvoiceReferenceType @map("reference_type")
+  referenceId    String               @map("reference_id") @db.VarChar(64)
+  recipientName  String               @map("recipient_name") @db.VarChar(255)
+  recipientEmail String?              @map("recipient_email") @db.VarChar(255)
+  recipientPhone String?              @map("recipient_phone") @db.VarChar(32)
+  description    String               @db.Text
+  subtotal       Float
+  vatRate        Float                @map("vat_rate")
+  vatAmount      Float                @map("vat_amount")
+  total          Float
+  period         String               @db.VarChar(16)
+  issuedAt       DateTime             @map("issued_at")
 
   @@unique([referenceType, referenceId])
   @@index([period])
@@ -194,8 +194,8 @@ model ProviderCertificate {
   previousHash String          @map("previous_hash") @db.VarChar(128)
   metadata     Json
 
-  provider            Provider             @relation(fields: [providerId], references: [id], onDelete: Cascade)
-  providerOfTheMonth  ProviderOfTheMonth[]
+  provider           Provider             @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerOfTheMonth ProviderOfTheMonth[]
 
   @@index([providerId])
   @@index([type])
