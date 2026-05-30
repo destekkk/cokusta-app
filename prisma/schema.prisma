@@ -1,0 +1,229 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum QuoteStatus {
+  pending
+  matched
+  completed
+  cancelled
+}
+
+enum ProviderStatus {
+  pending
+  approved
+  rejected
+}
+
+enum PurchaseStatus {
+  active
+  expired
+  cancelled
+}
+
+enum InvoiceReferenceType {
+  quote
+  platform_purchase @map("platform-purchase")
+}
+
+enum CertificateType {
+  master_craftsman
+  provider_of_month
+}
+
+model QuoteRequest {
+  id                  String      @id @db.VarChar(64)
+  serviceSlug         String      @map("service_slug") @db.VarChar(128)
+  serviceName         String      @map("service_name") @db.VarChar(255)
+  categoryName        String      @map("category_name") @db.VarChar(128)
+  answers             Json
+  city                String      @db.VarChar(128)
+  district            String      @db.VarChar(128)
+  name                String      @db.VarChar(255)
+  phone               String      @db.VarChar(32)
+  email               String      @db.VarChar(255)
+  notes               String      @db.Text
+  createdAt           DateTime    @map("created_at")
+  status              QuoteStatus @default(pending)
+  matchedProviderId   String?     @map("matched_provider_id") @db.VarChar(64)
+  matchedProviderName String?     @map("matched_provider_name") @db.VarChar(255)
+  jobValue            Int?        @map("job_value")
+  commissionRate      Float?      @map("commission_rate")
+  commissionAmount    Int?        @map("commission_amount")
+  completedAt         DateTime?   @map("completed_at")
+  invoiceId           String?     @map("invoice_id") @db.VarChar(64)
+  priorityListing     Boolean     @default(false) @map("priority_listing")
+  launchMemberNumber  Int?        @map("launch_member_number")
+  urgent              Boolean     @default(false)
+  urgentDeadline      DateTime?   @map("urgent_deadline")
+
+  matchedProvider Provider? @relation(fields: [matchedProviderId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([phone])
+  @@index([createdAt])
+  @@index([matchedProviderId])
+  @@map("quote_requests")
+}
+
+model Provider {
+  id                 String         @id @db.VarChar(64)
+  name               String         @db.VarChar(255)
+  phone              String         @db.VarChar(32)
+  email              String         @db.VarChar(255)
+  city               String         @db.VarChar(128)
+  categorySlugs      Json           @map("category_slugs")
+  experience         String         @db.Text
+  bio                String         @db.Text
+  createdAt          DateTime       @map("created_at")
+  status             ProviderStatus @default(pending)
+  reviewedAt         DateTime?      @map("reviewed_at")
+  rejectionReason    String?        @map("rejection_reason") @db.Text
+  creditBalance      Int            @default(0) @map("credit_balance")
+  launchMemberNumber Int?           @map("launch_member_number")
+  launchBonusGranted Boolean        @default(false) @map("launch_bonus_granted")
+
+  quotes             QuoteRequest[]
+  portfolio          ProviderPortfolioItem[]
+  platformPurchases  ProviderPlatformPurchase[]
+  certificates       ProviderCertificate[]
+
+  @@index([status])
+  @@index([phone])
+  @@index([createdAt])
+  @@map("providers")
+}
+
+model ProviderPortfolioItem {
+  id          String   @id @db.VarChar(64)
+  providerId  String   @map("provider_id") @db.VarChar(64)
+  title       String   @db.VarChar(255)
+  description String   @db.Text
+  imageUrl    String   @map("image_url") @db.VarChar(512)
+  serviceSlug String?  @map("service_slug") @db.VarChar(128)
+  createdAt   DateTime @map("created_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([serviceSlug])
+  @@map("provider_portfolio_items")
+}
+
+model ProviderPlatformPurchase {
+  id          String         @id @db.VarChar(64)
+  providerId  String         @map("provider_id") @db.VarChar(64)
+  serviceSlug String         @map("service_slug") @db.VarChar(128)
+  serviceName String         @map("service_name") @db.VarChar(255)
+  amount      Int
+  purchasedAt DateTime       @map("purchased_at")
+  status      PurchaseStatus @default(active)
+  invoiceId   String?        @map("invoice_id") @db.VarChar(64)
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([status])
+  @@map("provider_platform_purchases")
+}
+
+model Customer {
+  id        String   @id @db.VarChar(64)
+  name      String   @db.VarChar(255)
+  phone     String   @db.VarChar(32)
+  email     String   @db.VarChar(255)
+  city      String   @db.VarChar(128)
+  notes     String?  @db.Text
+  createdAt DateTime @map("created_at")
+
+  @@index([phone])
+  @@map("customers")
+}
+
+model Invoice {
+  id              String               @id @db.VarChar(64)
+  invoiceNo       String               @map("invoice_no") @db.VarChar(64)
+  referenceType   InvoiceReferenceType @map("reference_type")
+  referenceId     String               @map("reference_id") @db.VarChar(64)
+  recipientName   String               @map("recipient_name") @db.VarChar(255)
+  recipientEmail  String?              @map("recipient_email") @db.VarChar(255)
+  recipientPhone  String?              @map("recipient_phone") @db.VarChar(32)
+  description     String               @db.Text
+  subtotal        Float
+  vatRate         Float                @map("vat_rate")
+  vatAmount       Float                @map("vat_amount")
+  total           Float
+  period          String               @db.VarChar(16)
+  issuedAt        DateTime             @map("issued_at")
+
+  @@unique([referenceType, referenceId])
+  @@index([period])
+  @@index([issuedAt])
+  @@map("invoices")
+}
+
+model TaxDeclaration {
+  id            String   @id @db.VarChar(64)
+  period        String   @unique @db.VarChar(16)
+  periodLabel   String   @map("period_label") @db.VarChar(64)
+  invoiceCount  Int      @map("invoice_count")
+  taxableBase   Float    @map("taxable_base")
+  calculatedVat Float    @map("calculated_vat")
+  totalAmount   Float    @map("total_amount")
+  createdAt     DateTime @map("created_at")
+
+  @@map("tax_declarations")
+}
+
+model ProviderCertificate {
+  id           String          @id @db.VarChar(64)
+  providerId   String          @map("provider_id") @db.VarChar(64)
+  providerName String          @map("provider_name") @db.VarChar(255)
+  type         CertificateType
+  title        String          @db.VarChar(255)
+  description  String          @db.Text
+  period       String?         @db.VarChar(16)
+  issuedAt     DateTime        @map("issued_at")
+  blockIndex   Int             @map("block_index")
+  blockHash    String          @map("block_hash") @db.VarChar(128)
+  previousHash String          @map("previous_hash") @db.VarChar(128)
+  metadata     Json
+
+  provider            Provider             @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  providerOfTheMonth  ProviderOfTheMonth[]
+
+  @@index([providerId])
+  @@index([type])
+  @@map("provider_certificates")
+}
+
+model CertificateBlock {
+  index         Int      @id
+  timestamp     DateTime
+  certificateId String   @map("certificate_id") @db.VarChar(64)
+  data          String   @db.Text
+  previousHash  String   @map("previous_hash") @db.VarChar(128)
+  hash          String   @db.VarChar(128)
+
+  @@map("certificate_blocks")
+}
+
+model ProviderOfTheMonth {
+  period        String   @id @db.VarChar(16)
+  periodLabel   String   @map("period_label") @db.VarChar(64)
+  providerId    String   @map("provider_id") @db.VarChar(64)
+  providerName  String   @map("provider_name") @db.VarChar(255)
+  certificateId String   @unique @map("certificate_id") @db.VarChar(64)
+  selectedAt    DateTime @map("selected_at")
+  reason        String?  @db.Text
+
+  certificate ProviderCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
+
+  @@index([selectedAt])
+  @@map("provider_of_the_month_history")
+}

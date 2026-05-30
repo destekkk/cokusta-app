@@ -1,0 +1,35 @@
+{
+  "quoteRequests": [],
+  "providers": [
+    {
+      "name": "süleyman",
+      "phone": "yalçınkaya",
+      "email": "suleyman@fg.com",
+      "city": "Kocaeli",
+      "categorySlugs": [
+        "nakliyat",
+        "temizlik"
+      ],
+      "experience": "1-3",
+      "bio": "",
+      "id": "1780071247027-1e03l2h",
+      "createdAt": "2026-05-29T16:14:07.027Z",
+      "status": "pending"
+    },
+    {
+      "name": "süleyman",
+      "phone": "yalçınkaya",
+      "email": "suleyman@fg.com",
+      "city": "Kocaeli",
+      "categorySlugs": [
+        "nakliyat",
+        "temizlik"
+      ],
+      "experience": "1-3",
+      "bio": "",
+      "id": "1780071241088-1xg4ngc",
+      "createdAt": "2026-05-29T16:14:01.089Z",
+      "status": "pending"
+    }
+  ]
+}
