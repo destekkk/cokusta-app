@@ -16,6 +16,8 @@ import { getLaunchCampaignStats, getCurrentProviderOfTheMonth, getStats, getUrge
 import LaunchCampaignBanner from "@/components/LaunchCampaignBanner";
 import TrustBadges from "@/components/TrustBadges";
 
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const popularServices = getPopularServices();
   const [stats, providerOfMonth, campaignStats, urgentJobs, portfolioItems] = await Promise.all([

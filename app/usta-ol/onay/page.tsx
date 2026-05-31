@@ -4,6 +4,8 @@ import Footer from "@/components/Footer";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getProviderById } from "@/lib/db";
 
+export const dynamic = "force-dynamic";
+
 type Props = {
   searchParams: Promise<{ id?: string }>;
 };

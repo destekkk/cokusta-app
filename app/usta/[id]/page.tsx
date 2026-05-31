@@ -8,6 +8,8 @@ import { getServiceBySlug } from "@/lib/data/services";
 import { getPublicProviderProfile } from "@/lib/db";
 import { formatExperience } from "@/lib/admin-labels";
 
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: Promise<{ id: string }>;
 };

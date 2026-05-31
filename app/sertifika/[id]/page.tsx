@@ -5,6 +5,8 @@ import Footer from "@/components/Footer";
 import { verifyCertificateChain } from "@/lib/db";
 import { categories } from "@/lib/data/categories";
 
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: Promise<{ id: string }>;
 };

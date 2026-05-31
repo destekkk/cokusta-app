@@ -3,6 +3,8 @@ import Footer from "@/components/Footer";
 import LaunchCampaignNotice from "@/components/LaunchCampaignNotice";
 import ProviderRegistrationForm from "@/components/ProviderRegistrationForm";
 
+export const dynamic = "force-dynamic";
+
 export default function ProviderRegistrationPage() {
   return (
     <div className="min-h-full bg-background">

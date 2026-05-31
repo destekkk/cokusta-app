@@ -11,6 +11,8 @@ import { getCategoryName } from "@/lib/data/categories";
 import { getPortfolioByService } from "@/lib/db";
 import { buildCanonical, SITE_NAME } from "@/lib/seo/metadata";
 
+export const dynamic = "force-dynamic";
+
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ sehir?: string }>;

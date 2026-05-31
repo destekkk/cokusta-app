@@ -6,6 +6,8 @@ import { getPopularServices } from "@/lib/data/services";
 import { getUrgentQuoteRequests } from "@/lib/db";
 import { URGENT_DEADLINE_DAYS } from "@/lib/urgent";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Çok Acil İşler — Çokusta",
   description: `3 gün içinde tamamlanması gereken acil hizmet ilanları. Ustalar hemen teklif verebilir.`,

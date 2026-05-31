@@ -7,7 +7,7 @@ let impl: DbModule | null = null;
 
 async function getImpl(): Promise<DbModule> {
   if (impl) return impl;
-  impl = isDatabaseEnabled() ? await import("./db-prisma") : jsonDb;
+  impl = (isDatabaseEnabled() ? await import("./db-prisma") : jsonDb) as DbModule;
   return impl;
 }
 

@@ -4,6 +4,8 @@ import Footer from "@/components/Footer";
 import { getQuoteRequestById } from "@/lib/db";
 import { URGENT_DEADLINE_DAYS, formatUrgentDeadline } from "@/lib/urgent";
 
+export const dynamic = "force-dynamic";
+
 type Props = {
   searchParams: Promise<{ id?: string }>;
 };
