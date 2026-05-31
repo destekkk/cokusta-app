@@ -30,6 +30,12 @@ enum ProviderStatus {
   rejected
 }
 
+enum CreditPurchaseStatus {
+  pending
+  completed
+  failed
+}
+
 enum PurchaseStatus {
   active
   expired
@@ -124,11 +130,36 @@ model Provider {
   portfolio         ProviderPortfolioItem[]
   platformPurchases ProviderPlatformPurchase[]
   certificates      ProviderCertificate[]
+  creditPurchases   CreditPurchaseOrder[]
 
   @@index([status])
   @@index([phone])
   @@index([createdAt])
   @@map("providers")
+}
+
+model CreditPurchaseOrder {
+  id              String               @id @db.VarChar(64)
+  providerId      String               @map("provider_id") @db.VarChar(64)
+  packageSlug     String               @map("package_slug") @db.VarChar(64)
+  packageName     String               @map("package_name") @db.VarChar(255)
+  credits         Int
+  amount          Int
+  conversationId  String               @unique @map("conversation_id") @db.VarChar(64)
+  basketId        String               @map("basket_id") @db.VarChar(64)
+  status          CreditPurchaseStatus @default(pending)
+  iyzicoToken     String?              @map("iyzico_token") @db.VarChar(512)
+  iyzicoPaymentId String?              @map("iyzico_payment_id") @db.VarChar(64)
+  purchaseId      String?              @map("purchase_id") @db.VarChar(64)
+  createdAt       DateTime             @map("created_at")
+  completedAt     DateTime?            @map("completed_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("credit_purchase_orders")
 }
 
 model ProviderPortfolioItem {

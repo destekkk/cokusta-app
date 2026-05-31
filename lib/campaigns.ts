@@ -7,9 +7,9 @@ export const LAUNCH_CAMPAIGN = {
     freeCredits: 5,
     /** Sitede gösterilen başlangıç doluluk: 230 kayıtlı → 270 kontenjan kaldı */
     displayClaimedOffset: 230,
-    title: "Bu ay ilk 500 ustaya 5 ücretsiz kontör",
+    title: "Her yeni ustaya 5 ücretsiz kontör",
     description:
-      "Bu ay Çokusta'ya kayıt olan ilk 500 ustaya, onay sonrası 5 teklif kontörü hediye. 5 müşteriye ücretsiz teklif ver, platformu dene.",
+      "Onaylanan her usta hesabına 5 teklif kontörü hediye. Kontör bitince paket satın alarak devam edin — fiyatlar Armut'un yarısı.",
   },
   customer: {
     maxSlots: 1000,

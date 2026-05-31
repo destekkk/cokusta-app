@@ -95,13 +95,13 @@ export default async function AdminDashboardPage() {
       <section className="mt-8 rounded-2xl border border-border bg-card p-6">
         <h2 className="text-lg font-bold text-foreground">Nasıl kazanırsınız?</h2>
         <p className="mt-2 text-sm text-primary font-medium">
-          Tüm fiyatlarımız piyasa ortalamasının %35 altında — agresif fiyat avantajı.
+          Tüm fiyatlarımız piyasa referansının yarısı — agresif fiyat avantajı.
         </p>
         <div className="mt-4 space-y-3 text-sm text-muted-foreground">
           <p>
-            <strong className="text-foreground">1. Teklif kontörü:</strong> Ustalar teklif
-            vermek için kontör paketi alır (10 kontör: 149 ₺, piyasa ~229 ₺). Tek kontör{" "}
-            23 ₺ (piyasa ~35 ₺).
+            <strong className="text-foreground">1. Teklif kontörü:</strong> Kayıt onayında 5
+            hediye kontör. Sonrasında paketler Armut&apos;un yarısı: 5 kontör 83 ₺, 10 kontör
+            115 ₺, 50 kontör 450 ₺.
           </p>
           <p>
             <strong className="text-foreground">2. İş komisyonu:</strong> Tamamlanan işten{" "}
@@ -109,12 +109,12 @@ export default async function AdminDashboardPage() {
             iş → {Math.round(5000 * stats.commissionRate).toLocaleString("tr-TR")} ₺ kazanç.
           </p>
           <p>
-            <strong className="text-foreground">3. Premium üyelik:</strong> 299 ₺/ay (piyasa
+            <strong className="text-foreground">3. Premium üyelik:</strong> 230 ₺/ay (piyasa
             ~459 ₺) — daha fazla teklif ve görünürlük.
           </p>
           <p>
             <strong className="text-foreground">4. Öne çıkarma & rozet:</strong> Profil öne
-            çıkarma 99 ₺, doğrulanmış rozet 49 ₺ (piyasanın %35 altı).
+            çıkarma 76 ₺, doğrulanmış rozet 38 ₺ (referansın yarısı).
           </p>
         </div>
       </section>

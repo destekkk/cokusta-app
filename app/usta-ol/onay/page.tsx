@@ -29,16 +29,20 @@ export default async function ProviderConfirmationPage({ searchParams }: Props) 
             Ekibimiz başvurunuzu inceleyecek ve en kısa sürede sizinle iletişime geçecek.
           </p>
 
+          <div className="mt-6 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
+            <p className="text-sm font-bold text-primary">🎁 Hoş geldin hediyesi</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Onay sonrası hesabınıza{" "}
+              <strong>{LAUNCH_CAMPAIGN.provider.freeCredits} ücretsiz teklif kontörü</strong>{" "}
+              yüklenecek. Kontörler bitince paket satın alarak teklif vermeye devam edebilirsiniz
+              — fiyatlarımız Armut&apos;un yarısı.
+            </p>
+          </div>
+
           {inLaunchCampaign && provider && (
-            <div className="mt-6 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
-              <p className="text-sm font-bold text-primary">🎁 Lansman kampanyasına dahilsiniz!</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                <strong>#{provider.launchMemberNumber}</strong>. usta olarak kaydoldunuz. Onay
-                sonrası hesabınıza{" "}
-                <strong>{LAUNCH_CAMPAIGN.provider.freeCredits} ücretsiz teklif kontörü</strong>{" "}
-                yüklenecek — {LAUNCH_CAMPAIGN.provider.freeCredits} müşteriye ücretsiz teklif
-                verebilirsiniz.
-              </p>
+            <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4 text-left text-sm text-muted-foreground">
+              Lansman sırası: <strong>#{provider.launchMemberNumber}</strong>. ilk{" "}
+              {LAUNCH_CAMPAIGN.provider.maxSlots} ustadan biri olarak kaydoldunuz.
             </div>
           )}
 

@@ -1,11 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import type { ProviderOffer } from "@/lib/types";
 import type { PublicQuoteRequest } from "@/lib/quote-privacy";
 
 type OpenQuote = PublicQuoteRequest & { myOffer?: ProviderOffer };
+
+const KONTOR_URL = "/usta/kontor?reason=no-credit";
 
 export default function UstaOpenQuotesPanel() {
   const router = useRouter();
@@ -41,7 +45,21 @@ export default function UstaOpenQuotesPanel() {
     load();
   }, []);
 
+  const goBuyCredits = () => router.push(KONTOR_URL);
+
+  const startOffer = (quoteId: string) => {
+    if (creditBalance < 1) {
+      goBuyCredits();
+      return;
+    }
+    setActiveId(quoteId);
+  };
+
   const submitOffer = async (quoteRequestId: string) => {
+    if (creditBalance < 1) {
+      goBuyCredits();
+      return;
+    }
     setSubmitting(true);
     setError("");
     try {
@@ -55,6 +73,10 @@ export default function UstaOpenQuotesPanel() {
         }),
       });
       const data = await res.json();
+      if (res.status === 402 || data.code === "INSUFFICIENT_CREDITS") {
+        goBuyCredits();
+        return;
+      }
       if (!res.ok) throw new Error(data.error ?? "Gönderilemedi");
       setActiveId(null);
       setPrice("");
@@ -82,15 +104,49 @@ export default function UstaOpenQuotesPanel() {
         <div>
           <p className="text-sm text-muted-foreground">Kalan teklif kontörü</p>
           <p className="text-2xl font-bold text-primary">{creditBalance}</p>
+          {creditBalance === 0 ? (
+            <p className="mt-1 text-xs font-medium text-amber-700">
+              Kontör bitti — teklif vermek için paket satın alın.
+            </p>
+          ) : creditBalance <= LAUNCH_CAMPAIGN.provider.freeCredits ? (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Hediye kontörlerinizi kullanıyorsunuz.
+            </p>
+          ) : null}
         </div>
-        <button
-          type="button"
-          onClick={logout}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          Çıkış
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/usta/kontor"
+            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+              creditBalance < 1 ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
+            }`}
+          >
+            {creditBalance < 1 ? "Kontör Satın Al" : "Paket Yükle"}
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            className="text-sm text-muted-foreground hover:text-foreground"
+          >
+            Çıkış
+          </button>
+        </div>
       </div>
+
+      {creditBalance < 1 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Teklif verebilmek için kontör gerekir. Kayıt onayında{" "}
+          <strong>{LAUNCH_CAMPAIGN.provider.freeCredits} ücretsiz kontör</strong> hediye edilir;
+          bittikten sonra iyzico ile anında paket satın alabilirsiniz.
+          <button
+            type="button"
+            onClick={goBuyCredits}
+            className="mt-3 block font-semibold text-amber-900 underline"
+          >
+            Kontör paketlerine git →
+          </button>
+        </div>
+      )}
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
@@ -145,7 +201,7 @@ export default function UstaOpenQuotesPanel() {
                       onClick={() => submitOffer(quote.id)}
                       className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      Gönder
+                      Gönder (1 kontör)
                     </button>
                     <button
                       type="button"
@@ -159,10 +215,12 @@ export default function UstaOpenQuotesPanel() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => setActiveId(quote.id)}
-                  className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white"
+                  onClick={() => startOffer(quote.id)}
+                  className={`mt-4 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
+                    creditBalance < 1 ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
+                  }`}
                 >
-                  Teklif Ver (1 kontör)
+                  {creditBalance < 1 ? "Kontör Satın Al →" : "Teklif Ver (1 kontör)"}
                 </button>
               )}
             </article>

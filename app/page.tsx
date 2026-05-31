@@ -56,7 +56,7 @@ export default async function Home() {
             Doğrulanmış ustalar arasından seçim yapın, şeffaf teklif alın, güvenli ödeme ile çalışın.
           </p>
           <p className="mx-auto mt-4 inline-block border border-white/15 bg-white/5 px-4 py-1.5 text-sm text-white/75">
-            Piyasa ortalamasının %35 altında sabit fiyat garantisi
+            Piyasa referansının yarısı — sabit fiyat avantajı
           </p>
 
           <Link

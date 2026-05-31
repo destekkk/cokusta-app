@@ -14,7 +14,9 @@ import type {
   ProviderSummary,
   QuoteRequest,
   TaxDeclaration,
+  CreditPurchaseOrder,
 } from "./types";
+import { getCreditPackage } from "./credit-packages";
 import {
   enrichOffer,
   providerCanSeeQuote,
@@ -107,12 +109,7 @@ async function assignCustomerLaunchSlot(quoteId: string): Promise<void> {
 
 async function grantProviderLaunchBonus(providerId: string): Promise<void> {
   const provider = await prisma.provider.findUnique({ where: { id: providerId } });
-  if (
-    !provider ||
-    !provider.launchMemberNumber ||
-    provider.launchBonusGranted ||
-    provider.status !== "approved"
-  ) {
+  if (!provider || provider.launchBonusGranted || provider.status !== "approved") {
     return;
   }
   await prisma.provider.update({
@@ -1407,7 +1404,7 @@ export async function submitProviderOffer(
   price: number,
   message: string,
   estimatedDays?: number
-): Promise<{ offer?: ProviderOffer; error?: string }> {
+): Promise<{ offer?: ProviderOffer; error?: string; code?: "INSUFFICIENT_CREDITS" }> {
   const provider = await getProviderById(providerId);
   const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteRequestId } });
   const quote = quoteRow ? toQuoteRequest(quoteRow) : undefined;
@@ -1422,7 +1419,7 @@ export async function submitProviderOffer(
     return { error: "Bu talep bölge veya kategori uygun değil." };
   }
   if ((provider.creditBalance ?? 0) < 1) {
-    return { error: "Yetersiz teklif kontörü." };
+    return { error: "Yetersiz teklif kontörü.", code: "INSUFFICIENT_CREDITS" as const };
   }
   if (price <= 0 || message.trim().length < 5) {
     return { error: "Geçerli fiyat ve en az 5 karakterlik mesaj girin." };
@@ -1602,24 +1599,31 @@ export async function getQuoteOfferCounts(): Promise<Record<string, number>> {
   return counts;
 }
 
-export async function approveDemoQuoteRequests(): Promise<number> {
-  try {
-    const result = await prisma.quoteRequest.updateMany({
-      where: {
-        id: { startsWith: "demo-quote-" },
-        status: "awaiting_review",
-      },
-      data: { status: "open" },
-    });
-    if (result.count > 0) return result.count;
-  } catch {
-    // Eski enum
-  }
+export async function deleteDemoQuoteRequests(): Promise<{
+  quotes: number;
+  offers: number;
+}> {
+  const demoRows = await prisma.quoteRequest.findMany({
+    where: {
+      OR: [
+        { id: { startsWith: "demo-quote-" } },
+        { notes: { contains: "demo içerik", mode: "insensitive" } },
+        { email: { endsWith: "@ornek.com" } },
+      ],
+    },
+    select: { id: true },
+  });
+  const ids = demoRows.map((r) => r.id);
+  if (ids.length === 0) return { quotes: 0, offers: 0 };
 
-  const count = await prisma.$executeRawUnsafe(`
-    UPDATE quote_requests SET status = 'pending' WHERE id LIKE 'demo-quote-%'
-  `);
-  return Number(count) || 0;
+  const offers = await prisma.providerOffer.deleteMany({
+    where: { quoteRequestId: { in: ids } },
+  });
+  const quotes = await prisma.quoteRequest.deleteMany({
+    where: { id: { in: ids } },
+  });
+
+  return { quotes: quotes.count, offers: offers.count };
 }
 
 export async function adminMatchQuoteToProvider(
@@ -1777,4 +1781,147 @@ export async function autoMatchQuotes(
   }
 
   return result;
+}
+
+function toCreditPurchaseOrder(row: {
+  id: string;
+  providerId: string;
+  packageSlug: string;
+  packageName: string;
+  credits: number;
+  amount: number;
+  conversationId: string;
+  basketId: string;
+  status: string;
+  iyzicoToken: string | null;
+  iyzicoPaymentId: string | null;
+  purchaseId: string | null;
+  createdAt: Date;
+  completedAt: Date | null;
+}): CreditPurchaseOrder {
+  return {
+    id: row.id,
+    providerId: row.providerId,
+    packageSlug: row.packageSlug,
+    packageName: row.packageName,
+    credits: row.credits,
+    amount: row.amount,
+    conversationId: row.conversationId,
+    basketId: row.basketId,
+    status: row.status as CreditPurchaseOrder["status"],
+    iyzicoToken: row.iyzicoToken ?? undefined,
+    iyzicoPaymentId: row.iyzicoPaymentId ?? undefined,
+    purchaseId: row.purchaseId ?? undefined,
+    createdAt: row.createdAt.toISOString(),
+    completedAt: row.completedAt?.toISOString(),
+  };
+}
+
+export async function createCreditPurchaseOrder(
+  providerId: string,
+  packageSlug: string
+): Promise<{ order?: CreditPurchaseOrder; error?: string }> {
+  const pkg = getCreditPackage(packageSlug);
+  if (!pkg) return { error: "Geçersiz paket." };
+
+  const provider = await prisma.provider.findUnique({ where: { id: providerId } });
+  if (!provider || provider.status !== "approved") {
+    return { error: "Usta hesabı onaylı değil." };
+  }
+
+  const id = generateId();
+  const row = await prisma.creditPurchaseOrder.create({
+    data: {
+      id,
+      providerId,
+      packageSlug: pkg.slug,
+      packageName: pkg.name,
+      credits: pkg.credits,
+      amount: pkg.price,
+      conversationId: `credit-${id}`,
+      basketId: id,
+      createdAt: new Date(),
+    },
+  });
+
+  return { order: toCreditPurchaseOrder(row) };
+}
+
+export async function setCreditPurchaseToken(orderId: string, token: string) {
+  const row = await prisma.creditPurchaseOrder.update({
+    where: { id: orderId },
+    data: { iyzicoToken: token },
+  });
+  return toCreditPurchaseOrder(row);
+}
+
+export async function getCreditPurchaseOrderById(id: string) {
+  const row = await prisma.creditPurchaseOrder.findUnique({ where: { id } });
+  return row ? toCreditPurchaseOrder(row) : undefined;
+}
+
+export async function getCreditPurchaseOrderByConversationId(conversationId: string) {
+  const row = await prisma.creditPurchaseOrder.findUnique({ where: { conversationId } });
+  return row ? toCreditPurchaseOrder(row) : undefined;
+}
+
+export async function fulfillCreditPurchaseOrder(
+  conversationId: string,
+  iyzicoPaymentId?: string
+): Promise<{ order?: CreditPurchaseOrder; credits?: number; error?: string; alreadyCompleted?: boolean }> {
+  const row = await prisma.creditPurchaseOrder.findUnique({ where: { conversationId } });
+  if (!row) return { error: "Sipariş bulunamadı." };
+  if (row.status === "completed") {
+    return { order: toCreditPurchaseOrder(row), alreadyCompleted: true, credits: row.credits };
+  }
+  if (row.status === "failed") return { error: "Sipariş başarısız." };
+
+  const purchaseId = generateId();
+  const purchasedAt = new Date();
+
+  await prisma.$transaction([
+    prisma.provider.update({
+      where: { id: row.providerId },
+      data: { creditBalance: { increment: row.credits } },
+    }),
+    prisma.providerPlatformPurchase.create({
+      data: {
+        id: purchaseId,
+        providerId: row.providerId,
+        serviceSlug: row.packageSlug,
+        serviceName: row.packageName,
+        amount: row.amount,
+        purchasedAt,
+        status: "active",
+      },
+    }),
+    prisma.creditPurchaseOrder.update({
+      where: { id: row.id },
+      data: {
+        status: "completed",
+        purchaseId,
+        iyzicoPaymentId: iyzicoPaymentId ?? null,
+        completedAt: purchasedAt,
+      },
+    }),
+  ]);
+
+  try {
+    await createInvoiceForPurchase(row.providerId, purchaseId);
+  } catch {
+    // fatura sonra kesilebilir
+  }
+
+  const updated = await prisma.creditPurchaseOrder.findUniqueOrThrow({ where: { id: row.id } });
+  return { order: toCreditPurchaseOrder(updated), credits: row.credits };
+}
+
+export async function failCreditPurchaseOrder(conversationId: string) {
+  const row = await prisma.creditPurchaseOrder.findUnique({ where: { conversationId } });
+  if (!row || row.status === "completed") return null;
+  const updated = await prisma.creditPurchaseOrder.update({
+    where: { id: row.id },
+    data: { status: "failed" },
+  });
+  return toCreditPurchaseOrder(updated);
 }

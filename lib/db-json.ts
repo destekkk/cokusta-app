@@ -17,8 +17,10 @@ import type {
   ProviderSummary,
   QuoteRequest,
   Store,
+  CreditPurchaseOrder,
   TaxDeclaration,
 } from "./types";
+import { getCreditPackage } from "./credit-packages";
 import {
   buildCertificatePayload,
   computeBlockHash,
@@ -57,6 +59,7 @@ const emptyStore: Store = {
   providerCertificates: [],
   certificateLedger: [],
   providerOfTheMonthHistory: [],
+  creditPurchaseOrders: [],
 };
 
 function migrateQuoteStatus(quote: QuoteRequest): QuoteRequest {
@@ -80,6 +83,7 @@ async function ensureStore(): Promise<Store> {
       providerCertificates: parsed.providerCertificates ?? [],
       certificateLedger: parsed.certificateLedger ?? [],
       providerOfTheMonthHistory: parsed.providerOfTheMonthHistory ?? [],
+      creditPurchaseOrders: parsed.creditPurchaseOrders ?? [],
     };
   } catch {
     await fs.mkdir(path.dirname(STORE_PATH), { recursive: true });
@@ -121,15 +125,10 @@ function assignCustomerLaunchSlot(store: Store, request: QuoteRequest): void {
 }
 
 function grantProviderLaunchBonus(provider: ProviderRegistration): void {
-  if (
-    provider.launchMemberNumber &&
-    !provider.launchBonusGranted &&
-    provider.status === "approved"
-  ) {
-    provider.creditBalance =
-      (provider.creditBalance ?? 0) + LAUNCH_CAMPAIGN.provider.freeCredits;
-    provider.launchBonusGranted = true;
-  }
+  if (provider.launchBonusGranted || provider.status !== "approved") return;
+  provider.creditBalance =
+    (provider.creditBalance ?? 0) + LAUNCH_CAMPAIGN.provider.freeCredits;
+  provider.launchBonusGranted = true;
 }
 
 export async function getLaunchCampaignStats() {
@@ -1239,7 +1238,7 @@ export async function submitProviderOffer(
   price: number,
   message: string,
   estimatedDays?: number
-): Promise<{ offer?: ProviderOffer; error?: string }> {
+): Promise<{ offer?: ProviderOffer; error?: string; code?: "INSUFFICIENT_CREDITS" }> {
   const store = await ensureStore();
   const provider = store.providers.find((p) => p.id === providerId);
   const quote = store.quoteRequests.find((q) => q.id === quoteRequestId);
@@ -1254,7 +1253,7 @@ export async function submitProviderOffer(
     return { error: "Bu talep bölge veya kategori uygun değil." };
   }
   if ((provider.creditBalance ?? 0) < 1) {
-    return { error: "Yetersiz teklif kontörü." };
+    return { error: "Yetersiz teklif kontörü.", code: "INSUFFICIENT_CREDITS" as const };
   }
   if (price <= 0 || message.trim().length < 5) {
     return { error: "Geçerli fiyat ve en az 5 karakterlik mesaj girin." };
@@ -1369,19 +1368,34 @@ export async function getQuoteOfferCounts(): Promise<Record<string, number>> {
   return counts;
 }
 
-export async function approveDemoQuoteRequests(): Promise<number> {
+export async function deleteDemoQuoteRequests(): Promise<{
+  quotes: number;
+  offers: number;
+}> {
   const store = await ensureStore();
-  let count = 0;
-  for (const quote of store.quoteRequests) {
-    if (!quote.id.startsWith("demo-quote-")) continue;
-    if (quote.status !== "awaiting_review" && quote.status !== "open") continue;
-    if (quote.status === "awaiting_review") {
-      quote.status = "open";
-      count++;
-    }
-  }
-  if (count > 0) await saveStore(store);
-  return count;
+  const demoIds = new Set(
+    store.quoteRequests
+      .filter(
+        (q) =>
+          q.id.startsWith("demo-quote-") ||
+          q.notes?.includes("demo içerik") ||
+          q.email.endsWith("@ornek.com")
+      )
+      .map((q) => q.id)
+  );
+
+  const offersBefore = store.providerOffers.length;
+  store.providerOffers = store.providerOffers.filter(
+    (o) => !demoIds.has(o.quoteRequestId)
+  );
+  const offersRemoved = offersBefore - store.providerOffers.length;
+
+  const quotesBefore = store.quoteRequests.length;
+  store.quoteRequests = store.quoteRequests.filter((q) => !demoIds.has(q.id));
+  const quotesRemoved = quotesBefore - store.quoteRequests.length;
+
+  if (quotesRemoved > 0 || offersRemoved > 0) await saveStore(store);
+  return { quotes: quotesRemoved, offers: offersRemoved };
 }
 
 export async function adminMatchQuoteToProvider(
@@ -1527,4 +1541,110 @@ export async function autoMatchQuotes(
   }
 
   return result;
+}
+
+export async function createCreditPurchaseOrder(
+  providerId: string,
+  packageSlug: string
+): Promise<{ order?: CreditPurchaseOrder; error?: string }> {
+  const pkg = getCreditPackage(packageSlug);
+  if (!pkg) return { error: "Geçersiz paket." };
+
+  const store = await ensureStore();
+  const provider = store.providers.find((p) => p.id === providerId);
+  if (!provider || provider.status !== "approved") {
+    return { error: "Usta hesabı onaylı değil." };
+  }
+
+  const id = generateId();
+  const order: CreditPurchaseOrder = {
+    id,
+    providerId,
+    packageSlug: pkg.slug,
+    packageName: pkg.name,
+    credits: pkg.credits,
+    amount: pkg.price,
+    conversationId: `credit-${id}`,
+    basketId: id,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!store.creditPurchaseOrders) store.creditPurchaseOrders = [];
+  store.creditPurchaseOrders.unshift(order);
+  await saveStore(store);
+  return { order };
+}
+
+export async function setCreditPurchaseToken(orderId: string, token: string) {
+  const store = await ensureStore();
+  const order = store.creditPurchaseOrders.find((o) => o.id === orderId);
+  if (!order) return null;
+  order.iyzicoToken = token;
+  await saveStore(store);
+  return order;
+}
+
+export async function getCreditPurchaseOrderById(id: string) {
+  const store = await ensureStore();
+  return store.creditPurchaseOrders.find((o) => o.id === id);
+}
+
+export async function getCreditPurchaseOrderByConversationId(conversationId: string) {
+  const store = await ensureStore();
+  return store.creditPurchaseOrders.find((o) => o.conversationId === conversationId);
+}
+
+export async function fulfillCreditPurchaseOrder(
+  conversationId: string,
+  iyzicoPaymentId?: string
+): Promise<{ order?: CreditPurchaseOrder; credits?: number; error?: string; alreadyCompleted?: boolean }> {
+  const store = await ensureStore();
+  const order = store.creditPurchaseOrders.find((o) => o.conversationId === conversationId);
+  if (!order) return { error: "Sipariş bulunamadı." };
+  if (order.status === "completed") return { order, alreadyCompleted: true, credits: order.credits };
+  if (order.status === "failed") return { error: "Sipariş başarısız." };
+
+  const providerIndex = store.providers.findIndex((p) => p.id === order.providerId);
+  if (providerIndex === -1) return { error: "Usta bulunamadı." };
+
+  const purchaseId = generateId();
+  const provider = store.providers[providerIndex];
+  provider.creditBalance = (provider.creditBalance ?? 0) + order.credits;
+
+  const purchases = provider.platformPurchases ?? [];
+  purchases.unshift({
+    id: purchaseId,
+    serviceSlug: order.packageSlug,
+    serviceName: order.packageName,
+    amount: order.amount,
+    purchasedAt: new Date().toISOString(),
+    status: "active",
+  });
+  provider.platformPurchases = purchases;
+  store.providers[providerIndex] = provider;
+
+  order.status = "completed";
+  order.purchaseId = purchaseId;
+  order.iyzicoPaymentId = iyzicoPaymentId;
+  order.completedAt = new Date().toISOString();
+
+  await saveStore(store);
+
+  try {
+    await createInvoiceForPurchase(order.providerId, purchaseId);
+  } catch {
+    // fatura sonra kesilebilir
+  }
+
+  return { order, credits: order.credits };
+}
+
+export async function failCreditPurchaseOrder(conversationId: string) {
+  const store = await ensureStore();
+  const order = store.creditPurchaseOrders.find((o) => o.conversationId === conversationId);
+  if (!order || order.status === "completed") return null;
+  order.status = "failed";
+  await saveStore(store);
+  return order;
 }

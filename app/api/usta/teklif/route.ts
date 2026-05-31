@@ -24,7 +24,15 @@ export async function POST(request: Request) {
     );
 
     if (result.error) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      const status = result.code === "INSUFFICIENT_CREDITS" ? 402 : 400;
+      return NextResponse.json(
+        {
+          error: result.error,
+          code: result.code,
+          redirect: result.code === "INSUFFICIENT_CREDITS" ? "/usta/kontor" : undefined,
+        },
+        { status }
+      );
     }
 
     return NextResponse.json({ success: true, offer: result.offer });

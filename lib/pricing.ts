@@ -1,6 +1,6 @@
-/** Piyasa lideri referans fiyatları — Çokusta fiyatları %35 daha uygun (×0,65) */
-export const PRICE_DISCOUNT_RATE = 0.35;
-export const PRICE_MULTIPLIER = 1 - PRICE_DISCOUNT_RATE; // 0.65
+/** Piyasa lideri referans fiyatları — Çokusta fiyatları Armut'un yarısı (×0,50) */
+export const PRICE_DISCOUNT_RATE = 0.5;
+export const PRICE_MULTIPLIER = 1 - PRICE_DISCOUNT_RATE; // 0.5
 
 export function cokustaPrice(armutReferencePrice: number): number {
   return Math.round(armutReferencePrice * PRICE_MULTIPLIER);
@@ -42,9 +42,66 @@ export const platformServicePricing = [
   },
 ] as const;
 
-/** Tek teklif kontörü — Armut ortalama teklif bedeli referansı */
+/** Tek teklif kontörü — Armut ortalama teklif bedeli referansı (~25–40 ₺, ort. 35 ₺) */
 export const ARmut_CREDIT_PRICE = 35;
 export const COKUSTA_CREDIT_PRICE = cokustaPrice(ARmut_CREDIT_PRICE);
+
+/**
+ * Armut bakiye / kontör paket referansları (piyasa ortalaması).
+ * Çokusta fiyatları Armut referansının yarısı (×0,50).
+ * Armut'ta teklif başı ücret dinamiktir; paketler toplu alım indirimi simüle eder.
+ */
+export const creditPackTiers = [
+  {
+    slug: "kontor-5",
+    credits: 5,
+    armutPrice: 165,
+    badge: "starter" as const,
+    description: "Denemek isteyen ustalar için giriş paketi.",
+  },
+  {
+    slug: "kontor-10",
+    credits: 10,
+    armutPrice: 229,
+    badge: "popular" as const,
+    description: "Haftalık düzenli teklif veren ustalar için ideal.",
+  },
+  {
+    slug: "kontor-25",
+    credits: 25,
+    armutPrice: 499,
+    badge: null,
+    description: "Aktif ustalar için %28 toplu alım avantajı.",
+  },
+  {
+    slug: "kontor-50",
+    credits: 50,
+    armutPrice: 899,
+    badge: "best-value" as const,
+    description: "En düşük kontör maliyeti — yoğun dönemler için.",
+  },
+  {
+    slug: "kontor-100",
+    credits: 100,
+    armutPrice: 1599,
+    badge: "pro" as const,
+    description: "Tam zamanlı ustalar ve ekipler için pro paket.",
+  },
+].map((tier) => ({
+  ...tier,
+  price: cokustaPrice(tier.armutPrice),
+  name: `${tier.credits} Kontör Paketi`,
+  unit: "paket" as const,
+}));
+
+export function creditPerUnit(price: number, credits: number): number {
+  return Math.round(price / credits);
+}
+
+export function savingsVsSingle(price: number, credits: number): number {
+  const singleTotal = COKUSTA_CREDIT_PRICE * credits;
+  return Math.max(0, Math.round((1 - price / singleTotal) * 100));
+}
 
 export const serviceStartingPrices: Record<string, { armut: number; cokusta: number }> = {
   "ev-temizligi": { armut: 1230, cokusta: cokustaPrice(1230) },

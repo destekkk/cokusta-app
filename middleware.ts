@@ -6,7 +6,9 @@ import { PROVIDER_COOKIE, getProviderSessionFromToken } from "@/lib/provider-aut
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/usta/teklifler")) {
+  if (pathname.startsWith("/usta/kontor/sonuc")) return NextResponse.next();
+
+  if (pathname.startsWith("/usta/teklifler") || pathname.startsWith("/usta/kontor")) {
     const token = request.cookies.get(PROVIDER_COOKIE)?.value;
     const session = await getProviderSessionFromToken(token);
     if (!session) {
@@ -32,5 +34,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/usta/teklifler"],
+  matcher: ["/admin/:path*", "/usta/teklifler", "/usta/kontor"],
 };

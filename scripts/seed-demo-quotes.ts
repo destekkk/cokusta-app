@@ -142,6 +142,7 @@ async function seedJson(quotes: QuoteRequest[]) {
       providerCertificates: [],
       certificateLedger: [],
       providerOfTheMonthHistory: [],
+      creditPurchaseOrders: [],
     };
   }
 

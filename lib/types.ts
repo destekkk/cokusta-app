@@ -234,6 +234,23 @@ export type ProviderOfTheMonth = {
   reason?: string;
 };
 
+export type CreditPurchaseOrder = {
+  id: string;
+  providerId: string;
+  packageSlug: string;
+  packageName: string;
+  credits: number;
+  amount: number;
+  conversationId: string;
+  basketId: string;
+  status: "pending" | "completed" | "failed";
+  iyzicoToken?: string;
+  iyzicoPaymentId?: string;
+  purchaseId?: string;
+  createdAt: string;
+  completedAt?: string;
+};
+
 export type Store = {
   quoteRequests: QuoteRequest[];
   providerOffers: ProviderOffer[];
@@ -244,4 +261,5 @@ export type Store = {
   providerCertificates: ProviderCertificate[];
   certificateLedger: CertificateBlock[];
   providerOfTheMonthHistory: ProviderOfTheMonth[];
+  creditPurchaseOrders: CreditPurchaseOrder[];
 };
