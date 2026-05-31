@@ -1,12 +1,14 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 type Mode = "login" | "set-pin";
 
 export default function UstaLoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const reason = searchParams.get("reason");
   const [mode, setMode] = useState<Mode>("login");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
@@ -30,6 +32,11 @@ export default function UstaLoginForm() {
       if (data.code === "NO_PIN_SET") {
         setMode("set-pin");
         throw new Error(data.error ?? "Giriş şifreniz tanımlı değil.");
+      }
+      if (data.code === "PENDING_APPROVAL") {
+        throw new Error(
+          data.error ?? "Başvurunuz henüz onaylanmadı. Onay sonrası tekrar deneyin."
+        );
       }
       if (!res.ok) throw new Error(data.error ?? "Giriş başarısız");
       router.push("/usta/teklifler");
@@ -139,6 +146,16 @@ export default function UstaLoginForm() {
 
   return (
     <form onSubmit={handleLogin} className="space-y-4 rounded-2xl border border-border bg-card p-6">
+      {reason === "pending" && (
+        <p className="rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Başvurunuz inceleniyor. Admin onayından sonra giriş yapabilirsiniz.
+        </p>
+      )}
+      {reason === "rejected" && (
+        <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
+          Başvurunuz reddedildi. Sorularınız için WhatsApp veya destek hattından bize ulaşın.
+        </p>
+      )}
       <div>
         <label className="mb-1.5 block text-sm font-medium">Kayıtlı telefon numaranız</label>
         <input

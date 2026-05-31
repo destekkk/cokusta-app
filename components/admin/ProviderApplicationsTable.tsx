@@ -64,6 +64,9 @@ export default function ProviderApplicationsTable({
                 >
                   {provider.name}
                 </Link>
+                {provider.companyName && (
+                  <div className="text-xs text-muted-foreground">{provider.companyName}</div>
+                )}
               </td>
               <td className="px-4 py-4">
                 <div>{provider.phone}</div>

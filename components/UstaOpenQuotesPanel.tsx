@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { MAX_CREDIT_DEBT, canSubmitOffer, remainingDebtCapacity } from "@/lib/credit-debt";
+import UstaReferralCampaign from "@/components/UstaReferralCampaign";
 import type { ProviderOffer } from "@/lib/types";
 import type { PublicQuoteRequest } from "@/lib/quote-privacy";
 
@@ -112,6 +113,10 @@ export default function UstaOpenQuotesPanel() {
 
   return (
     <div className="space-y-6">
+      <UstaReferralCampaign
+        onCreditsUpdated={(balance) => setCreditBalance(balance)}
+      />
+
       {debtNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">

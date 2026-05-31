@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
-import { getApprovedProviderAuthByPhone, setProviderPinIfUnset } from "@/lib/db";
-import {
-  hashProviderPin,
-  isValidProviderPhone,
-  validateProviderPin,
-} from "@/lib/provider-pin";
+import { findProviderByPhone, setProviderPinIfUnset } from "@/lib/db";
+import { hashProviderPin, isValidProviderPhone, validateProviderPin } from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   try {
@@ -23,12 +19,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Şifreler eşleşmiyor." }, { status: 400 });
     }
 
-    const auth = await getApprovedProviderAuthByPhone(String(phone));
+    const auth = await findProviderByPhone(String(phone));
     if (!auth) {
+      return NextResponse.json({ error: "Bu telefon numarasıyla kayıt bulunamadı." }, { status: 404 });
+    }
+
+    if (auth.provider.status === "pending") {
       return NextResponse.json(
-        { error: "Onaylı usta bulunamadı. Kayıt veya onay bekliyor olabilir." },
-        { status: 404 }
+        {
+          error: "Hesabınız henüz onaylanmadı. Onay sonrası giriş şifresi belirleyebilirsiniz.",
+          code: "PENDING_APPROVAL",
+        },
+        { status: 403 }
       );
+    }
+
+    if (auth.provider.status !== "approved") {
+      return NextResponse.json({ error: "Hesap onaylı değil." }, { status: 403 });
     }
 
     if (auth.pinHash) {

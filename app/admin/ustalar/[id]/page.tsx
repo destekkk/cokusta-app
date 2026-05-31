@@ -57,6 +57,7 @@ export default async function ProviderApplicationDetailPage({ params }: Props) {
           ["Telefon", provider.phone],
           ["E-posta", provider.email || "Belirtilmemiş"],
           ["Şehir", provider.city],
+          ...(provider.companyName ? [["Firma", provider.companyName] as const] : []),
           ["Deneyim", formatExperience(provider.experience)],
           ["Kategoriler", categories],
           ["Başvuru No", provider.id],

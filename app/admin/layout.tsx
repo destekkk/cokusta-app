@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "@/components/Logo";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
@@ -32,12 +33,10 @@ export default async function AdminLayout({
         <header className="border-b border-border bg-secondary text-white">
           <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6">
             <div className="flex items-center gap-6">
-              <Link href="/admin" className="font-bold">
-                <span>
-                  çok<span className="text-primary">usta</span>{" "}
-                  <span className="text-sm font-normal text-white/60">Yönetim</span>
-                </span>
-              </Link>
+            <div className="flex items-center">
+              <Logo variant="dark" size="sm" href="/admin" />
+              <span className="ml-2 text-sm font-normal text-white/60">Yönetim</span>
+            </div>
               <nav className="hidden gap-4 sm:flex">
                 {links.map((l) => (
                   <Link

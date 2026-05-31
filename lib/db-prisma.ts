@@ -16,6 +16,7 @@ import type {
   TaxDeclaration,
   CreditPurchaseOrder,
 } from "./types";
+import { REFERRAL_REWARD_CREDITS } from "./referrals";
 import { getCreditPackage } from "./credit-packages";
 import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
 import {
@@ -181,6 +182,7 @@ export async function createProviderRegistration(
     data: {
       id,
       name: data.name,
+      companyName: data.companyName?.trim() || null,
       phone: data.phone,
       email: data.email,
       city: data.city,
@@ -194,6 +196,7 @@ export async function createProviderRegistration(
     },
   });
   await assignProviderLaunchSlot(id);
+  await linkReferralOnProviderRegistration(id, data.phone);
   const row = await prisma.provider.findUniqueOrThrow({
     where: { id },
     include: providerInclude,
@@ -335,6 +338,8 @@ export async function updateProvider(
     where: { id },
     data: {
       name: data.name,
+      companyName:
+        data.companyName !== undefined ? data.companyName?.trim() || null : undefined,
       phone: data.phone,
       email: data.email,
       city: data.city,
@@ -359,6 +364,7 @@ export async function createProviderAdmin(
     data: {
       id,
       name: data.name,
+      companyName: data.companyName?.trim() || null,
       phone: data.phone,
       email: data.email,
       city: data.city,
@@ -706,6 +712,22 @@ export async function getApprovedProviders(): Promise<ProviderRegistration[]> {
     include: providerInclude,
   });
   return rows.map(toProvider);
+}
+
+export async function findProviderByPhone(
+  phone: string
+): Promise<{ provider: ProviderRegistration; pinHash: string | null } | undefined> {
+  const normalized = normalizeProviderPhone(phone);
+  if (!/^05\d{9}$/.test(normalized)) return undefined;
+
+  const rows = await prisma.provider.findMany({ include: providerInclude });
+  const row = rows.find((provider) => normalizeProviderPhone(provider.phone) === normalized);
+  if (!row) return undefined;
+
+  return {
+    provider: toProvider(row),
+    pinHash: row.pinHash,
+  };
 }
 
 export async function findApprovedProviderByPhone(
@@ -1973,4 +1995,106 @@ export async function failCreditPurchaseOrder(conversationId: string) {
     data: { status: "failed" },
   });
   return toCreditPurchaseOrder(updated);
+}
+
+async function linkReferralOnProviderRegistration(
+  providerId: string,
+  phone: string
+): Promise<void> {
+  const normalized = normalizeProviderPhone(phone);
+  const referral = await prisma.providerReferral.findUnique({
+    where: { referredPhone: normalized },
+  });
+  if (!referral || referral.referredProviderId) return;
+
+  await prisma.providerReferral.update({
+    where: { id: referral.id },
+    data: { referredProviderId: providerId },
+  });
+}
+
+export async function submitProviderReferral(
+  referrerId: string,
+  phone: string
+): Promise<{
+  referral?: import("./types").ProviderReferral;
+  creditsAwarded?: number;
+  creditBalance?: number;
+  error?: string;
+  code?: string;
+}> {
+  const normalized = normalizeProviderPhone(phone);
+  if (!/^05\d{9}$/.test(normalized)) {
+    return { error: "Geçerli telefon numarası girin.", code: "INVALID_PHONE" };
+  }
+
+  const referrer = await getProviderById(referrerId);
+  if (!referrer || referrer.status !== "approved") {
+    return { error: "Onaylı usta hesabı gerekli.", code: "NOT_APPROVED" };
+  }
+
+  if (normalizeProviderPhone(referrer.phone) === normalized) {
+    return { error: "Kendi numaranızı davet edemezsiniz.", code: "SELF_REFERRAL" };
+  }
+
+  const providers = await prisma.provider.findMany({ select: { phone: true } });
+  if (providers.some((p) => normalizeProviderPhone(p.phone) === normalized)) {
+    return { error: "Bu numara zaten usta olarak kayıtlı.", code: "PHONE_ALREADY_PROVIDER" };
+  }
+
+  const existingReferral = await prisma.providerReferral.findUnique({
+    where: { referredPhone: normalized },
+  });
+  if (existingReferral) {
+    return { error: "Bu numara daha önce davet edilmiş.", code: "PHONE_ALREADY_REFERRED" };
+  }
+
+  const id = generateId();
+  const createdAt = new Date();
+
+  await prisma.$transaction([
+    prisma.providerReferral.create({
+      data: {
+        id,
+        referrerId,
+        referredPhone: normalized,
+        creditsAwarded: REFERRAL_REWARD_CREDITS,
+        createdAt,
+      },
+    }),
+    prisma.provider.update({
+      where: { id: referrerId },
+      data: { creditBalance: { increment: REFERRAL_REWARD_CREDITS } },
+    }),
+  ]);
+
+  const updated = await getProviderById(referrerId);
+  return {
+    referral: {
+      id,
+      referrerId,
+      referredPhone: normalized,
+      creditsAwarded: REFERRAL_REWARD_CREDITS,
+      createdAt: createdAt.toISOString(),
+    },
+    creditsAwarded: REFERRAL_REWARD_CREDITS,
+    creditBalance: updated?.creditBalance ?? 0,
+  };
+}
+
+export async function getProviderReferrals(
+  referrerId: string
+): Promise<import("./types").ProviderReferral[]> {
+  const rows = await prisma.providerReferral.findMany({
+    where: { referrerId },
+    orderBy: { createdAt: "desc" },
+  });
+  return rows.map((row) => ({
+    id: row.id,
+    referrerId: row.referrerId,
+    referredPhone: row.referredPhone,
+    referredProviderId: row.referredProviderId ?? undefined,
+    creditsAwarded: row.creditsAwarded,
+    createdAt: row.createdAt.toISOString(),
+  }));
 }

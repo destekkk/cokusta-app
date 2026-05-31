@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { COOKIE_NAME, isValidSessionToken } from "@/lib/admin-session";
-import { PROVIDER_COOKIE, getProviderSessionFromToken } from "@/lib/provider-auth";
+import { PROVIDER_COOKIE, getProviderSessionFromToken } from "@/lib/provider-session";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -34,5 +34,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/usta/teklifler", "/usta/kontor"],
+  matcher: ["/admin", "/admin/:path*", "/usta/teklifler", "/usta/kontor"],
 };

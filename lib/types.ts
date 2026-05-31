@@ -140,6 +140,7 @@ export type PortfolioWithProvider = ProviderPortfolioItem & {
 export type ProviderRegistration = {
   id: string;
   name: string;
+  companyName?: string;
   phone: string;
   email: string;
   city: string;
@@ -255,6 +256,15 @@ export type CreditPurchaseOrder = {
   completedAt?: string;
 };
 
+export type ProviderReferral = {
+  id: string;
+  referrerId: string;
+  referredPhone: string;
+  referredProviderId?: string;
+  creditsAwarded: number;
+  createdAt: string;
+};
+
 export type Store = {
   quoteRequests: QuoteRequest[];
   providerOffers: ProviderOffer[];
@@ -266,4 +276,5 @@ export type Store = {
   certificateLedger: CertificateBlock[];
   providerOfTheMonthHistory: ProviderOfTheMonth[];
   creditPurchaseOrders: CreditPurchaseOrder[];
+  providerReferrals: ProviderReferral[];
 };

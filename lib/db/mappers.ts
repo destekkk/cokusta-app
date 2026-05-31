@@ -97,6 +97,7 @@ export function toProvider(row: ProviderWithRelations): ProviderRegistration {
   return {
     id: row.id,
     name: row.name,
+    companyName: row.companyName ?? undefined,
     phone: row.phone,
     email: row.email,
     city: row.city,

@@ -111,6 +111,7 @@ model ProviderOffer {
 model Provider {
   id                 String         @id @db.VarChar(64)
   name               String         @db.VarChar(255)
+  companyName        String?        @map("company_name") @db.VarChar(255)
   phone              String         @db.VarChar(32)
   email              String         @db.VarChar(255)
   city               String         @db.VarChar(128)
@@ -133,11 +134,28 @@ model Provider {
   platformPurchases ProviderPlatformPurchase[]
   certificates      ProviderCertificate[]
   creditPurchases   CreditPurchaseOrder[]
+  referralsMade     ProviderReferral[] @relation("ReferralsMade")
+  referredVia       ProviderReferral?  @relation("ReferredAsFriend")
 
   @@index([status])
   @@index([phone])
   @@index([createdAt])
   @@map("providers")
+}
+
+model ProviderReferral {
+  id                 String    @id @db.VarChar(64)
+  referrerId         String    @map("referrer_id") @db.VarChar(64)
+  referredPhone      String    @unique @map("referred_phone") @db.VarChar(32)
+  referredProviderId String?   @unique @map("referred_provider_id") @db.VarChar(64)
+  creditsAwarded     Int       @default(5) @map("credits_awarded")
+  createdAt          DateTime  @map("created_at")
+
+  referrer         Provider  @relation("ReferralsMade", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredProvider Provider? @relation("ReferredAsFriend", fields: [referredProviderId], references: [id], onDelete: SetNull)
+
+  @@index([referrerId])
+  @@map("provider_referrals")
 }
 
 model CreditPurchaseOrder {

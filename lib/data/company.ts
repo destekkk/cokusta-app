@@ -9,6 +9,8 @@ export const companyInfo = {
   addressLine2: "Arifiye / Sakarya",
   email: "destek@cokusta.com",
   phone: "+90 555 526 9770",
+  /** WhatsApp sohbet — uluslararası format (0 olmadan) */
+  whatsapp: "905555269770",
   taxOffice: "Ali Fuat Cebesoy",
   taxNo: "9330231496",
   tradeRegistry: "Sakarya Ticaret Sicil Müdürlüğü",

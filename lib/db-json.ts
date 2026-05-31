@@ -18,8 +18,10 @@ import type {
   QuoteRequest,
   Store,
   CreditPurchaseOrder,
+  ProviderReferral,
   TaxDeclaration,
 } from "./types";
+import { REFERRAL_REWARD_CREDITS } from "./referrals";
 import { getCreditPackage } from "./credit-packages";
 import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
 import {
@@ -64,6 +66,7 @@ const emptyStore: Store = {
   certificateLedger: [],
   providerOfTheMonthHistory: [],
   creditPurchaseOrders: [],
+  providerReferrals: [],
 };
 
 function migrateQuoteStatus(quote: QuoteRequest): QuoteRequest {
@@ -88,6 +91,7 @@ async function ensureStore(): Promise<Store> {
       certificateLedger: parsed.certificateLedger ?? [],
       providerOfTheMonthHistory: parsed.providerOfTheMonthHistory ?? [],
       creditPurchaseOrders: parsed.creditPurchaseOrders ?? [],
+      providerReferrals: parsed.providerReferrals ?? [],
     };
   } catch {
     await fs.mkdir(path.dirname(STORE_PATH), { recursive: true });
@@ -189,6 +193,7 @@ export async function createProviderRegistration(
   };
   assignProviderLaunchSlot(store, provider);
   store.providers.unshift(provider);
+  await linkReferralOnProviderRegistration(store, provider.id, data.phone);
   await saveStore(store);
   const { pinHash: _pin, ...publicProvider } = provider;
   return publicProvider;
@@ -592,6 +597,26 @@ export async function addProviderPlatformPurchase(
 export async function getApprovedProviders(): Promise<ProviderRegistration[]> {
   const store = await ensureStore();
   return store.providers.filter((provider) => provider.status === "approved");
+}
+
+export async function findProviderByPhone(
+  phone: string
+): Promise<{ provider: ProviderRegistration; pinHash: string | null } | undefined> {
+  const normalized = normalizeProviderPhone(phone);
+  if (!/^05\d{9}$/.test(normalized)) return undefined;
+
+  const store = await ensureStore();
+  const provider = store.providers.find(
+    (row) => normalizeProviderPhone(row.phone) === normalized
+  ) as StoredProvider | undefined;
+
+  if (!provider) return undefined;
+
+  const { pinHash, ...publicProvider } = provider;
+  return {
+    provider: publicProvider,
+    pinHash: pinHash ?? null,
+  };
 }
 
 export async function findApprovedProviderByPhone(
@@ -1702,4 +1727,80 @@ export async function failCreditPurchaseOrder(conversationId: string) {
   order.status = "failed";
   await saveStore(store);
   return order;
+}
+
+function linkReferralOnProviderRegistration(
+  store: Store,
+  providerId: string,
+  phone: string
+): void {
+  const normalized = normalizeProviderPhone(phone);
+  const referral = store.providerReferrals.find((r) => r.referredPhone === normalized);
+  if (!referral || referral.referredProviderId) return;
+  referral.referredProviderId = providerId;
+}
+
+export async function submitProviderReferral(
+  referrerId: string,
+  phone: string
+): Promise<{
+  referral?: ProviderReferral;
+  creditsAwarded?: number;
+  creditBalance?: number;
+  error?: string;
+  code?: string;
+}> {
+  const normalized = normalizeProviderPhone(phone);
+  if (!/^05\d{9}$/.test(normalized)) {
+    return { error: "Geçerli telefon numarası girin.", code: "INVALID_PHONE" };
+  }
+
+  const store = await ensureStore();
+  const referrer = store.providers.find((p) => p.id === referrerId);
+  if (!referrer || referrer.status !== "approved") {
+    return { error: "Onaylı usta hesabı gerekli.", code: "NOT_APPROVED" };
+  }
+
+  if (normalizeProviderPhone(referrer.phone) === normalized) {
+    return { error: "Kendi numaranızı davet edemezsiniz.", code: "SELF_REFERRAL" };
+  }
+
+  if (
+    store.providers.some((p) => normalizeProviderPhone(p.phone) === normalized)
+  ) {
+    return { error: "Bu numara zaten usta olarak kayıtlı.", code: "PHONE_ALREADY_PROVIDER" };
+  }
+
+  if (store.providerReferrals.some((r) => r.referredPhone === normalized)) {
+    return { error: "Bu numara daha önce davet edilmiş.", code: "PHONE_ALREADY_REFERRED" };
+  }
+
+  const id = generateId();
+  const createdAt = new Date().toISOString();
+  const referral: ProviderReferral = {
+    id,
+    referrerId,
+    referredPhone: normalized,
+    creditsAwarded: REFERRAL_REWARD_CREDITS,
+    createdAt,
+  };
+
+  if (!store.providerReferrals) store.providerReferrals = [];
+  store.providerReferrals.unshift(referral);
+  referrer.creditBalance = (referrer.creditBalance ?? 0) + REFERRAL_REWARD_CREDITS;
+
+  await saveStore(store);
+
+  return {
+    referral,
+    creditsAwarded: REFERRAL_REWARD_CREDITS,
+    creditBalance: referrer.creditBalance,
+  };
+}
+
+export async function getProviderReferrals(referrerId: string): Promise<ProviderReferral[]> {
+  const store = await ensureStore();
+  return store.providerReferrals
+    .filter((r) => r.referrerId === referrerId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

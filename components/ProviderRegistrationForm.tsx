@@ -9,6 +9,7 @@ import { CategoryIconBadge } from "@/components/icons/CategoryIcon";
 export default function ProviderRegistrationForm() {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [city, setCity] = useState("");
@@ -52,6 +53,7 @@ export default function ProviderRegistrationForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name,
+          companyName: companyName.trim() || undefined,
           phone,
           email,
           city,
@@ -81,14 +83,32 @@ export default function ProviderRegistrationForm() {
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-foreground">Ad Soyad *</label>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Ad Soyad *
+          </label>
           <input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
+            placeholder="Örn. Ahmet Yılmaz"
             className="w-full rounded-xl border border-border px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Firma İsmi
+          </label>
+          <input
+            type="text"
+            value={companyName}
+            onChange={(e) => setCompanyName(e.target.value)}
+            placeholder="Örn. Yılmaz Tesisat"
+            className="w-full rounded-xl border border-border px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-foreground">Telefon *</label>
           <input

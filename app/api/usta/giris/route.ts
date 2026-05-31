@@ -1,13 +1,7 @@
 import { NextResponse } from "next/server";
-import { getProviderById, getApprovedProviderAuthByPhone } from "@/lib/db";
+import { findProviderByPhone, getProviderById } from "@/lib/db";
 import { setProviderSession } from "@/lib/provider-auth";
-import {
-  hashProviderPin,
-  isValidProviderPhone,
-  normalizeProviderPhone,
-  validateProviderPin,
-  verifyProviderPin,
-} from "@/lib/provider-pin";
+import { isValidProviderPhone, verifyProviderPin } from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   try {
@@ -21,12 +15,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "4 haneli giriş şifrenizi girin." }, { status: 400 });
     }
 
-    const auth = await getApprovedProviderAuthByPhone(String(phone));
+    const auth = await findProviderByPhone(String(phone));
     if (!auth) {
       return NextResponse.json(
-        { error: "Onaylı usta bulunamadı. Kayıt veya onay bekliyor olabilir." },
+        { error: "Bu telefon numarasıyla kayıt bulunamadı." },
         { status: 404 }
       );
+    }
+
+    if (auth.provider.status === "pending") {
+      return NextResponse.json(
+        {
+          error: "Başvurunuz henüz onaylanmadı. Onay e-postası/SMS sonrası giriş yapabilirsiniz.",
+          code: "PENDING_APPROVAL",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (auth.provider.status === "rejected") {
+      return NextResponse.json(
+        {
+          error: "Başvurunuz reddedildi. Detaylar için destek ile iletişime geçin.",
+          code: "REJECTED",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (auth.provider.status !== "approved") {
+      return NextResponse.json({ error: "Hesap onaylı değil." }, { status: 403 });
     }
 
     if (!auth.pinHash) {

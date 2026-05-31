@@ -11,7 +11,8 @@ import {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { name, phone, email, city, categorySlugs, experience, bio, pin, pinConfirm } = body;
+    const { name, phone, email, city, categorySlugs, experience, bio, pin, pinConfirm, companyName } =
+      body;
 
     if (!name || !phone || !city || !categorySlugs?.length) {
       return NextResponse.json(
@@ -35,6 +36,7 @@ export async function POST(request: Request) {
 
     const provider = await createProviderRegistration({
       name,
+      companyName: typeof companyName === "string" ? companyName.trim() : undefined,
       phone: normalizeProviderPhone(String(phone)),
       email: email ?? "",
       city,

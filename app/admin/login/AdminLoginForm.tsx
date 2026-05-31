@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import Logo from "@/components/Logo";
 
 export default function AdminLoginForm() {
   const router = useRouter();
@@ -40,11 +41,9 @@ export default function AdminLoginForm() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-secondary px-4">
       <div className="w-full max-w-sm rounded-2xl border border-white/10 bg-card p-8 shadow-xl">
-        <div className="text-center">
-          <div className="text-2xl font-bold text-secondary">
-            çok<span className="text-primary">usta</span>
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">Yönetim girişi</p>
+        <div className="flex flex-col items-center">
+          <Logo size="md" />
+          <p className="mt-3 text-sm text-muted-foreground">Yönetim girişi</p>
         </div>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
