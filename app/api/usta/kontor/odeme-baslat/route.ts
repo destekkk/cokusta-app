@@ -46,6 +46,9 @@ export async function POST(request: Request) {
       packageName: order.packageName,
       packageSlug: order.packageSlug,
       price: order.amount,
+      packageAmount: order.packageAmount,
+      debtCredits: order.debtCredits,
+      debtAmount: order.debtCredits > 0 ? order.amount - order.packageAmount : 0,
       callbackUrl: getIyzicoCallbackUrl(),
       buyer: {
         id: provider.id,
@@ -63,6 +66,10 @@ export async function POST(request: Request) {
       orderId: order.id,
       token: checkout.token,
       checkoutFormContent: checkout.checkoutFormContent,
+      packageAmount: order.packageAmount,
+      debtCredits: order.debtCredits,
+      debtAmount: order.debtCredits > 0 ? order.amount - order.packageAmount : 0,
+      totalAmount: order.amount,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Ödeme başlatılamadı.";

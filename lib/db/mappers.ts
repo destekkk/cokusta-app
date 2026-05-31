@@ -108,6 +108,7 @@ export function toProvider(row: ProviderWithRelations): ProviderRegistration {
     reviewedAt: row.reviewedAt?.toISOString(),
     rejectionReason: row.rejectionReason ?? undefined,
     creditBalance: row.creditBalance,
+    creditDebt: row.creditDebt,
     launchMemberNumber: row.launchMemberNumber ?? undefined,
     launchBonusGranted: row.launchBonusGranted,
     portfolio: row.portfolio?.map(toPortfolioItem),

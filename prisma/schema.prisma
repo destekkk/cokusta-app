@@ -122,8 +122,10 @@ model Provider {
   reviewedAt         DateTime?      @map("reviewed_at")
   rejectionReason    String?        @map("rejection_reason") @db.Text
   creditBalance      Int            @default(0) @map("credit_balance")
+  creditDebt         Int            @default(0) @map("credit_debt")
   launchMemberNumber Int?           @map("launch_member_number")
   launchBonusGranted Boolean        @default(false) @map("launch_bonus_granted")
+  pinHash            String?        @map("pin_hash") @db.VarChar(128)
 
   quotes            QuoteRequest[]
   offers            ProviderOffer[]
@@ -144,6 +146,8 @@ model CreditPurchaseOrder {
   packageSlug     String               @map("package_slug") @db.VarChar(64)
   packageName     String               @map("package_name") @db.VarChar(255)
   credits         Int
+  packageAmount   Int              @default(0) @map("package_amount")
+  debtCredits     Int              @default(0) @map("debt_credits")
   amount          Int
   conversationId  String               @unique @map("conversation_id") @db.VarChar(64)
   basketId        String               @map("basket_id") @db.VarChar(64)

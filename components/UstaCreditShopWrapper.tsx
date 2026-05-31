@@ -5,6 +5,7 @@ import UstaCreditShop from "@/components/UstaCreditShop";
 
 type Props = {
   initialBalance: number;
+  initialCreditDebt: number;
   iyzicoConfigured: boolean;
 };
 

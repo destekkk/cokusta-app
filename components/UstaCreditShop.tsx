@@ -1,39 +1,60 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import {
   creditPackages,
   formatCreditPrice,
   getBadgeLabel,
 } from "@/lib/credit-packages";
-import { COKUSTA_CREDIT_PRICE, ARmut_CREDIT_PRICE } from "@/lib/pricing";
+import { COKUSTA_CREDIT_PRICE } from "@/lib/pricing";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
+import {
+  computeCheckoutTotal,
+  computeDebtSettlementAmount,
+  MAX_CREDIT_DEBT,
+} from "@/lib/credit-debt";
 import IyzicoCheckoutModal from "@/components/IyzicoCheckoutModal";
 import PaymentBadges from "@/components/PaymentBadges";
 
 type Props = {
   initialBalance: number;
+  initialCreditDebt: number;
   iyzicoConfigured: boolean;
 };
 
-export default function UstaCreditShop({ initialBalance, iyzicoConfigured }: Props) {
+export default function UstaCreditShop({
+  initialBalance,
+  initialCreditDebt,
+  iyzicoConfigured,
+}: Props) {
   const searchParams = useSearchParams();
   const noCredit = searchParams.get("reason") === "no-credit";
   const [balance, setBalance] = useState(initialBalance);
+  const [creditDebt, setCreditDebt] = useState(initialCreditDebt);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
   const selected = creditPackages.find((p) => p.slug === selectedSlug);
 
   const bulkPackages = creditPackages.filter((p) => p.credits > 1);
   const singlePackage = creditPackages.find((p) => p.slug === "kontor-tek");
 
+  const refreshBalance = () => {
+    fetch("/api/usta/talepler")
+      .then((r) => r.json())
+      .then((d) => {
+        setBalance(d.creditBalance ?? balance);
+        setCreditDebt(d.creditDebt ?? creditDebt);
+      })
+      .catch(() => {});
+  };
+
   return (
     <div className="space-y-6">
       {noCredit && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <strong>Kontörünüz bitti.</strong> Teklif vermek için aşağıdan paket satın alın; ödeme
-          sonrası bakiye anında yüklenir.
+          <strong>Kontörünüz bitti.</strong> Borç limitiniz dolduysa paket satın alın; ödeme sırasında
+          borç bakiyeniz de tahsil edilir.
         </div>
       )}
 
@@ -42,19 +63,33 @@ export default function UstaCreditShop({ initialBalance, iyzicoConfigured }: Pro
           <div>
             <p className="text-sm text-muted-foreground">Mevcut bakiye</p>
             <p className="text-3xl font-bold text-primary">{balance} kontör</p>
+            {creditDebt > 0 && (
+              <p className="mt-1 text-sm font-medium text-amber-700">
+                Borç bakiyesi: {creditDebt} kontör (
+                {formatCreditPrice(computeDebtSettlementAmount(creditDebt))})
+              </p>
+            )}
           </div>
           <div className="text-right text-xs text-muted-foreground">
             <p>Kayıt onayında hediye: {LAUNCH_CAMPAIGN.provider.freeCredits} kontör</p>
+            <p className="mt-1">Borç limiti: en fazla {MAX_CREDIT_DEBT} kontör</p>
             <p className="mt-1">Her teklif = 1 kontör</p>
           </div>
         </div>
       </div>
 
+      {creditDebt > 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <strong>Borç bakiyeniz var.</strong> Paket satın alırken{" "}
+          {formatCreditPrice(computeDebtSettlementAmount(creditDebt))} tutarındaki borç kapama bedeli
+          paket fiyatına eklenerek tahsil edilecektir.
+        </div>
+      )}
+
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
-        <p className="font-semibold text-primary">Armut fiyatının yarısı</p>
+        <p className="font-semibold text-primary">Uygun kontör fiyatları</p>
         <p className="mt-1 text-muted-foreground">
-          Referans: Armut teklif başı ~{ARmut_CREDIT_PRICE} ₺ · Çokusta tek kontör{" "}
-          {COKUSTA_CREDIT_PRICE} ₺. Toplu paketlerde ek indirim.
+          Tek kontör {COKUSTA_CREDIT_PRICE} ₺. Toplu paketlerde kontör başı maliyet düşer.
         </p>
         <div className="mt-3">
           <PaymentBadges variant="light" />
@@ -70,6 +105,7 @@ export default function UstaCreditShop({ initialBalance, iyzicoConfigured }: Pro
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {bulkPackages.map((pkg) => {
           const badge = getBadgeLabel(pkg.badge);
+          const checkout = computeCheckoutTotal(pkg.price, creditDebt);
           return (
             <article
               key={pkg.slug}
@@ -95,11 +131,16 @@ export default function UstaCreditShop({ initialBalance, iyzicoConfigured }: Pro
               <h2 className="text-lg font-bold">{pkg.name}</h2>
               <p className="mt-1 min-h-[40px] text-sm text-muted-foreground">{pkg.description}</p>
               <p className="mt-4 text-2xl font-bold">
-                {formatCreditPrice(pkg.price)}
-                <span className="ml-2 text-sm font-normal line-through text-muted-foreground">
-                  {formatCreditPrice(pkg.armutPrice)}
-                </span>
+                {creditDebt > 0
+                  ? formatCreditPrice(checkout.totalAmount)
+                  : formatCreditPrice(pkg.price)}
               </p>
+              {creditDebt > 0 && (
+                <p className="mt-1 text-xs text-amber-700">
+                  Paket {formatCreditPrice(pkg.price)} + borç{" "}
+                  {formatCreditPrice(checkout.debtAmount)}
+                </p>
+              )}
               <p className="mt-1 text-xs text-muted-foreground">
                 Kontör başı {pkg.perCredit} ₺
                 {pkg.savingsPercent > 0 && (
@@ -107,9 +148,6 @@ export default function UstaCreditShop({ initialBalance, iyzicoConfigured }: Pro
                     · %{pkg.savingsPercent} tasarruf
                   </span>
                 )}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground line-through opacity-70">
-                Armut: ~{pkg.armutPerCredit} ₺/kontör
               </p>
               <button
                 type="button"
@@ -132,9 +170,12 @@ export default function UstaCreditShop({ initialBalance, iyzicoConfigured }: Pro
               <p className="text-sm text-muted-foreground">{singlePackage.description}</p>
             </div>
             <div className="text-right">
-              <p className="text-xl font-bold">{formatCreditPrice(singlePackage.price)}</p>
-              <p className="text-xs text-muted-foreground line-through">
-                Armut ~{formatCreditPrice(singlePackage.armutPrice)}
+              <p className="text-xl font-bold">
+                {creditDebt > 0
+                  ? formatCreditPrice(
+                      computeCheckoutTotal(singlePackage.price, creditDebt).totalAmount
+                    )
+                  : formatCreditPrice(singlePackage.price)}
               </p>
             </div>
             <button
@@ -164,13 +205,10 @@ export default function UstaCreditShop({ initialBalance, iyzicoConfigured }: Pro
           packageName={selected.name}
           price={selected.price}
           credits={selected.credits}
-          armutPrice={selected.armutPrice}
+          creditDebt={creditDebt}
           onClose={() => {
             setSelectedSlug(null);
-            fetch("/api/usta/talepler")
-              .then((r) => r.json())
-              .then((d) => setBalance(d.creditBalance ?? balance))
-              .catch(() => {});
+            refreshBalance();
           }}
         />
       )}

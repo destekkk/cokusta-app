@@ -17,6 +17,7 @@ import type {
   CreditPurchaseOrder,
 } from "./types";
 import { getCreditPackage } from "./credit-packages";
+import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
 import {
   enrichOffer,
   providerCanSeeQuote,
@@ -58,7 +59,8 @@ import {
 } from "./db/mappers";
 import { generateId } from "./id";
 import { prisma } from "./prisma";
-import { MAX_PORTFOLIO_ITEMS, normalizePhone } from "./portfolio-upload";
+import { MAX_PORTFOLIO_ITEMS } from "./portfolio-upload";
+import { normalizeProviderPhone } from "./provider-pin";
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
 import { getCommissionRate } from "./admin-auth";
 
@@ -172,7 +174,7 @@ export async function getUrgentQuoteRequests(): Promise<QuoteRequest[]> {
 }
 
 export async function createProviderRegistration(
-  data: Omit<ProviderRegistration, "id" | "createdAt" | "status">
+  data: Omit<ProviderRegistration, "id" | "createdAt" | "status"> & { pinHash: string }
 ): Promise<ProviderRegistration> {
   const id = generateId();
   await prisma.provider.create({
@@ -188,6 +190,7 @@ export async function createProviderRegistration(
       createdAt: new Date(),
       status: "pending",
       creditBalance: 0,
+      pinHash: data.pinHash,
     },
   });
   await assignProviderLaunchSlot(id);
@@ -708,14 +711,39 @@ export async function getApprovedProviders(): Promise<ProviderRegistration[]> {
 export async function findApprovedProviderByPhone(
   phone: string
 ): Promise<ProviderRegistration | undefined> {
-  const normalized = normalizePhone(phone);
-  if (normalized.length < 10) return undefined;
+  const auth = await getApprovedProviderAuthByPhone(phone);
+  return auth?.provider;
+}
+
+export async function getApprovedProviderAuthByPhone(
+  phone: string
+): Promise<{ provider: ProviderRegistration; pinHash: string | null } | undefined> {
+  const normalized = normalizeProviderPhone(phone);
+  if (!/^05\d{9}$/.test(normalized)) return undefined;
 
   const rows = await prisma.provider.findMany({
     where: { status: "approved" },
     include: providerInclude,
   });
-  return rows.map(toProvider).find((provider) => normalizePhone(provider.phone) === normalized);
+
+  const row = rows.find((provider) => normalizeProviderPhone(provider.phone) === normalized);
+  if (!row) return undefined;
+
+  return {
+    provider: toProvider(row),
+    pinHash: row.pinHash,
+  };
+}
+
+export async function setProviderPinIfUnset(providerId: string, pinHash: string): Promise<boolean> {
+  const row = await prisma.provider.findUnique({ where: { id: providerId } });
+  if (!row || row.status !== "approved" || row.pinHash) return false;
+
+  await prisma.provider.update({
+    where: { id: providerId },
+    data: { pinHash },
+  });
+  return true;
 }
 
 export async function addProviderPortfolioItem(
@@ -1404,7 +1432,7 @@ export async function submitProviderOffer(
   price: number,
   message: string,
   estimatedDays?: number
-): Promise<{ offer?: ProviderOffer; error?: string; code?: "INSUFFICIENT_CREDITS" }> {
+): Promise<{ offer?: ProviderOffer; error?: string; code?: "INSUFFICIENT_CREDITS"; usedDebt?: boolean; creditDebt?: number }> {
   const provider = await getProviderById(providerId);
   const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteRequestId } });
   const quote = quoteRow ? toQuoteRequest(quoteRow) : undefined;
@@ -1418,7 +1446,13 @@ export async function submitProviderOffer(
   if (!providerCanSeeQuote(provider, quote)) {
     return { error: "Bu talep bölge veya kategori uygun değil." };
   }
-  if ((provider.creditBalance ?? 0) < 1) {
+
+  const balance = provider.creditBalance ?? 0;
+  const debt = provider.creditDebt ?? 0;
+  const useBalance = balance >= 1;
+  const useDebt = !useBalance && debt < MAX_CREDIT_DEBT;
+
+  if (!useBalance && !useDebt) {
     return { error: "Yetersiz teklif kontörü.", code: "INSUFFICIENT_CREDITS" as const };
   }
   if (price <= 0 || message.trim().length < 5) {
@@ -1432,10 +1466,12 @@ export async function submitProviderOffer(
 
   const id = generateId();
   const createdAt = new Date();
+  const newDebt = useDebt ? debt + 1 : debt;
+
   await prisma.$transaction([
     prisma.provider.update({
       where: { id: providerId },
-      data: { creditBalance: { decrement: 1 } },
+      data: useBalance ? { creditBalance: { decrement: 1 } } : { creditDebt: { increment: 1 } },
     }),
     prisma.providerOffer.create({
       data: {
@@ -1465,6 +1501,8 @@ export async function submitProviderOffer(
       },
       provider
     ),
+    usedDebt: useDebt,
+    creditDebt: newDebt,
   };
 }
 
@@ -1789,6 +1827,8 @@ function toCreditPurchaseOrder(row: {
   packageSlug: string;
   packageName: string;
   credits: number;
+  packageAmount: number;
+  debtCredits: number;
   amount: number;
   conversationId: string;
   basketId: string;
@@ -1805,6 +1845,8 @@ function toCreditPurchaseOrder(row: {
     packageSlug: row.packageSlug,
     packageName: row.packageName,
     credits: row.credits,
+    packageAmount: row.packageAmount,
+    debtCredits: row.debtCredits,
     amount: row.amount,
     conversationId: row.conversationId,
     basketId: row.basketId,
@@ -1829,6 +1871,8 @@ export async function createCreditPurchaseOrder(
     return { error: "Usta hesabı onaylı değil." };
   }
 
+  const checkout = computeCheckoutTotal(pkg.price, provider.creditDebt ?? 0);
+
   const id = generateId();
   const row = await prisma.creditPurchaseOrder.create({
     data: {
@@ -1837,7 +1881,9 @@ export async function createCreditPurchaseOrder(
       packageSlug: pkg.slug,
       packageName: pkg.name,
       credits: pkg.credits,
-      amount: pkg.price,
+      packageAmount: checkout.packageAmount,
+      debtCredits: checkout.debtCredits,
+      amount: checkout.totalAmount,
       conversationId: `credit-${id}`,
       basketId: id,
       createdAt: new Date(),
@@ -1882,7 +1928,10 @@ export async function fulfillCreditPurchaseOrder(
   await prisma.$transaction([
     prisma.provider.update({
       where: { id: row.providerId },
-      data: { creditBalance: { increment: row.credits } },
+      data: {
+        creditBalance: { increment: row.credits },
+        creditDebt: 0,
+      },
     }),
     prisma.providerPlatformPurchase.create({
       data: {

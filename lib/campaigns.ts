@@ -9,7 +9,7 @@ export const LAUNCH_CAMPAIGN = {
     displayClaimedOffset: 230,
     title: "Her yeni ustaya 5 ücretsiz kontör",
     description:
-      "Onaylanan her usta hesabına 5 teklif kontörü hediye. Kontör bitince paket satın alarak devam edin — fiyatlar Armut'un yarısı.",
+      "Onaylanan her usta hesabına 5 teklif kontörü hediye. Kontör bitince uygun fiyatlı paketlerle devam edin.",
   },
   customer: {
     maxSlots: 1000,

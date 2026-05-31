@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
+import { MAX_CREDIT_DEBT, canSubmitOffer, remainingDebtCapacity } from "@/lib/credit-debt";
 import type { ProviderOffer } from "@/lib/types";
 import type { PublicQuoteRequest } from "@/lib/quote-privacy";
 
@@ -15,12 +16,18 @@ export default function UstaOpenQuotesPanel() {
   const router = useRouter();
   const [quotes, setQuotes] = useState<OpenQuote[]>([]);
   const [creditBalance, setCreditBalance] = useState(0);
+  const [creditDebt, setCreditDebt] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
   const [price, setPrice] = useState("");
   const [message, setMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [debtNotice, setDebtNotice] = useState<string | null>(null);
+
+  const canOffer = canSubmitOffer(creditBalance, creditDebt);
+  const debtRemaining = remainingDebtCapacity(creditDebt);
+  const atDebtLimit = creditBalance < 1 && creditDebt >= MAX_CREDIT_DEBT;
 
   const load = async () => {
     setLoading(true);
@@ -34,6 +41,7 @@ export default function UstaOpenQuotesPanel() {
       if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
       setQuotes(data.quotes ?? []);
       setCreditBalance(data.creditBalance ?? 0);
+      setCreditDebt(data.creditDebt ?? 0);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Yüklenemedi");
     } finally {
@@ -48,7 +56,7 @@ export default function UstaOpenQuotesPanel() {
   const goBuyCredits = () => router.push(KONTOR_URL);
 
   const startOffer = (quoteId: string) => {
-    if (creditBalance < 1) {
+    if (!canOffer) {
       goBuyCredits();
       return;
     }
@@ -56,7 +64,7 @@ export default function UstaOpenQuotesPanel() {
   };
 
   const submitOffer = async (quoteRequestId: string) => {
-    if (creditBalance < 1) {
+    if (!canOffer) {
       goBuyCredits();
       return;
     }
@@ -81,6 +89,10 @@ export default function UstaOpenQuotesPanel() {
       setActiveId(null);
       setPrice("");
       setMessage("");
+      if (data.usedDebt) {
+        setDebtNotice("1 kontör borç bakiyesi tanımlandı.");
+        setCreditDebt(data.creditDebt ?? creditDebt + 1);
+      }
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gönderilemedi");
@@ -100,28 +112,54 @@ export default function UstaOpenQuotesPanel() {
 
   return (
     <div className="space-y-6">
+      {debtNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
+            <p className="text-lg font-semibold text-foreground">Borç bakiyesi</p>
+            <p className="mt-2 text-sm text-muted-foreground">{debtNotice}</p>
+            <p className="mt-2 text-sm text-amber-700">
+              Toplam borcunuz: {creditDebt}/{MAX_CREDIT_DEBT} kontör. Ödeme yaparken borç tutarı da
+              tahsil edilir.
+            </p>
+            <button
+              type="button"
+              onClick={() => setDebtNotice(null)}
+              className="mt-5 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+            >
+              Tamam
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
         <div>
           <p className="text-sm text-muted-foreground">Kalan teklif kontörü</p>
           <p className="text-2xl font-bold text-primary">{creditBalance}</p>
-          {creditBalance === 0 ? (
-            <p className="mt-1 text-xs font-medium text-amber-700">
-              Kontör bitti — teklif vermek için paket satın alın.
+          {creditDebt > 0 && (
+            <p className="mt-1 text-sm font-medium text-amber-700">
+              Borç bakiyesi: {creditDebt}/{MAX_CREDIT_DEBT} kontör
             </p>
-          ) : creditBalance <= LAUNCH_CAMPAIGN.provider.freeCredits ? (
+          )}
+          {creditBalance === 0 && debtRemaining > 0 && (
+            <p className="mt-1 text-xs text-muted-foreground">
+              Kontörünüz bitti; {debtRemaining} kontöre kadar borçlanarak teklif verebilirsiniz.
+            </p>
+          )}
+          {creditBalance <= LAUNCH_CAMPAIGN.provider.freeCredits && creditBalance > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
               Hediye kontörlerinizi kullanıyorsunuz.
             </p>
-          ) : null}
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Link
             href="/usta/kontor"
             className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-              creditBalance < 1 ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
+              atDebtLimit ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
             }`}
           >
-            {creditBalance < 1 ? "Kontör Satın Al" : "Paket Yükle"}
+            {atDebtLimit ? "Kontör Satın Al" : "Paket Yükle"}
           </Link>
           <button
             type="button"
@@ -133,11 +171,10 @@ export default function UstaOpenQuotesPanel() {
         </div>
       </div>
 
-      {creditBalance < 1 && (
+      {atDebtLimit && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Teklif verebilmek için kontör gerekir. Kayıt onayında{" "}
-          <strong>{LAUNCH_CAMPAIGN.provider.freeCredits} ücretsiz kontör</strong> hediye edilir;
-          bittikten sonra iyzico ile anında paket satın alabilirsiniz.
+          Kontör ve borç limitiniz doldu ({MAX_CREDIT_DEBT} kontör). Teklif vermek için paket
+          satın alın; ödeme sırasında borç bakiyeniz de tahsil edilecektir.
           <button
             type="button"
             onClick={goBuyCredits}
@@ -180,6 +217,11 @@ export default function UstaOpenQuotesPanel() {
                 </p>
               ) : activeId === quote.id ? (
                 <div className="mt-4 space-y-3 border-t border-border pt-4">
+                  {creditBalance < 1 && debtRemaining > 0 && (
+                    <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                      Kontörünüz yok; bu teklif 1 kontör borç bakiyesi olarak kaydedilecek.
+                    </p>
+                  )}
                   <input
                     type="number"
                     placeholder="Teklif tutarı (₺)"
@@ -201,7 +243,7 @@ export default function UstaOpenQuotesPanel() {
                       onClick={() => submitOffer(quote.id)}
                       className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      Gönder (1 kontör)
+                      {creditBalance < 1 ? "Gönder (borç kontörü)" : "Gönder (1 kontör)"}
                     </button>
                     <button
                       type="button"
@@ -217,10 +259,14 @@ export default function UstaOpenQuotesPanel() {
                   type="button"
                   onClick={() => startOffer(quote.id)}
                   className={`mt-4 rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-                    creditBalance < 1 ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
+                    !canOffer ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
                   }`}
                 >
-                  {creditBalance < 1 ? "Kontör Satın Al →" : "Teklif Ver (1 kontör)"}
+                  {!canOffer
+                    ? "Kontör Satın Al →"
+                    : creditBalance < 1
+                      ? "Teklif Ver (borç kontörü)"
+                      : "Teklif Ver (1 kontör)"}
                 </button>
               )}
             </article>

@@ -15,6 +15,8 @@ export default function ProviderRegistrationForm() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [experience, setExperience] = useState("");
   const [bio, setBio] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -33,6 +35,16 @@ export default function ProviderRegistrationForm() {
       return;
     }
 
+    if (!/^\d{4}$/.test(pin)) {
+      setError("4 haneli giriş şifresi girin.");
+      return;
+    }
+
+    if (pin !== pinConfirm) {
+      setError("Giriş şifreleri eşleşmiyor.");
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/usta", {
@@ -46,6 +58,8 @@ export default function ProviderRegistrationForm() {
           categorySlugs: selectedCategories,
           experience,
           bio,
+          pin,
+          pinConfirm,
         }),
       });
 
@@ -81,10 +95,46 @@ export default function ProviderRegistrationForm() {
             type="tel"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
+            placeholder="5XX XXX XX XX"
             className="w-full rounded-xl border border-border px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+          <p className="mt-1 text-xs text-muted-foreground">Başına 0 yazmadan da girebilirsiniz.</p>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">
+            Giriş şifresi (4 hane) *
+          </label>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="new-password"
+            maxLength={4}
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            placeholder="••••"
+            className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">Şifre tekrar *</label>
+          <input
+            type="password"
+            inputMode="numeric"
+            autoComplete="new-password"
+            maxLength={4}
+            value={pinConfirm}
+            onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            placeholder="••••"
+            className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
+      <p className="-mt-2 text-xs text-muted-foreground">
+        Onay sonrası giriş için kullanılacak. 1234 ve 0000 kullanılamaz.
+      </p>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div>

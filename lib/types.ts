@@ -153,6 +153,8 @@ export type ProviderRegistration = {
   platformPurchases?: ProviderPlatformPurchase[];
   /** Kullanılabilir teklif kontörü bakiyesi */
   creditBalance?: number;
+  /** Borçlanılmış kontör (en fazla 5) */
+  creditDebt?: number;
   /** Lansman kampanyası sıra numarası (1–500) */
   launchMemberNumber?: number;
   launchBonusGranted?: boolean;
@@ -240,6 +242,8 @@ export type CreditPurchaseOrder = {
   packageSlug: string;
   packageName: string;
   credits: number;
+  packageAmount: number;
+  debtCredits: number;
   amount: number;
   conversationId: string;
   basketId: string;

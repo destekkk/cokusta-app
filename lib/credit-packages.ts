@@ -1,7 +1,6 @@
 import {
   creditPackTiers,
   COKUSTA_CREDIT_PRICE,
-  ARmut_CREDIT_PRICE,
   creditPerUnit,
   savingsVsSingle,
 } from "@/lib/pricing";
@@ -13,11 +12,9 @@ export type CreditPackage = {
   name: string;
   credits: number;
   price: number;
-  armutPrice: number;
   description: string;
   badge: CreditPackageBadge;
   perCredit: number;
-  armutPerCredit: number;
   savingsPercent: number;
 };
 
@@ -38,11 +35,9 @@ export const creditPackages: CreditPackage[] = [
     name: tier.name,
     credits: tier.credits,
     price: tier.price,
-    armutPrice: tier.armutPrice,
     description: tier.description,
     badge: tier.badge,
     perCredit: creditPerUnit(tier.price, tier.credits),
-    armutPerCredit: creditPerUnit(tier.armutPrice, tier.credits),
     savingsPercent: savingsVsSingle(tier.price, tier.credits),
   })),
   {
@@ -50,11 +45,9 @@ export const creditPackages: CreditPackage[] = [
     name: "Tek Kontör",
     credits: 1,
     price: COKUSTA_CREDIT_PRICE,
-    armutPrice: ARmut_CREDIT_PRICE,
     description: "Acil tek bir talebe teklif vermek için.",
     badge: null,
     perCredit: COKUSTA_CREDIT_PRICE,
-    armutPerCredit: ARmut_CREDIT_PRICE,
     savingsPercent: 0,
   },
 ];

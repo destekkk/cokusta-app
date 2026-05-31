@@ -21,6 +21,7 @@ import type {
   TaxDeclaration,
 } from "./types";
 import { getCreditPackage } from "./credit-packages";
+import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
 import {
   buildCertificatePayload,
   computeBlockHash,
@@ -37,7 +38,10 @@ import {
   getVatRate,
 } from "./billing";
 import { LAUNCH_CAMPAIGN, buildLaunchCampaignStats } from "./campaigns";
-import { MAX_PORTFOLIO_ITEMS, normalizePhone } from "./portfolio-upload";
+import { MAX_PORTFOLIO_ITEMS } from "./portfolio-upload";
+import { normalizeProviderPhone } from "./provider-pin";
+
+type StoredProvider = ProviderRegistration & { pinHash?: string | null };
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
 import { getCommissionRate } from "./admin-auth";
 import {
@@ -170,20 +174,24 @@ export async function getUrgentQuoteRequests(): Promise<QuoteRequest[]> {
 }
 
 export async function createProviderRegistration(
-  data: Omit<ProviderRegistration, "id" | "createdAt" | "status">
+  data: Omit<ProviderRegistration, "id" | "createdAt" | "status"> & { pinHash: string }
 ): Promise<ProviderRegistration> {
   const store = await ensureStore();
-  const provider: ProviderRegistration = {
-    ...data,
+  const { pinHash, ...rest } = data;
+  const provider: StoredProvider = {
+    ...rest,
+    pinHash,
     id: generateId(),
     createdAt: new Date().toISOString(),
     status: "pending",
     creditBalance: 0,
+    creditDebt: 0,
   };
   assignProviderLaunchSlot(store, provider);
   store.providers.unshift(provider);
   await saveStore(store);
-  return provider;
+  const { pinHash: _pin, ...publicProvider } = provider;
+  return publicProvider;
 }
 
 export async function getQuoteRequestById(id: string): Promise<QuoteRequest | undefined> {
@@ -589,14 +597,42 @@ export async function getApprovedProviders(): Promise<ProviderRegistration[]> {
 export async function findApprovedProviderByPhone(
   phone: string
 ): Promise<ProviderRegistration | undefined> {
-  const normalized = normalizePhone(phone);
-  if (normalized.length < 10) return undefined;
+  const auth = await getApprovedProviderAuthByPhone(phone);
+  return auth?.provider;
+}
+
+export async function getApprovedProviderAuthByPhone(
+  phone: string
+): Promise<{ provider: ProviderRegistration; pinHash: string | null } | undefined> {
+  const normalized = normalizeProviderPhone(phone);
+  if (!/^05\d{9}$/.test(normalized)) return undefined;
 
   const store = await ensureStore();
-  return store.providers.find(
-    (provider) =>
-      provider.status === "approved" && normalizePhone(provider.phone) === normalized
-  );
+  const provider = store.providers.find(
+    (row) =>
+      row.status === "approved" && normalizeProviderPhone(row.phone) === normalized
+  ) as StoredProvider | undefined;
+
+  if (!provider) return undefined;
+
+  const { pinHash, ...publicProvider } = provider;
+  return {
+    provider: publicProvider,
+    pinHash: pinHash ?? null,
+  };
+}
+
+export async function setProviderPinIfUnset(providerId: string, pinHash: string): Promise<boolean> {
+  const store = await ensureStore();
+  const index = store.providers.findIndex((provider) => provider.id === providerId);
+  if (index === -1) return false;
+
+  const provider = store.providers[index] as StoredProvider;
+  if (provider.status !== "approved" || provider.pinHash) return false;
+
+  store.providers[index] = { ...provider, pinHash } as StoredProvider;
+  await saveStore(store);
+  return true;
 }
 
 export async function addProviderPortfolioItem(
@@ -1238,7 +1274,7 @@ export async function submitProviderOffer(
   price: number,
   message: string,
   estimatedDays?: number
-): Promise<{ offer?: ProviderOffer; error?: string; code?: "INSUFFICIENT_CREDITS" }> {
+): Promise<{ offer?: ProviderOffer; error?: string; code?: "INSUFFICIENT_CREDITS"; usedDebt?: boolean; creditDebt?: number }> {
   const store = await ensureStore();
   const provider = store.providers.find((p) => p.id === providerId);
   const quote = store.quoteRequests.find((q) => q.id === quoteRequestId);
@@ -1252,7 +1288,13 @@ export async function submitProviderOffer(
   if (!providerCanSeeQuote(provider, quote)) {
     return { error: "Bu talep bölge veya kategori uygun değil." };
   }
-  if ((provider.creditBalance ?? 0) < 1) {
+
+  const balance = provider.creditBalance ?? 0;
+  const debt = provider.creditDebt ?? 0;
+  const useBalance = balance >= 1;
+  const useDebt = !useBalance && debt < MAX_CREDIT_DEBT;
+
+  if (!useBalance && !useDebt) {
     return { error: "Yetersiz teklif kontörü.", code: "INSUFFICIENT_CREDITS" as const };
   }
   if (price <= 0 || message.trim().length < 5) {
@@ -1279,10 +1321,18 @@ export async function submitProviderOffer(
     providerCity: provider.city,
   };
 
-  provider.creditBalance = (provider.creditBalance ?? 0) - 1;
+  if (useBalance) {
+    provider.creditBalance = balance - 1;
+  } else {
+    provider.creditDebt = debt + 1;
+  }
   store.providerOffers.unshift(offer);
   await saveStore(store);
-  return { offer };
+  return {
+    offer,
+    usedDebt: useDebt,
+    creditDebt: useDebt ? debt + 1 : debt,
+  };
 }
 
 export async function getOffersForQuoteRequest(quoteId: string): Promise<ProviderOffer[]> {
@@ -1556,6 +1606,8 @@ export async function createCreditPurchaseOrder(
     return { error: "Usta hesabı onaylı değil." };
   }
 
+  const checkout = computeCheckoutTotal(pkg.price, provider.creditDebt ?? 0);
+
   const id = generateId();
   const order: CreditPurchaseOrder = {
     id,
@@ -1563,7 +1615,9 @@ export async function createCreditPurchaseOrder(
     packageSlug: pkg.slug,
     packageName: pkg.name,
     credits: pkg.credits,
-    amount: pkg.price,
+    packageAmount: checkout.packageAmount,
+    debtCredits: checkout.debtCredits,
+    amount: checkout.totalAmount,
     conversationId: `credit-${id}`,
     basketId: id,
     status: "pending",
@@ -1611,6 +1665,7 @@ export async function fulfillCreditPurchaseOrder(
   const purchaseId = generateId();
   const provider = store.providers[providerIndex];
   provider.creditBalance = (provider.creditBalance ?? 0) + order.credits;
+  provider.creditDebt = 0;
 
   const purchases = provider.platformPurchases ?? [];
   purchases.unshift({

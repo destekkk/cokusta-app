@@ -50,6 +50,7 @@ async function main() {
         reviewedAt: provider.reviewedAt ? new Date(provider.reviewedAt) : null,
         rejectionReason: provider.rejectionReason ?? null,
         creditBalance: provider.creditBalance ?? 0,
+        creditDebt: provider.creditDebt ?? 0,
         launchMemberNumber: provider.launchMemberNumber ?? null,
         launchBonusGranted: provider.launchBonusGranted ?? false,
         portfolio: {

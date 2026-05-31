@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getOpenQuotesForProvider, getProviderById } from "@/lib/db";
 import { getProviderSessionId } from "@/lib/provider-auth";
 
+import { MAX_CREDIT_DEBT } from "@/lib/credit-debt";
+
 export async function GET() {
   const providerId = await getProviderSessionId();
   if (!providerId) {
@@ -14,5 +16,12 @@ export async function GET() {
   }
 
   const quotes = await getOpenQuotesForProvider(providerId);
-  return NextResponse.json({ quotes, creditBalance: provider.creditBalance ?? 0 });
+  const creditDebt = provider.creditDebt ?? 0;
+  return NextResponse.json({
+    quotes,
+    creditBalance: provider.creditBalance ?? 0,
+    creditDebt,
+    maxCreditDebt: MAX_CREDIT_DEBT,
+    canUseDebt: creditDebt < MAX_CREDIT_DEBT,
+  });
 }

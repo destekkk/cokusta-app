@@ -35,7 +35,12 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, offer: result.offer });
+    return NextResponse.json({
+      success: true,
+      offer: result.offer,
+      usedDebt: result.usedDebt ?? false,
+      creditDebt: result.creditDebt,
+    });
   } catch {
     return NextResponse.json({ error: "Teklif gönderilemedi." }, { status: 500 });
   }

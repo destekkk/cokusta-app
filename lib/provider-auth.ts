@@ -1,5 +1,8 @@
 import { cookies } from "next/headers";
 import { normalizePhone } from "@/lib/quote-privacy";
+import { normalizeProviderPhone } from "@/lib/provider-pin";
+
+export { normalizePhone, normalizeProviderPhone };
 
 export const PROVIDER_COOKIE = "provider_session";
 const SESSION_MAX_AGE = 60 * 60 * 24 * 14;
@@ -71,5 +74,3 @@ export async function getProviderSessionFromToken(
   const providerId = await parseProviderSessionToken(token);
   return providerId ? { providerId } : null;
 }
-
-export { normalizePhone };

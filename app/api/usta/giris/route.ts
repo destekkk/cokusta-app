@@ -1,30 +1,56 @@
 import { NextResponse } from "next/server";
-import { findApprovedProviderByPhone, getProviderById } from "@/lib/db";
-import { normalizePhone, setProviderSession } from "@/lib/provider-auth";
+import { getProviderById, getApprovedProviderAuthByPhone } from "@/lib/db";
+import { setProviderSession } from "@/lib/provider-auth";
+import {
+  hashProviderPin,
+  isValidProviderPhone,
+  normalizeProviderPhone,
+  validateProviderPin,
+  verifyProviderPin,
+} from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   try {
-    const { phone } = await request.json();
-    if (!phone || normalizePhone(String(phone)).length < 10) {
+    const { phone, pin } = await request.json();
+
+    if (!phone || !isValidProviderPhone(String(phone))) {
       return NextResponse.json({ error: "Geçerli telefon numarası girin." }, { status: 400 });
     }
 
-    const provider = await findApprovedProviderByPhone(String(phone));
-    if (!provider) {
+    if (!pin || !/^\d{4}$/.test(String(pin))) {
+      return NextResponse.json({ error: "4 haneli giriş şifrenizi girin." }, { status: 400 });
+    }
+
+    const auth = await getApprovedProviderAuthByPhone(String(phone));
+    if (!auth) {
       return NextResponse.json(
         { error: "Onaylı usta bulunamadı. Kayıt veya onay bekliyor olabilir." },
         { status: 404 }
       );
     }
 
-    await setProviderSession(provider.id);
-    const fresh = await getProviderById(provider.id);
+    if (!auth.pinHash) {
+      return NextResponse.json(
+        {
+          error: "Giriş şifreniz henüz tanımlı değil. Aşağıdan şifre belirleyin.",
+          code: "NO_PIN_SET",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (!verifyProviderPin(String(pin), auth.pinHash)) {
+      return NextResponse.json({ error: "Telefon veya şifre hatalı." }, { status: 401 });
+    }
+
+    await setProviderSession(auth.provider.id);
+    const fresh = await getProviderById(auth.provider.id);
     return NextResponse.json({
       success: true,
       provider: {
-        id: provider.id,
-        name: provider.name,
-        city: provider.city,
+        id: auth.provider.id,
+        name: auth.provider.name,
+        city: auth.provider.city,
         creditBalance: fresh?.creditBalance ?? 0,
       },
     });

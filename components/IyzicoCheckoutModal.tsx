@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import PaymentBadges from "@/components/PaymentBadges";
+import { computeCheckoutTotal, computeDebtSettlementAmount } from "@/lib/credit-debt";
 
 type Props = {
   packageSlug: string;
   packageName: string;
   price: number;
   credits: number;
-  armutPrice: number;
+  creditDebt?: number;
   onClose: () => void;
 };
 
@@ -17,14 +18,20 @@ export default function IyzicoCheckoutModal({
   packageName,
   price,
   credits,
-  armutPrice,
+  creditDebt = 0,
   onClose,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
+
+  const checkout = computeCheckoutTotal(price, creditDebt);
+  const hasDebt = checkout.debtCredits > 0;
 
   useEffect(() => {
+    if (hasDebt && !confirmed) return;
+
     let cancelled = false;
 
     async function start() {
@@ -63,7 +70,7 @@ export default function IyzicoCheckoutModal({
     return () => {
       cancelled = true;
     };
-  }, [packageSlug]);
+  }, [packageSlug, confirmed, hasDebt]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -72,11 +79,14 @@ export default function IyzicoCheckoutModal({
           <div>
             <h2 className="text-lg font-bold">{packageName}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {credits} kontör · {price.toLocaleString("tr-TR")} ₺
-              <span className="ml-2 line-through opacity-60">
-                {armutPrice.toLocaleString("tr-TR")} ₺
-              </span>
+              {credits} kontör · {checkout.totalAmount.toLocaleString("tr-TR")} ₺
             </p>
+            {hasDebt && (
+              <p className="mt-1 text-xs text-amber-700">
+                Paket {price.toLocaleString("tr-TR")} ₺ + borç kapama{" "}
+                {checkout.debtAmount.toLocaleString("tr-TR")} ₺
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -88,19 +98,44 @@ export default function IyzicoCheckoutModal({
           </button>
         </div>
 
-        <div className="mt-4">
-          <PaymentBadges />
-        </div>
+        {hasDebt && !confirmed && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="font-semibold">Borç bakiyesi tahsilatı</p>
+            <p className="mt-2">
+              {checkout.debtCredits} kontörlük borç bakiyeniz (
+              {computeDebtSettlementAmount(checkout.debtCredits).toLocaleString("tr-TR")} ₺) bu
+              ödemeye dahil edilecek ve tahsil edilecektir.
+            </p>
+            <p className="mt-2 font-medium">
+              Toplam ödenecek tutar: {checkout.totalAmount.toLocaleString("tr-TR")} ₺
+            </p>
+            <button
+              type="button"
+              onClick={() => setConfirmed(true)}
+              className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark"
+            >
+              Anladım, ödemeye devam et
+            </button>
+          </div>
+        )}
 
-        {loading && (
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            iyzico ödeme formu yükleniyor…
-          </p>
+        {(confirmed || !hasDebt) && (
+          <>
+            <div className="mt-4">
+              <PaymentBadges />
+            </div>
+
+            {loading && (
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                iyzico ödeme formu yükleniyor…
+              </p>
+            )}
+            {error && (
+              <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
+            )}
+            <div ref={containerRef} className="mt-4 min-h-[200px]" id="iyzipay-checkout-form" />
+          </>
         )}
-        {error && (
-          <p className="mt-6 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>
-        )}
-        <div ref={containerRef} className="mt-4 min-h-[200px]" id="iyzipay-checkout-form" />
       </div>
     </div>
   );

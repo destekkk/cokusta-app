@@ -33,6 +33,7 @@ export default async function UstaCreditPage() {
         <div className="mt-8">
           <UstaCreditShopWrapper
             initialBalance={provider.creditBalance ?? 0}
+            initialCreditDebt={provider.creditDebt ?? 0}
             iyzicoConfigured={configured}
           />
         </div>

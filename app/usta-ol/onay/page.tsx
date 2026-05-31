@@ -34,8 +34,7 @@ export default async function ProviderConfirmationPage({ searchParams }: Props) 
             <p className="mt-2 text-sm text-muted-foreground">
               Onay sonrası hesabınıza{" "}
               <strong>{LAUNCH_CAMPAIGN.provider.freeCredits} ücretsiz teklif kontörü</strong>{" "}
-              yüklenecek. Kontörler bitince paket satın alarak teklif vermeye devam edebilirsiniz
-              — fiyatlarımız Armut&apos;un yarısı.
+              yüklenecek. Kontörler bitince uygun fiyatlı paketlerle teklif vermeye devam edebilirsiniz.
             </p>
           </div>
 

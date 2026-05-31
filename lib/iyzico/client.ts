@@ -79,12 +79,41 @@ export async function initializeCreditCheckout(params: {
   packageName: string;
   packageSlug: string;
   price: number;
+  packageAmount: number;
+  debtCredits?: number;
+  debtAmount?: number;
   callbackUrl: string;
   buyer: CheckoutBuyer;
 }) {
   const { name, surname } = splitName(params.buyer.name);
   const priceStr = params.price.toFixed(2);
   const address = `${params.buyer.city}, Türkiye`;
+
+  const basketItems: Array<{
+    id: string;
+    name: string;
+    category1: string;
+    itemType: string;
+    price: string;
+  }> = [
+    {
+      id: params.packageSlug,
+      name: params.packageName,
+      category1: "Platform",
+      itemType: "VIRTUAL",
+      price: params.packageAmount.toFixed(2),
+    },
+  ];
+
+  if ((params.debtCredits ?? 0) > 0 && (params.debtAmount ?? 0) > 0) {
+    basketItems.push({
+      id: "borc-kapama",
+      name: `Borç bakiyesi kapama (${params.debtCredits} kontör)`,
+      category1: "Platform",
+      itemType: "VIRTUAL",
+      price: params.debtAmount!.toFixed(2),
+    });
+  }
 
   return iyzicoRequest<{
     status: string;
@@ -127,15 +156,7 @@ export async function initializeCreditCheckout(params: {
       address,
       zipCode: "34000",
     },
-    basketItems: [
-      {
-        id: params.packageSlug,
-        name: params.packageName,
-        category1: "Platform",
-        itemType: "VIRTUAL",
-        price: priceStr,
-      },
-    ],
+    basketItems,
   });
 }
 
