@@ -9,6 +9,7 @@ import type {
   Invoice,
   PortfolioWithProvider,
   ProviderCertificate,
+  ProviderOffer,
   ProviderOfTheMonth,
   ProviderPlatformPurchase,
   ProviderPortfolioItem,
@@ -37,11 +38,18 @@ import { LAUNCH_CAMPAIGN, buildLaunchCampaignStats } from "./campaigns";
 import { MAX_PORTFOLIO_ITEMS, normalizePhone } from "./portfolio-upload";
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
 import { getCommissionRate } from "./admin-auth";
+import {
+  enrichOffer,
+  providerCanSeeQuote,
+  quoteIsOpenForOffers,
+  toPublicQuoteListItem,
+} from "./offer-utils";
 
 const STORE_PATH = path.join(process.cwd(), "data", "store.json");
 
 const emptyStore: Store = {
   quoteRequests: [],
+  providerOffers: [],
   providers: [],
   customers: [],
   invoices: [],
@@ -51,12 +59,20 @@ const emptyStore: Store = {
   providerOfTheMonthHistory: [],
 };
 
+function migrateQuoteStatus(quote: QuoteRequest): QuoteRequest {
+  const raw = quote.status as string;
+  if (raw === "pending") return { ...quote, status: "open" };
+  if (raw === "matched") return { ...quote, status: "accepted" };
+  return quote;
+}
+
 async function ensureStore(): Promise<Store> {
   try {
     const raw = await fs.readFile(STORE_PATH, "utf-8");
     const parsed = JSON.parse(raw) as Partial<Store>;
     return {
-      quoteRequests: parsed.quoteRequests ?? [],
+      quoteRequests: (parsed.quoteRequests ?? []).map(migrateQuoteStatus),
+      providerOffers: parsed.providerOffers ?? [],
       providers: parsed.providers ?? [],
       customers: parsed.customers ?? [],
       invoices: parsed.invoices ?? [],
@@ -133,7 +149,7 @@ export async function createQuoteRequest(
     ...data,
     id: generateId(),
     createdAt,
-    status: "pending",
+    status: "awaiting_review",
     urgent: data.urgent ?? false,
     urgentDeadline: data.urgent ? computeUrgentDeadline(new Date(createdAt)) : undefined,
   };
@@ -207,12 +223,12 @@ export async function updateQuoteRequestStatus(
   const request = store.quoteRequests[index];
   request.status = status;
 
-  if (status === "matched") {
+  if (status === "accepted") {
     request.matchedProviderId = options?.matchedProviderId;
     request.matchedProviderName = options?.matchedProviderName;
   }
 
-  if (status === "pending" || status === "cancelled") {
+  if (status === "open" || status === "cancelled" || status === "awaiting_review") {
     request.matchedProviderId = undefined;
     request.matchedProviderName = undefined;
   }
@@ -306,7 +322,7 @@ export async function deleteProvider(id: string): Promise<boolean> {
     if (quote.matchedProviderId === id) {
       quote.matchedProviderId = undefined;
       quote.matchedProviderName = undefined;
-      if (quote.status === "matched") quote.status = "pending";
+      if (quote.status === "accepted") quote.status = "open";
     }
   }
 
@@ -519,7 +535,7 @@ export async function getProviderSummaries(): Promise<ProviderSummary[]> {
         (quote) => quote.matchedProviderId === provider.id
       );
       const completedQuotes = relatedQuotes.filter((quote) => quote.status === "completed");
-      const activeQuotes = relatedQuotes.filter((quote) => quote.status === "matched");
+      const activeQuotes = relatedQuotes.filter((quote) => quote.status === "accepted");
       const platformPurchases = provider.platformPurchases ?? [];
       const certificates = store.providerCertificates.filter(
         (cert) => cert.providerId === provider.id
@@ -913,7 +929,7 @@ export async function getStats() {
     providers: totalProviders,
     jobs: totalJobs,
     avgRating: 4.8,
-    pendingRequests: store.quoteRequests.filter((r) => r.status === "pending").length,
+    pendingRequests: store.quoteRequests.filter((r) => r.status === "open").length,
   };
 }
 
@@ -921,8 +937,11 @@ export async function getAdminStats() {
   const store = await ensureStore();
   const commissionRate = getCommissionRate();
 
-  const pendingQuotes = store.quoteRequests.filter((r) => r.status === "pending");
-  const matchedQuotes = store.quoteRequests.filter((r) => r.status === "matched");
+  const openQuotes = store.quoteRequests.filter((r) => r.status === "open");
+  const awaitingReviewQuotes = store.quoteRequests.filter(
+    (r) => r.status === "awaiting_review"
+  );
+  const matchedQuotes = store.quoteRequests.filter((r) => r.status === "accepted");
   const completedQuotes = store.quoteRequests.filter((r) => r.status === "completed");
 
   const pendingProviders = store.providers.filter((p) => p.status === "pending");
@@ -949,8 +968,10 @@ export async function getAdminStats() {
 
   return {
     commissionRate,
-    pendingQuotes: pendingQuotes.length,
+    openQuotes: openQuotes.length,
+    awaitingReviewQuotes: awaitingReviewQuotes.length,
     matchedQuotes: matchedQuotes.length,
+    pendingQuotes: openQuotes.length,
     completedQuotes: completedQuotes.length,
     pendingProviders: pendingProviders.length,
     approvedProviders: approvedProviders.length,
@@ -1188,4 +1209,322 @@ export async function getMonthlyLeaderboard(limit = 5) {
   return [...scores.values()]
     .sort((a, b) => b.completedJobs - a.completedJobs || b.earnings - a.earnings)
     .slice(0, limit);
+}
+
+export async function getOpenQuotesForProvider(providerId: string) {
+  const store = await ensureStore();
+  const provider = store.providers.find((p) => p.id === providerId);
+  if (!provider || provider.status !== "approved") return [];
+
+  return store.quoteRequests
+    .filter((quote) => quoteIsOpenForOffers(quote) && providerCanSeeQuote(provider, quote))
+    .map((quote) => {
+      const offerCount = store.providerOffers.filter(
+        (o) => o.quoteRequestId === quote.id && o.status === "pending"
+      ).length;
+      const myOffer = store.providerOffers.find(
+        (o) => o.quoteRequestId === quote.id && o.providerId === providerId
+      );
+      return {
+        ...toPublicQuoteListItem(quote, offerCount, false),
+        myOffer: myOffer ? enrichOffer(myOffer, provider) : undefined,
+      };
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function submitProviderOffer(
+  providerId: string,
+  quoteRequestId: string,
+  price: number,
+  message: string,
+  estimatedDays?: number
+): Promise<{ offer?: ProviderOffer; error?: string }> {
+  const store = await ensureStore();
+  const provider = store.providers.find((p) => p.id === providerId);
+  const quote = store.quoteRequests.find((q) => q.id === quoteRequestId);
+
+  if (!provider || provider.status !== "approved") {
+    return { error: "Usta hesabı onaylı değil." };
+  }
+  if (!quote || !quoteIsOpenForOffers(quote)) {
+    return { error: "Talep teklif almaya kapalı." };
+  }
+  if (!providerCanSeeQuote(provider, quote)) {
+    return { error: "Bu talep bölge veya kategori uygun değil." };
+  }
+  if ((provider.creditBalance ?? 0) < 1) {
+    return { error: "Yetersiz teklif kontörü." };
+  }
+  if (price <= 0 || message.trim().length < 5) {
+    return { error: "Geçerli fiyat ve en az 5 karakterlik mesaj girin." };
+  }
+  if (
+    store.providerOffers.some(
+      (o) => o.quoteRequestId === quoteRequestId && o.providerId === providerId
+    )
+  ) {
+    return { error: "Bu talebe zaten teklif verdiniz." };
+  }
+
+  const offer: ProviderOffer = {
+    id: generateId(),
+    quoteRequestId,
+    providerId,
+    price: Math.round(price),
+    message: message.trim(),
+    estimatedDays,
+    status: "pending",
+    createdAt: new Date().toISOString(),
+    providerName: provider.name,
+    providerCity: provider.city,
+  };
+
+  provider.creditBalance = (provider.creditBalance ?? 0) - 1;
+  store.providerOffers.unshift(offer);
+  await saveStore(store);
+  return { offer };
+}
+
+export async function getOffersForQuoteRequest(quoteId: string): Promise<ProviderOffer[]> {
+  const store = await ensureStore();
+  return store.providerOffers
+    .filter((o) => o.quoteRequestId === quoteId && o.status === "pending")
+    .map((o) => {
+      const provider = store.providers.find((p) => p.id === o.providerId);
+      return enrichOffer(o, provider);
+    })
+    .sort((a, b) => a.price - b.price);
+}
+
+export async function getProviderOffersForQuote(quoteId: string): Promise<ProviderOffer[]> {
+  const store = await ensureStore();
+  return store.providerOffers
+    .filter((o) => o.quoteRequestId === quoteId)
+    .map((o) => {
+      const provider = store.providers.find((p) => p.id === o.providerId);
+      return enrichOffer(o, provider);
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function acceptProviderOffer(
+  quoteId: string,
+  offerId: string
+): Promise<{ quote?: QuoteRequest; error?: string }> {
+  const store = await ensureStore();
+  const quote = store.quoteRequests.find((q) => q.id === quoteId);
+  const offer = store.providerOffers.find((o) => o.id === offerId);
+
+  if (!quote || !offer || offer.quoteRequestId !== quoteId) {
+    return { error: "Teklif bulunamadı." };
+  }
+  if (!quoteIsOpenForOffers(quote)) {
+    return { error: "Talep artık açık değil." };
+  }
+  if (offer.status !== "pending") {
+    return { error: "Teklif geçersiz." };
+  }
+
+  const provider = store.providers.find((p) => p.id === offer.providerId);
+  if (!provider) return { error: "Usta bulunamadı." };
+
+  quote.status = "accepted";
+  quote.matchedProviderId = provider.id;
+  quote.matchedProviderName = provider.name;
+  quote.acceptedOfferId = offer.id;
+  offer.status = "accepted";
+
+  for (const o of store.providerOffers) {
+    if (o.quoteRequestId === quoteId && o.id !== offerId && o.status === "pending") {
+      o.status = "rejected";
+    }
+  }
+
+  await saveStore(store);
+  return { quote };
+}
+
+export async function getAcceptedContactDetails(quoteId: string) {
+  const store = await ensureStore();
+  const quote = store.quoteRequests.find((q) => q.id === quoteId);
+  if (!quote || quote.status !== "accepted" || !quote.matchedProviderId) {
+    return null;
+  }
+  const provider = store.providers.find((p) => p.id === quote.matchedProviderId);
+  if (!provider) return null;
+  return {
+    customer: { name: quote.name, phone: quote.phone, email: quote.email },
+    provider: { name: provider.name, phone: provider.phone, email: provider.email },
+  };
+}
+
+export async function getQuoteOfferCounts(): Promise<Record<string, number>> {
+  const store = await ensureStore();
+  const counts: Record<string, number> = {};
+  for (const offer of store.providerOffers) {
+    if (offer.status === "withdrawn") continue;
+    counts[offer.quoteRequestId] = (counts[offer.quoteRequestId] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export async function approveDemoQuoteRequests(): Promise<number> {
+  const store = await ensureStore();
+  let count = 0;
+  for (const quote of store.quoteRequests) {
+    if (!quote.id.startsWith("demo-quote-")) continue;
+    if (quote.status !== "awaiting_review" && quote.status !== "open") continue;
+    if (quote.status === "awaiting_review") {
+      quote.status = "open";
+      count++;
+    }
+  }
+  if (count > 0) await saveStore(store);
+  return count;
+}
+
+export async function adminMatchQuoteToProvider(
+  quoteId: string,
+  providerId: string
+): Promise<{ quote?: QuoteRequest; error?: string }> {
+  const store = await ensureStore();
+  const quote = store.quoteRequests.find((q) => q.id === quoteId);
+  const provider = store.providers.find((p) => p.id === providerId);
+
+  if (!quote) return { error: "Talep bulunamadı." };
+  if (!provider || provider.status !== "approved") return { error: "Usta bulunamadı." };
+  if (quote.status !== "open" && quote.status !== "awaiting_review") {
+    return { error: "Bu talep eşleştirilemez." };
+  }
+
+  quote.status = "accepted";
+  quote.matchedProviderId = provider.id;
+  quote.matchedProviderName = provider.name;
+
+  for (const offer of store.providerOffers) {
+    if (offer.quoteRequestId === quoteId && offer.status === "pending") {
+      offer.status = "rejected";
+    }
+  }
+
+  await saveStore(store);
+  return { quote };
+}
+
+export async function autoMatchQuote(
+  quoteId: string
+): Promise<{ quote?: QuoteRequest; error?: string; method?: "offer" | "provider" }> {
+  const store = await ensureStore();
+  const quote = store.quoteRequests.find((q) => q.id === quoteId);
+  if (!quote) return { error: "Talep bulunamadı." };
+
+  if (quote.status === "awaiting_review") {
+    quote.status = "open";
+  }
+  if (quote.status !== "open") {
+    return { error: "Talep eşleştirilemez." };
+  }
+
+  const offers = store.providerOffers.filter(
+    (o) => o.quoteRequestId === quoteId && o.status === "pending"
+  );
+  if (offers.length > 0) {
+    const best = [...offers].sort((a, b) => a.price - b.price)[0];
+    return acceptProviderOffer(quoteId, best.id).then((r) =>
+      r.error ? r : { quote: r.quote, method: "offer" as const }
+    );
+  }
+
+  const approved = store.providers.filter((p) => p.status === "approved");
+  const activeJobs = new Map<string, number>();
+  for (const q of store.quoteRequests) {
+    if (q.status !== "accepted" || !q.matchedProviderId) continue;
+    activeJobs.set(q.matchedProviderId, (activeJobs.get(q.matchedProviderId) ?? 0) + 1);
+  }
+
+  const { pickBestProvider } = await import("./quote-matching");
+  const bestProvider = pickBestProvider(quote, approved, activeJobs);
+  if (!bestProvider) return { error: "Uygun usta bulunamadı." };
+
+  return adminMatchQuoteToProvider(quoteId, bestProvider.id).then((r) =>
+    r.error ? r : { quote: r.quote, method: "provider" as const }
+  );
+}
+
+export async function bulkAdminQuoteAction(params: {
+  ids: string[];
+  action: "approve" | "reject" | "match";
+  providerId?: string;
+}): Promise<import("./quote-matching").BulkQuoteActionResult> {
+  const result: import("./quote-matching").BulkQuoteActionResult = {
+    processed: params.ids.length,
+    succeeded: [],
+    failed: [],
+  };
+
+  for (const id of params.ids) {
+    try {
+      if (params.action === "approve") {
+        const quote = await getQuoteRequestById(id);
+        if (!quote) {
+          result.failed.push({ id, error: "Talep bulunamadı." });
+        } else if (quote.status !== "awaiting_review") {
+          result.failed.push({ id, error: "Onaylanamaz durumda." });
+        } else {
+          const updated = await updateQuoteRequestStatus(id, "open");
+          if (updated) result.succeeded.push(id);
+          else result.failed.push({ id, error: "Güncellenemedi." });
+        }
+      } else if (params.action === "reject") {
+        const quote = await getQuoteRequestById(id);
+        if (!quote) {
+          result.failed.push({ id, error: "Talep bulunamadı." });
+        } else if (quote.status !== "awaiting_review" && quote.status !== "open") {
+          result.failed.push({ id, error: "Reddedilemez durumda." });
+        } else {
+          const updated = await updateQuoteRequestStatus(id, "cancelled");
+          if (updated) result.succeeded.push(id);
+          else result.failed.push({ id, error: "Güncellenemedi." });
+        }
+      } else if (params.action === "match") {
+        if (!params.providerId) {
+          result.failed.push({ id, error: "Usta seçilmedi." });
+          continue;
+        }
+        const r = await adminMatchQuoteToProvider(id, params.providerId);
+        if (r.error) result.failed.push({ id, error: r.error });
+        else result.succeeded.push(id);
+      }
+    } catch {
+      result.failed.push({ id, error: "İşlem başarısız." });
+    }
+  }
+
+  return result;
+}
+
+export async function autoMatchQuotes(
+  ids: string[]
+): Promise<import("./quote-matching").BulkQuoteActionResult & { methods: Record<string, string> }> {
+  const result: import("./quote-matching").BulkQuoteActionResult & {
+    methods: Record<string, string>;
+  } = {
+    processed: ids.length,
+    succeeded: [],
+    failed: [],
+    methods: {},
+  };
+
+  for (const id of ids) {
+    const r = await autoMatchQuote(id);
+    if (r.error) {
+      result.failed.push({ id, error: r.error });
+    } else {
+      result.succeeded.push(id);
+      if (r.method) result.methods[id] = r.method;
+    }
+  }
+
+  return result;
 }

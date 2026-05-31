@@ -39,7 +39,7 @@ export default function UrgentJobCard({ quote }: { quote: QuoteRequest }) {
         <span>
           Durum:{" "}
           <strong className="text-foreground">
-            {quote.status === "matched" ? "Usta eşleşti" : "Usta aranıyor"}
+            {quote.status === "accepted" ? "Usta seçildi" : "Usta aranıyor"}
           </strong>
         </span>
       </div>
@@ -50,7 +50,7 @@ export default function UrgentJobCard({ quote }: { quote: QuoteRequest }) {
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link
-          href="/usta-ol"
+          href="/usta/giris"
           className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
         >
           Usta olarak teklif ver

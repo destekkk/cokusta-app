@@ -25,6 +25,7 @@ import type {
   ProviderPortfolioItem,
   ProviderRegistration,
   QuoteRequest,
+  ProviderOffer,
   TaxDeclaration,
   CertificateType,
 } from "../types";
@@ -35,6 +36,11 @@ type ProviderWithRelations = PrismaProvider & {
 };
 
 export function toQuoteRequest(row: PrismaQuote): QuoteRequest {
+  const rawStatus = row.status as string;
+  let status = row.status as QuoteRequest["status"];
+  if (rawStatus === "pending") status = "open";
+  if (rawStatus === "matched") status = "accepted";
+
   return {
     id: row.id,
     serviceSlug: row.serviceSlug,
@@ -48,9 +54,10 @@ export function toQuoteRequest(row: PrismaQuote): QuoteRequest {
     email: row.email,
     notes: row.notes,
     createdAt: row.createdAt.toISOString(),
-    status: row.status as QuoteRequest["status"],
+    status,
     matchedProviderId: row.matchedProviderId ?? undefined,
     matchedProviderName: row.matchedProviderName ?? undefined,
+    acceptedOfferId: undefined,
     jobValue: row.jobValue ?? undefined,
     commissionRate: row.commissionRate ?? undefined,
     commissionAmount: row.commissionAmount ?? undefined,
@@ -200,6 +207,21 @@ export function invoiceReferenceType(
 }
 
 export function quoteStatus(status: QuoteRequest["status"]): QuoteStatus {
+  return status as QuoteStatus;
+}
+
+/** DB yazımı — eski enum (pending/matched) ile uyum */
+export function quoteStatusLegacyWrite(
+  status: QuoteRequest["status"]
+): "pending" | "matched" | "completed" | "cancelled" {
+  if (status === "open" || status === "awaiting_review") return "pending";
+  if (status === "accepted") return "matched";
+  return status;
+}
+
+export function offerStatus(
+  status: ProviderOffer["status"]
+): import("@prisma/client").OfferStatus {
   return status;
 }
 

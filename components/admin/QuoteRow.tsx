@@ -1,23 +1,26 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatDateTime } from "@/lib/admin-labels";
 import { formatUrgentRemaining } from "@/lib/urgent";
 import { getQuoteAnswers } from "@/lib/quote-answers";
 import InvoiceButton from "@/components/admin/InvoiceButton";
-import type { ProviderRegistration, QuoteRequest } from "@/lib/types";
+import { quotePhoneForAdmin } from "@/lib/quote-privacy";
+import type { ProviderOffer, QuoteRequest } from "@/lib/types";
 
 const statusLabels: Record<QuoteRequest["status"], string> = {
-  pending: "Bekliyor",
-  matched: "Ustaya Eşleştirildi",
+  awaiting_review: "Onay Bekliyor",
+  open: "Yayında",
+  accepted: "Usta Seçildi",
   completed: "Tamamlandı",
   cancelled: "İptal Edildi",
 };
 
 const statusColors: Record<QuoteRequest["status"], string> = {
-  pending: "bg-amber-100 text-amber-800",
-  matched: "bg-blue-100 text-blue-800",
+  awaiting_review: "bg-orange-100 text-orange-800",
+  open: "bg-amber-100 text-amber-800",
+  accepted: "bg-blue-100 text-blue-800",
   completed: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-red-100 text-red-800",
 };
@@ -42,25 +45,24 @@ function DetailItem({
 export default function QuoteRow({
   quote,
   commissionRate,
-  approvedProviders,
 }: {
   quote: QuoteRequest;
   commissionRate: number;
-  approvedProviders: ProviderRegistration[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [jobValue, setJobValue] = useState("");
   const [showComplete, setShowComplete] = useState(false);
-  const [showMatchForm, setShowMatchForm] = useState(false);
-  const [selectedProviderId, setSelectedProviderId] = useState(
-    approvedProviders[0]?.id ?? ""
-  );
+  const [offers, setOffers] = useState<ProviderOffer[]>([]);
 
   const answers = useMemo(() => getQuoteAnswers(quote), [quote]);
-  const selectedProvider = approvedProviders.find(
-    (provider) => provider.id === selectedProviderId
-  );
+
+  useEffect(() => {
+    fetch(`/api/admin/teklif/${quote.id}/offers`)
+      .then((r) => r.json())
+      .then((d) => setOffers(d.offers ?? []))
+      .catch(() => setOffers([]));
+  }, [quote.id, quote.status]);
 
   const updateStatus = async (
     status: QuoteRequest["status"],
@@ -83,7 +85,6 @@ export default function QuoteRow({
         throw new Error(data.error ?? "İşlem başarısız");
       }
       setShowComplete(false);
-      setShowMatchForm(false);
       router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Güncelleme başarısız");
@@ -121,12 +122,38 @@ export default function QuoteRow({
 
       <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <DetailItem label="Müşteri Adı" value={quote.name} />
-        <DetailItem label="Telefon" value={quote.phone} />
+        <DetailItem label="Telefon" value={quotePhoneForAdmin(quote)} />
         <DetailItem label="E-posta" value={quote.email || "Belirtilmemiş"} />
         <DetailItem label="Şehir" value={quote.city} />
         <DetailItem label="İlçe" value={quote.district} />
         <DetailItem label="Talep No" value={quote.id} />
       </div>
+
+      {offers.length > 0 && (
+        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-4">
+          <p className="text-sm font-semibold text-foreground">
+            Usta teklifleri ({offers.length})
+          </p>
+          <ul className="mt-2 space-y-2 text-sm">
+            {offers.map((offer) => (
+              <li key={offer.id} className="flex flex-wrap justify-between gap-2">
+                <span>
+                  {offer.providerName} · {offer.price.toLocaleString("tr-TR")} ₺
+                  {offer.status === "accepted" && " ✓ seçildi"}
+                </span>
+                <span className="text-muted-foreground">{offer.status}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Müşteri teklifleri{" "}
+            <a href={`/tekliflerim/${quote.id}`} className="text-primary hover:underline">
+              /tekliflerim/{quote.id}
+            </a>{" "}
+            üzerinden kabul eder; telefon o zaman açılır.
+          </p>
+        </div>
+      )}
 
       {quote.matchedProviderName && (
         <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900">
@@ -187,82 +214,50 @@ export default function QuoteRow({
       )}
 
       <div className="mt-5 space-y-3 border-t border-border pt-5">
-        {quote.status === "pending" && (
+        {quote.status === "awaiting_review" && (
           <>
             <p className="text-sm text-muted-foreground">
-              Uygun bir usta bulduysanız eşleştirin. Geçersiz veya eksik talepleri iptal edebilirsiniz.
+              Talep henüz yayında değil. İnceleyip uygunsa yayına alın; geçersizse reddedin.
             </p>
-            {!showMatchForm ? (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => setShowMatchForm(true)}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
-                >
-                  Ustaya Eşleştir
-                </button>
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => updateStatus("cancelled")}
-                  className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-60"
-                >
-                  İptal Et
-                </button>
-              </div>
-            ) : (
-              <div className="max-w-md space-y-3">
-                {approvedProviders.length === 0 ? (
-                  <p className="text-sm text-amber-700">
-                    Onaylı usta yok. Önce usta başvurusunu onaylayın.
-                  </p>
-                ) : (
-                  <>
-                    <label className="block text-sm font-medium text-foreground">
-                      Usta seçin
-                    </label>
-                    <select
-                      value={selectedProviderId}
-                      onChange={(e) => setSelectedProviderId(e.target.value)}
-                      className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-                    >
-                      {approvedProviders.map((provider) => (
-                        <option key={provider.id} value={provider.id}>
-                          {provider.name} · {provider.city}
-                        </option>
-                      ))}
-                    </select>
-                  </>
-                )}
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={loading || !selectedProvider}
-                    onClick={() =>
-                      updateStatus("matched", {
-                        matchedProviderId: selectedProvider?.id,
-                        matchedProviderName: selectedProvider?.name,
-                      })
-                    }
-                    className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                  >
-                    Eşleştirmeyi Onayla
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowMatchForm(false)}
-                    className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
-                  >
-                    Vazgeç
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => updateStatus("open")}
+                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+              >
+                Yayına Al
+              </button>
+              <button
+                type="button"
+                disabled={loading}
+                onClick={() => updateStatus("cancelled")}
+                className="rounded-lg border border-red-200 px-4 py-2 text-sm text-red-700 hover:bg-red-50 disabled:opacity-60"
+              >
+                Reddet
+              </button>
+            </div>
           </>
         )}
 
-        {quote.status === "matched" && (
+        {quote.status === "open" && (
+          <>
+            <p className="text-sm text-muted-foreground">
+              Talep yayında. Ustalar teklif verir; müşteri{" "}
+              <strong>/tekliflerim/{quote.id}</strong> sayfasından usta seçer.
+            </p>
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => updateStatus("cancelled")}
+              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-60"
+            >
+              İptal Et
+            </button>
+          </>
+        )}
+
+        {quote.status === "accepted" && (
           <>
             {!showComplete ? (
               <button

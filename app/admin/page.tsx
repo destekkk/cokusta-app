@@ -44,10 +44,14 @@ export default async function AdminDashboardPage() {
       </section>
 
       {/* Özet kartlar */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Link href="/admin/teklifler" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
+          <div className="text-3xl font-bold text-orange-600">{stats.awaitingReviewQuotes}</div>
+          <div className="mt-1 text-sm font-medium text-foreground">Onay bekleyen teklif</div>
+        </Link>
         <Link href="/admin/teklifler" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
           <div className="text-3xl font-bold text-amber-600">{stats.pendingQuotes}</div>
-          <div className="mt-1 text-sm font-medium text-foreground">Bekleyen teklif</div>
+          <div className="mt-1 text-sm font-medium text-foreground">Yayında (usta bekliyor)</div>
         </Link>
         <Link href="/admin/teklifler" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
           <div className="text-3xl font-bold text-blue-600">{stats.matchedQuotes}</div>

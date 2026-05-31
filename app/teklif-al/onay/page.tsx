@@ -27,25 +27,58 @@ export default async function QuoteConfirmationPage({ searchParams }: Props) {
             Teklif talebiniz alındı!
           </h1>
           <p className="mt-3 text-muted-foreground">
-            {request ? (
+            {request?.status === "awaiting_review" ? (
+              <>
+                <strong>{request.serviceName}</strong> talebiniz kaydedildi. Ekibimiz kısa süre
+                içinde inceleyecek; onaylandıktan sonra <strong>{request.city}</strong> bölgesindeki
+                ustalar bilgilendirilecek.
+              </>
+            ) : request ? (
               <>
                 <strong>{request.serviceName}</strong> hizmeti için{" "}
-                <strong>{request.city}</strong> bölgesindeki ustalar en kısa sürede
-                size teklif gönderecek.
+                <strong>{request.city}</strong> bölgesindeki ustalar en kısa sürede size teklif
+                gönderecek.
               </>
             ) : (
               "Bölgenizdeki ustalar en kısa sürede size teklif gönderecek."
             )}
           </p>
 
+          {request?.status === "awaiting_review" && (
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-left text-sm text-amber-900">
+              <p className="font-semibold">İnceleniyor</p>
+              <p className="mt-1">
+                Talebiniz admin onayından sonra yayına alınır. Onay sonrası size dönüş yapılacaktır.
+              </p>
+            </div>
+          )}
+
           {request && (
             <div className="mt-6 rounded-xl bg-background p-4 text-left text-sm">
               <p className="text-muted-foreground">Talep No</p>
               <p className="font-mono text-xs text-foreground">{request.id}</p>
+              {request.status !== "awaiting_review" && (
+                <Link
+                  href={`/tekliflerim/${request.id}`}
+                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                >
+                  Tekliflerimi gör →
+                </Link>
+              )}
             </div>
           )}
 
-          {request?.urgent && (
+          {request?.status === "awaiting_review" && request.urgent && (
+            <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-left text-sm text-red-900">
+              <p className="font-semibold">Çok acil talep</p>
+              <p className="mt-1">
+                Onaylandıktan sonra ilanınız Çok Acil bölümünde yayınlanacak ve ustalar öncelikli
+                bilgilendirilecek.
+              </p>
+            </div>
+          )}
+
+          {request?.urgent && request.status !== "awaiting_review" && (
             <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-left">
               <p className="text-sm font-bold text-red-700">🚨 Çok acil ilanınız yayında</p>
               <p className="mt-2 text-sm text-red-800/90">
@@ -64,7 +97,7 @@ export default async function QuoteConfirmationPage({ searchParams }: Props) {
             </div>
           )}
 
-          {request?.priorityListing && (
+          {request?.priorityListing && request.status !== "awaiting_review" && (
             <div className="mt-6 rounded-xl border border-secondary/30 bg-secondary/5 p-4 text-left">
               <p className="text-sm font-bold text-secondary">⚡ Öncelikli ilan aktif</p>
               <p className="mt-2 text-sm text-muted-foreground">

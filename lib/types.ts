@@ -42,9 +42,10 @@ export type QuoteRequest = {
   email: string;
   notes: string;
   createdAt: string;
-  status: "pending" | "matched" | "completed" | "cancelled";
+  status: "awaiting_review" | "open" | "accepted" | "completed" | "cancelled";
   matchedProviderId?: string;
   matchedProviderName?: string;
+  acceptedOfferId?: string;
   jobValue?: number;
   commissionRate?: number;
   commissionAmount?: number;
@@ -56,6 +57,19 @@ export type QuoteRequest = {
   /** 3 gün içinde tamamlanması gereken çok acil iş */
   urgent?: boolean;
   urgentDeadline?: string;
+};
+
+export type ProviderOffer = {
+  id: string;
+  quoteRequestId: string;
+  providerId: string;
+  providerName?: string;
+  providerCity?: string;
+  price: number;
+  message: string;
+  estimatedDays?: number;
+  status: "pending" | "accepted" | "rejected" | "withdrawn";
+  createdAt: string;
 };
 
 export type ProviderPlatformPurchase = {
@@ -222,6 +236,7 @@ export type ProviderOfTheMonth = {
 
 export type Store = {
   quoteRequests: QuoteRequest[];
+  providerOffers: ProviderOffer[];
   providers: ProviderRegistration[];
   customers: Customer[];
   invoices: Invoice[];

@@ -10,10 +10,18 @@ datasource db {
 }
 
 enum QuoteStatus {
-  pending
-  matched
+  awaiting_review
+  open
+  accepted
   completed
   cancelled
+}
+
+enum OfferStatus {
+  pending
+  accepted
+  rejected
+  withdrawn
 }
 
 enum ProviderStatus {
@@ -51,7 +59,7 @@ model QuoteRequest {
   email               String      @db.VarChar(255)
   notes               String      @db.Text
   createdAt           DateTime    @map("created_at")
-  status              QuoteStatus @default(pending)
+  status              QuoteStatus @default(open)
   matchedProviderId   String?     @map("matched_provider_id") @db.VarChar(64)
   matchedProviderName String?     @map("matched_provider_name") @db.VarChar(255)
   jobValue            Int?        @map("job_value")
@@ -65,12 +73,33 @@ model QuoteRequest {
   urgentDeadline      DateTime?   @map("urgent_deadline")
 
   matchedProvider Provider? @relation(fields: [matchedProviderId], references: [id], onDelete: SetNull)
+  offers            ProviderOffer[]
 
   @@index([status])
   @@index([phone])
   @@index([createdAt])
   @@index([matchedProviderId])
   @@map("quote_requests")
+}
+
+model ProviderOffer {
+  id             String      @id @db.VarChar(64)
+  quoteRequestId String      @map("quote_request_id") @db.VarChar(64)
+  providerId     String      @map("provider_id") @db.VarChar(64)
+  price          Int
+  message        String      @db.Text
+  estimatedDays  Int?        @map("estimated_days")
+  status         OfferStatus @default(pending)
+  createdAt      DateTime    @map("created_at")
+
+  quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteRequestId, providerId])
+  @@index([quoteRequestId])
+  @@index([providerId])
+  @@index([status])
+  @@map("provider_offers")
 }
 
 model Provider {
@@ -91,6 +120,7 @@ model Provider {
   launchBonusGranted Boolean        @default(false) @map("launch_bonus_granted")
 
   quotes            QuoteRequest[]
+  offers            ProviderOffer[]
   portfolio         ProviderPortfolioItem[]
   platformPurchases ProviderPlatformPurchase[]
   certificates      ProviderCertificate[]

@@ -12,7 +12,7 @@ export function isUrgentActive(quote: {
   status: string;
 }): boolean {
   if (!quote.urgent) return false;
-  if (quote.status !== "pending" && quote.status !== "matched") return false;
+  if (quote.status !== "open" && quote.status !== "accepted") return false;
   if (!quote.urgentDeadline) return true;
   return new Date(quote.urgentDeadline) >= new Date();
 }

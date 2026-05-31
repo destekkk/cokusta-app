@@ -18,16 +18,14 @@ export async function PATCH(request: Request, { params }: Props) {
     const matchedProviderId = body.matchedProviderId as string | undefined;
     const matchedProviderName = body.matchedProviderName as string | undefined;
 
-    const valid: QuoteRequest["status"][] = ["pending", "matched", "completed", "cancelled"];
+    const valid: QuoteRequest["status"][] = [
+      "awaiting_review",
+      "open",
+      "completed",
+      "cancelled",
+    ];
     if (!valid.includes(status)) {
       return NextResponse.json({ error: "Geçersiz durum." }, { status: 400 });
-    }
-
-    if (status === "matched" && !matchedProviderId) {
-      return NextResponse.json(
-        { error: "Eşleştirme için usta seçilmeli." },
-        { status: 400 }
-      );
     }
 
     if (status === "completed" && (!jobValue || jobValue <= 0)) {

@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "next start"
+    "start": "next start",
+    "seed:quotes": "npx tsx scripts/seed-demo-quotes.ts",
+    "approve:demo-quotes": "npx tsx scripts/approve-demo-quotes.ts"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

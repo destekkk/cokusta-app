@@ -10,10 +10,17 @@ import type {
   ProviderPlatformPurchase,
   ProviderPortfolioItem,
   ProviderRegistration,
+  ProviderOffer,
   ProviderSummary,
   QuoteRequest,
   TaxDeclaration,
 } from "./types";
+import {
+  enrichOffer,
+  providerCanSeeQuote,
+  quoteIsOpenForOffers,
+  toPublicQuoteListItem,
+} from "./offer-utils";
 import {
   buildCertificatePayload,
   computeBlockHash,
@@ -35,6 +42,7 @@ import {
   providerStatus,
   purchaseStatus,
   quoteStatus,
+  quoteStatusLegacyWrite,
   toCertificate,
   toCertificateBlock,
   toCustomer,
@@ -143,7 +151,7 @@ export async function createQuoteRequest(
       email: data.email,
       notes: data.notes,
       createdAt,
-      status: "pending",
+      status: "awaiting_review",
       urgent: data.urgent ?? false,
       urgentDeadline:
         data.urgent ?? false ? computeUrgentDeadline(createdAt) : undefined,
@@ -230,12 +238,12 @@ export async function updateQuoteRequestStatus(
 
   const data: Record<string, unknown> = { status: quoteStatus(status) };
 
-  if (status === "matched") {
+  if (status === "accepted") {
     data.matchedProviderId = options?.matchedProviderId;
     data.matchedProviderName = options?.matchedProviderName;
   }
 
-  if (status === "pending" || status === "cancelled") {
+  if (status === "open" || status === "cancelled" || status === "awaiting_review") {
     data.matchedProviderId = null;
     data.matchedProviderName = null;
   }
@@ -255,8 +263,33 @@ export async function updateQuoteRequestStatus(
     data.completedAt = null;
   }
 
-  const row = await prisma.quoteRequest.update({ where: { id }, data });
-  return toQuoteRequest(row);
+  try {
+    const row = await prisma.quoteRequest.update({ where: { id }, data });
+    return toQuoteRequest(row);
+  } catch {
+    const legacyStatus = quoteStatusLegacyWrite(status);
+    await prisma.$executeRawUnsafe(
+      `UPDATE quote_requests SET status = $1::"QuoteStatus" WHERE id = $2`,
+      legacyStatus,
+      id
+    );
+    if (status === "accepted") {
+      await prisma.$executeRawUnsafe(
+        `UPDATE quote_requests SET matched_provider_id = $1, matched_provider_name = $2 WHERE id = $3`,
+        options?.matchedProviderId ?? null,
+        options?.matchedProviderName ?? null,
+        id
+      );
+    }
+    if (status === "open" || status === "cancelled" || status === "awaiting_review") {
+      await prisma.$executeRawUnsafe(
+        `UPDATE quote_requests SET matched_provider_id = NULL, matched_provider_name = NULL WHERE id = $1`,
+        id
+      );
+    }
+    const row = await prisma.quoteRequest.findUnique({ where: { id } });
+    return row ? toQuoteRequest(row) : null;
+  }
 }
 
 export async function updateProviderStatus(
@@ -371,17 +404,17 @@ export async function deleteProvider(id: string): Promise<boolean> {
 
   await prisma.$transaction([
     prisma.quoteRequest.updateMany({
-      where: { matchedProviderId: id, status: "matched" },
+      where: { matchedProviderId: id, status: "accepted" },
       data: {
         matchedProviderId: null,
         matchedProviderName: null,
-        status: "pending",
+        status: "open",
       },
     }),
     prisma.quoteRequest.updateMany({
       where: {
         matchedProviderId: id,
-        status: { not: "matched" },
+        status: { not: "accepted" },
       },
       data: {
         matchedProviderId: null,
@@ -621,7 +654,7 @@ export async function getProviderSummaries(): Promise<ProviderSummary[]> {
       .filter((quote) => quote.matchedProviderId === provider.id)
       .map(toQuoteRequest);
     const completedQuotes = relatedQuotes.filter((quote) => quote.status === "completed");
-    const activeQuotes = relatedQuotes.filter((quote) => quote.status === "matched");
+    const activeQuotes = relatedQuotes.filter((quote) => quote.status === "accepted");
     const platformPurchases = provider.platformPurchases ?? [];
     const providerCerts = certificates.filter((cert) => cert.providerId === provider.id);
 
@@ -1025,7 +1058,7 @@ export async function getStats() {
   const [approvedProviders, completedJobs, pendingRequests] = await Promise.all([
     prisma.provider.count({ where: { status: "approved" } }),
     prisma.quoteRequest.count({ where: { status: "completed" } }),
-    prisma.quoteRequest.count({ where: { status: "pending" } }),
+    prisma.quoteRequest.count({ where: { status: "open" } }),
   ]);
 
   return {
@@ -1041,8 +1074,9 @@ export async function getAdminStats() {
   const quotes = (await prisma.quoteRequest.findMany()).map(toQuoteRequest);
   const providers = await prisma.provider.findMany();
 
-  const pendingQuotes = quotes.filter((r) => r.status === "pending");
-  const matchedQuotes = quotes.filter((r) => r.status === "matched");
+  const openQuotes = quotes.filter((r) => r.status === "open");
+  const awaitingReviewQuotes = quotes.filter((r) => r.status === "awaiting_review");
+  const matchedQuotes = quotes.filter((r) => r.status === "accepted");
   const completedQuotes = quotes.filter((r) => r.status === "completed");
 
   const pendingProviders = providers.filter((p) => p.status === "pending");
@@ -1062,8 +1096,10 @@ export async function getAdminStats() {
 
   return {
     commissionRate,
-    pendingQuotes: pendingQuotes.length,
+    openQuotes: openQuotes.length,
+    awaitingReviewQuotes: awaitingReviewQuotes.length,
     matchedQuotes: matchedQuotes.length,
+    pendingQuotes: openQuotes.length,
     completedQuotes: completedQuotes.length,
     pendingProviders: pendingProviders.length,
     approvedProviders: approvedProviders.length,
@@ -1324,4 +1360,421 @@ export async function getMonthlyLeaderboard(limit = 5) {
   return [...scores.values()]
     .sort((a, b) => b.completedJobs - a.completedJobs || b.earnings - a.earnings)
     .slice(0, limit);
+}
+
+export async function getOpenQuotesForProvider(providerId: string) {
+  const provider = await getProviderById(providerId);
+  if (!provider || provider.status !== "approved") return [];
+
+  const quotes = (await prisma.quoteRequest.findMany({ where: { status: "open" } })).map(
+    toQuoteRequest
+  );
+  const offers = await prisma.providerOffer.findMany({
+    where: { providerId },
+  });
+  const allOffers = await prisma.providerOffer.findMany({
+    where: { quoteRequestId: { in: quotes.map((q) => q.id) }, status: "pending" },
+  });
+
+  return quotes
+    .filter((quote) => providerCanSeeQuote(provider, quote))
+    .map((quote) => {
+      const offerCount = allOffers.filter((o) => o.quoteRequestId === quote.id).length;
+      const myOfferRow = offers.find((o) => o.quoteRequestId === quote.id);
+      const myOffer = myOfferRow
+        ? enrichOffer(
+            {
+              id: myOfferRow.id,
+              quoteRequestId: myOfferRow.quoteRequestId,
+              providerId: myOfferRow.providerId,
+              price: myOfferRow.price,
+              message: myOfferRow.message,
+              estimatedDays: myOfferRow.estimatedDays ?? undefined,
+              status: myOfferRow.status as ProviderOffer["status"],
+              createdAt: myOfferRow.createdAt.toISOString(),
+            },
+            provider
+          )
+        : undefined;
+      return { ...toPublicQuoteListItem(quote, offerCount, false), myOffer };
+    })
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function submitProviderOffer(
+  providerId: string,
+  quoteRequestId: string,
+  price: number,
+  message: string,
+  estimatedDays?: number
+): Promise<{ offer?: ProviderOffer; error?: string }> {
+  const provider = await getProviderById(providerId);
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteRequestId } });
+  const quote = quoteRow ? toQuoteRequest(quoteRow) : undefined;
+
+  if (!provider || provider.status !== "approved") {
+    return { error: "Usta hesabı onaylı değil." };
+  }
+  if (!quote || !quoteIsOpenForOffers(quote)) {
+    return { error: "Talep teklif almaya kapalı." };
+  }
+  if (!providerCanSeeQuote(provider, quote)) {
+    return { error: "Bu talep bölge veya kategori uygun değil." };
+  }
+  if ((provider.creditBalance ?? 0) < 1) {
+    return { error: "Yetersiz teklif kontörü." };
+  }
+  if (price <= 0 || message.trim().length < 5) {
+    return { error: "Geçerli fiyat ve en az 5 karakterlik mesaj girin." };
+  }
+
+  const existing = await prisma.providerOffer.findUnique({
+    where: { quoteRequestId_providerId: { quoteRequestId, providerId } },
+  });
+  if (existing) return { error: "Bu talebe zaten teklif verdiniz." };
+
+  const id = generateId();
+  const createdAt = new Date();
+  await prisma.$transaction([
+    prisma.provider.update({
+      where: { id: providerId },
+      data: { creditBalance: { decrement: 1 } },
+    }),
+    prisma.providerOffer.create({
+      data: {
+        id,
+        quoteRequestId,
+        providerId,
+        price: Math.round(price),
+        message: message.trim(),
+        estimatedDays: estimatedDays ?? null,
+        createdAt,
+        status: "pending",
+      },
+    }),
+  ]);
+
+  return {
+    offer: enrichOffer(
+      {
+        id,
+        quoteRequestId,
+        providerId,
+        price: Math.round(price),
+        message: message.trim(),
+        estimatedDays,
+        status: "pending",
+        createdAt: createdAt.toISOString(),
+      },
+      provider
+    ),
+  };
+}
+
+export async function getOffersForQuoteRequest(quoteId: string): Promise<ProviderOffer[]> {
+  const rows = await prisma.providerOffer.findMany({
+    where: { quoteRequestId: quoteId, status: "pending" },
+    orderBy: { price: "asc" },
+  });
+  const providers = await prisma.provider.findMany({
+    where: { id: { in: rows.map((r) => r.providerId) } },
+  });
+  const providerMap = new Map(providers.map((p) => [p.id, toProvider(p)]));
+
+  return rows.map((row) =>
+    enrichOffer(
+      {
+        id: row.id,
+        quoteRequestId: row.quoteRequestId,
+        providerId: row.providerId,
+        price: row.price,
+        message: row.message,
+        estimatedDays: row.estimatedDays ?? undefined,
+        status: row.status as ProviderOffer["status"],
+        createdAt: row.createdAt.toISOString(),
+      },
+      providerMap.get(row.providerId)
+    )
+  );
+}
+
+export async function getProviderOffersForQuote(quoteId: string): Promise<ProviderOffer[]> {
+  const rows = await prisma.providerOffer.findMany({
+    where: { quoteRequestId: quoteId },
+    orderBy: { createdAt: "desc" },
+  });
+  const providers = await prisma.provider.findMany({
+    where: { id: { in: rows.map((r) => r.providerId) } },
+  });
+  const providerMap = new Map(providers.map((p) => [p.id, toProvider(p)]));
+
+  return rows.map((row) =>
+    enrichOffer(
+      {
+        id: row.id,
+        quoteRequestId: row.quoteRequestId,
+        providerId: row.providerId,
+        price: row.price,
+        message: row.message,
+        estimatedDays: row.estimatedDays ?? undefined,
+        status: row.status as ProviderOffer["status"],
+        createdAt: row.createdAt.toISOString(),
+      },
+      providerMap.get(row.providerId)
+    )
+  );
+}
+
+export async function acceptProviderOffer(quoteId: string, offerId: string) {
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
+  const offerRow = await prisma.providerOffer.findUnique({ where: { id: offerId } });
+  if (!quoteRow || !offerRow || offerRow.quoteRequestId !== quoteId) {
+    return { error: "Teklif bulunamadı." };
+  }
+  const quote = toQuoteRequest(quoteRow);
+  if (!quoteIsOpenForOffers(quote) || offerRow.status !== "pending") {
+    return { error: "Teklif kabul edilemez." };
+  }
+
+  const provider = await prisma.provider.findUnique({ where: { id: offerRow.providerId } });
+  if (!provider) return { error: "Usta bulunamadı." };
+
+  await prisma.$transaction([
+    prisma.quoteRequest.update({
+      where: { id: quoteId },
+      data: {
+        status: "accepted",
+        matchedProviderId: provider.id,
+        matchedProviderName: provider.name,
+      },
+    }),
+    prisma.providerOffer.update({
+      where: { id: offerId },
+      data: { status: "accepted" },
+    }),
+    prisma.providerOffer.updateMany({
+      where: {
+        quoteRequestId: quoteId,
+        id: { not: offerId },
+        status: "pending",
+      },
+      data: { status: "rejected" },
+    }),
+  ]);
+
+  const updated = await prisma.quoteRequest.findUniqueOrThrow({ where: { id: quoteId } });
+  return { quote: toQuoteRequest(updated) };
+}
+
+export async function getAcceptedContactDetails(quoteId: string) {
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
+  if (!quoteRow || quoteRow.status !== "accepted" || !quoteRow.matchedProviderId) {
+    return null;
+  }
+  const provider = await prisma.provider.findUnique({
+    where: { id: quoteRow.matchedProviderId },
+  });
+  if (!provider) return null;
+  return {
+    customer: {
+      name: quoteRow.name,
+      phone: quoteRow.phone,
+      email: quoteRow.email,
+    },
+    provider: {
+      name: provider.name,
+      phone: provider.phone,
+      email: provider.email,
+    },
+  };
+}
+
+export async function getQuoteOfferCounts(): Promise<Record<string, number>> {
+  const rows = await prisma.providerOffer.groupBy({
+    by: ["quoteRequestId"],
+    where: { status: { not: "withdrawn" } },
+    _count: { id: true },
+  });
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    counts[row.quoteRequestId] = row._count.id;
+  }
+  return counts;
+}
+
+export async function approveDemoQuoteRequests(): Promise<number> {
+  try {
+    const result = await prisma.quoteRequest.updateMany({
+      where: {
+        id: { startsWith: "demo-quote-" },
+        status: "awaiting_review",
+      },
+      data: { status: "open" },
+    });
+    if (result.count > 0) return result.count;
+  } catch {
+    // Eski enum
+  }
+
+  const count = await prisma.$executeRawUnsafe(`
+    UPDATE quote_requests SET status = 'pending' WHERE id LIKE 'demo-quote-%'
+  `);
+  return Number(count) || 0;
+}
+
+export async function adminMatchQuoteToProvider(
+  quoteId: string,
+  providerId: string
+): Promise<{ quote?: QuoteRequest; error?: string }> {
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
+  const provider = await prisma.provider.findUnique({ where: { id: providerId } });
+
+  if (!quoteRow) return { error: "Talep bulunamadı." };
+  if (!provider || provider.status !== "approved") return { error: "Usta bulunamadı." };
+  const quote = toQuoteRequest(quoteRow);
+  if (quote.status !== "open" && quote.status !== "awaiting_review") {
+    return { error: "Bu talep eşleştirilemez." };
+  }
+
+  await prisma.$transaction([
+    prisma.quoteRequest.update({
+      where: { id: quoteId },
+      data: {
+        status: "accepted",
+        matchedProviderId: provider.id,
+        matchedProviderName: provider.name,
+      },
+    }),
+    prisma.providerOffer.updateMany({
+      where: { quoteRequestId: quoteId, status: "pending" },
+      data: { status: "rejected" },
+    }),
+  ]);
+
+  const updated = await prisma.quoteRequest.findUniqueOrThrow({ where: { id: quoteId } });
+  return { quote: toQuoteRequest(updated) };
+}
+
+export async function autoMatchQuote(
+  quoteId: string
+): Promise<{ quote?: QuoteRequest; error?: string; method?: "offer" | "provider" }> {
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
+  if (!quoteRow) return { error: "Talep bulunamadı." };
+
+  if (quoteRow.status === "awaiting_review") {
+    await prisma.quoteRequest.update({
+      where: { id: quoteId },
+      data: { status: "open" },
+    });
+  }
+
+  const refreshed = await prisma.quoteRequest.findUniqueOrThrow({ where: { id: quoteId } });
+  const quote = toQuoteRequest(refreshed);
+  if (quote.status !== "open") return { error: "Talep eşleştirilemez." };
+
+  const offers = await prisma.providerOffer.findMany({
+    where: { quoteRequestId: quoteId, status: "pending" },
+    orderBy: { price: "asc" },
+    take: 1,
+  });
+
+  if (offers.length > 0) {
+    const r = await acceptProviderOffer(quoteId, offers[0].id);
+    return r.error ? r : { quote: r.quote, method: "offer" };
+  }
+
+  const [providers, allQuotes] = await Promise.all([
+    prisma.provider.findMany({ where: { status: "approved" } }),
+    prisma.quoteRequest.findMany({ where: { status: "accepted" } }),
+  ]);
+
+  const { pickBestProvider, countActiveJobsByProvider } = await import("./quote-matching");
+  const activeJobs = countActiveJobsByProvider(allQuotes.map(toQuoteRequest));
+  const best = pickBestProvider(
+    quote,
+    providers.map(toProvider),
+    activeJobs
+  );
+  if (!best) return { error: "Uygun usta bulunamadı." };
+
+  return adminMatchQuoteToProvider(quoteId, best.id).then((r) =>
+    r.error ? r : { quote: r.quote, method: "provider" }
+  );
+}
+
+export async function bulkAdminQuoteAction(params: {
+  ids: string[];
+  action: "approve" | "reject" | "match";
+  providerId?: string;
+}): Promise<import("./quote-matching").BulkQuoteActionResult> {
+  const result: import("./quote-matching").BulkQuoteActionResult = {
+    processed: params.ids.length,
+    succeeded: [],
+    failed: [],
+  };
+
+  for (const id of params.ids) {
+    if (params.action === "approve") {
+      const existing = await prisma.quoteRequest.findUnique({ where: { id } });
+      if (!existing) {
+        result.failed.push({ id, error: "Talep bulunamadı." });
+        continue;
+      }
+      if (existing.status !== "awaiting_review") {
+        result.failed.push({ id, error: "Onaylanamaz durumda." });
+        continue;
+      }
+      await prisma.quoteRequest.update({ where: { id }, data: { status: "open" } });
+      result.succeeded.push(id);
+    } else if (params.action === "reject") {
+      const existing = await prisma.quoteRequest.findUnique({ where: { id } });
+      if (!existing) {
+        result.failed.push({ id, error: "Talep bulunamadı." });
+        continue;
+      }
+      if (existing.status !== "awaiting_review" && existing.status !== "open") {
+        result.failed.push({ id, error: "Reddedilemez durumda." });
+        continue;
+      }
+      await prisma.quoteRequest.update({
+        where: { id },
+        data: { status: "cancelled", matchedProviderId: null, matchedProviderName: null },
+      });
+      result.succeeded.push(id);
+    } else if (params.action === "match") {
+      if (!params.providerId) {
+        result.failed.push({ id, error: "Usta seçilmedi." });
+        continue;
+      }
+      const r = await adminMatchQuoteToProvider(id, params.providerId);
+      if (r.error) result.failed.push({ id, error: r.error });
+      else result.succeeded.push(id);
+    }
+  }
+
+  return result;
+}
+
+export async function autoMatchQuotes(
+  ids: string[]
+): Promise<import("./quote-matching").BulkQuoteActionResult & { methods: Record<string, string> }> {
+  const result: import("./quote-matching").BulkQuoteActionResult & {
+    methods: Record<string, string>;
+  } = {
+    processed: ids.length,
+    succeeded: [],
+    failed: [],
+    methods: {},
+  };
+
+  for (const id of ids) {
+    const r = await autoMatchQuote(id);
+    if (r.error) result.failed.push({ id, error: r.error });
+    else {
+      result.succeeded.push(id);
+      if (r.method) result.methods[id] = r.method;
+    }
+  }
+
+  return result;
 }

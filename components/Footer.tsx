@@ -80,45 +80,41 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-8 border-t border-white/10 pt-8">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-            <div className="max-w-3xl">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-white/90">
-                İletişim
-              </h4>
-              <p className="mt-3 text-sm text-white/75">
-                <span className="font-semibold text-white">{companyInfo.legalName}</span>
-                <span className="mx-2 text-white/30">·</span>
-                <span>{companyInfo.founder}</span>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-white/90">
+                  İletişim
+                </h4>
+                <Link
+                  href="/iletisim"
+                  className="text-xs font-medium text-white/70 transition hover:text-white sm:hidden"
+                >
+                  İletişim formu →
+                </Link>
+              </div>
+              <p className="mt-2 text-xs leading-relaxed text-white/60 sm:text-sm">
+                <span className="font-medium text-white/80">{companyInfo.legalName}</span>
+                {" · "}
+                {companyInfo.founder}
+                {" · "}
+                {companyInfo.address}
               </p>
-              <p className="mt-2 text-sm leading-snug text-white/60">
-                {companyInfo.addressLine1}
-                <br />
-                {companyInfo.addressLine2}
-              </p>
-              <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/60">
-                <a href={`mailto:${companyInfo.email}`} className="transition hover:text-white">
+              <p className="mt-1 text-xs leading-relaxed text-white/60 sm:text-sm">
+                <a href={`mailto:${companyInfo.email}`} className="hover:text-white">
                   {companyInfo.email}
                 </a>
-                <span className="hidden text-white/25 sm:inline" aria-hidden>
-                  ·
-                </span>
-                <a
-                  href={`tel:${companyInfo.phone.replace(/\s/g, "")}`}
-                  className="transition hover:text-white"
-                >
+                {" · "}
+                <a href={`tel:${companyInfo.phone.replace(/\s/g, "")}`} className="hover:text-white">
                   {companyInfo.phone}
                 </a>
-                <span className="hidden text-white/25 sm:inline" aria-hidden>
-                  ·
-                </span>
-                <span>
-                  {companyInfo.taxOffice} V.D. {companyInfo.taxNo}
-                </span>
+                {" · "}
+                {companyInfo.taxOffice} V.D. {companyInfo.taxNo}
               </p>
             </div>
             <Link
               href="/iletisim"
-              className="inline-flex shrink-0 items-center text-sm font-medium text-white/80 transition hover:text-white"
+              className="hidden shrink-0 text-sm font-medium text-white/80 transition hover:text-white sm:inline-flex"
             >
               İletişim formu →
             </Link>
