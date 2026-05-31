@@ -1,3 +1,4 @@
+import Link from "next/link";
 import LegalPageLayout from "@/components/LegalPageLayout";
 import PaymentBadges from "@/components/PaymentBadges";
 import { companyInfo } from "@/lib/data/company";
@@ -128,12 +129,16 @@ export default function AboutPage() {
           <li><strong className="text-foreground">Adres:</strong> {companyInfo.address}</li>
           <li><strong className="text-foreground">E-posta:</strong> {companyInfo.email}</li>
           <li><strong className="text-foreground">Telefon:</strong> {companyInfo.phone}</li>
-          <li><strong className="text-foreground">MERSİS No:</strong> {companyInfo.mersisNo}</li>
           <li>
             <strong className="text-foreground">Vergi Dairesi / No:</strong>{" "}
             {companyInfo.taxOffice} — {companyInfo.taxNo}
           </li>
         </ul>
+        <p className="pt-2">
+          <Link href="/iletisim" className="font-medium text-primary hover:underline">
+            İletişim formu →
+          </Link>
+        </p>
       </section>
     </LegalPageLayout>
   );

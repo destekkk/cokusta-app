@@ -1,10 +1,12 @@
 import Link from "next/link";
 import Logo from "./Logo";
 import PaymentBadges from "./PaymentBadges";
+import { companyInfo } from "@/lib/data/company";
 import { TOP_CITIES, toSlug } from "@/lib/seo/slugs";
 
 const legalLinks = [
   { href: "/hakkimizda", label: "Hakkımızda" },
+  { href: "/iletisim", label: "İletişim" },
   { href: "/ssl-sertifikasi", label: "SSL Sertifikası" },
   { href: "/teslimat-ve-iade", label: "Teslimat ve İade Şartları" },
   { href: "/gizlilik-sozlesmesi", label: "Gizlilik Sözleşmesi" },
@@ -43,6 +45,7 @@ export default function Footer() {
               <li><Link href="/usta-ol" className="transition-colors hover:text-white">Usta Ol</Link></li>
               <li><Link href="/hizmetler" className="transition-colors hover:text-white">Tüm Hizmetler</Link></li>
               <li><Link href="/hakkimizda" className="transition-colors hover:text-white">Hakkımızda</Link></li>
+              <li><Link href="/iletisim" className="transition-colors hover:text-white">İletişim</Link></li>
             </ul>
           </div>
           <div>
@@ -74,6 +77,42 @@ export default function Footer() {
                 {city}
               </Link>
             ))}
+          </div>
+        </div>
+        <div className="mt-8 border-t border-white/10 pt-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-white/90">
+                İletişim
+              </h4>
+              <ul className="mt-3 space-y-1.5 text-xs leading-relaxed text-white/55">
+                <li><span className="text-white/70">Unvan:</span> {companyInfo.legalName}</li>
+                <li><span className="text-white/70">Kurucu:</span> {companyInfo.founder}</li>
+                <li><span className="text-white/70">Adres:</span> {companyInfo.address}</li>
+                <li>
+                  <span className="text-white/70">E-posta:</span>{" "}
+                  <a href={`mailto:${companyInfo.email}`} className="hover:text-white">
+                    {companyInfo.email}
+                  </a>
+                </li>
+                <li>
+                  <span className="text-white/70">Telefon:</span>{" "}
+                  <a href={`tel:${companyInfo.phone.replace(/\s/g, "")}`} className="hover:text-white">
+                    {companyInfo.phone}
+                  </a>
+                </li>
+                <li>
+                  <span className="text-white/70">Vergi Dairesi / No:</span>{" "}
+                  {companyInfo.taxOffice} — {companyInfo.taxNo}
+                </li>
+              </ul>
+            </div>
+            <Link
+              href="/iletisim"
+              className="inline-flex shrink-0 items-center text-sm font-medium text-white/80 transition hover:text-white"
+            >
+              İletişim formu →
+            </Link>
           </div>
         </div>
         <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row">

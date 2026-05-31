@@ -21,7 +21,7 @@ export default function DistanceSalesPage() {
           <li>Adres: {companyInfo.address}</li>
           <li>Telefon: {companyInfo.phone}</li>
           <li>E-posta: {companyInfo.email}</li>
-          <li>MERSİS No: {companyInfo.mersisNo}</li>
+          <li>Vergi Dairesi / No: {companyInfo.taxOffice} — {companyInfo.taxNo}</li>
         </ul>
         <p className="mt-3">
           <strong className="text-foreground">Alıcı:</strong> Platform üzerinden hizmet talebinde

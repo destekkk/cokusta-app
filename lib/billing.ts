@@ -5,14 +5,14 @@ export function getVatRate(): number {
 
 export function getCompanyInfo() {
   return {
-    name: process.env.COMPANY_NAME ?? "Çokusta Teknoloji Ltd. Şti.",
-    taxNumber: process.env.COMPANY_TAX_NUMBER ?? "1234567890",
-    taxOffice: process.env.COMPANY_TAX_OFFICE ?? "Kocaeli",
+    name: process.env.COMPANY_NAME ?? "Çokusta Teknoloji",
+    taxNumber: process.env.COMPANY_TAX_NUMBER ?? "9330231496",
+    taxOffice: process.env.COMPANY_TAX_OFFICE ?? "Ali Fuat Cebesoy",
     address:
       process.env.COMPANY_ADDRESS ??
-      "Merkez Mah. Hizmet Sok. No:1, İzmit / Kocaeli",
-    email: process.env.COMPANY_EMAIL ?? "muhasebe@cokusta.com",
-    phone: process.env.COMPANY_PHONE ?? "+90 262 000 00 00",
+      "Hanlı Merkez Mah. Anıl Sok. No:7, Arifiye / Sakarya",
+    email: process.env.COMPANY_EMAIL ?? "destek@cokusta.com",
+    phone: process.env.COMPANY_PHONE ?? "+90 555 526 9770",
   };
 }
 

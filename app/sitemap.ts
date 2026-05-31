@@ -19,6 +19,7 @@ function buildAllUrls(): string[] {
     "/hizmetler",
     "/nasil-calisir",
     "/hakkimizda",
+    "/iletisim",
     "/usta-ol",
     "/cok-acil",
     "/gizlilik-sozlesmesi",

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import ServiceCard from "@/components/ServiceCard";
+import QuoteFlowSteps from "@/components/QuoteFlowSteps";
 import { getCategoryBySlug } from "@/lib/data/categories";
 import { getCategoryImage } from "@/lib/data/images";
 import { getServicesByCategory } from "@/lib/data/services";
@@ -73,10 +74,17 @@ export default async function CategoryPage({ params }: Props) {
       </div>
 
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+        <div className="mb-8">
+          <QuoteFlowSteps currentStep={1} />
+          <p className="mt-4 text-center text-sm text-muted-foreground">
+            Aşağıdan hizmetinizi seçin — kırmızı <strong className="text-foreground">Seç</strong>{" "}
+            butonuna tıklayın.
+          </p>
+        </div>
         <p className="mb-6 text-sm text-muted-foreground">{services.length} hizmet</p>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {services.map((service) => (
-            <ServiceCard key={service.slug} service={service} />
+            <ServiceCard key={service.slug} service={service} mode="pick" />
           ))}
         </div>
       </div>

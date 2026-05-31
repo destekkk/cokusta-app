@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import QuoteForm from "@/components/QuoteForm";
+import QuoteFlowSteps from "@/components/QuoteFlowSteps";
 import { getServiceImage } from "@/lib/data/images";
 import { getServiceBySlug } from "@/lib/data/services";
 
@@ -30,14 +31,15 @@ export default async function QuotePage({ params, searchParams }: Props) {
       <Header />
 
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-        <Link
-          href={`/hizmet/${slug}`}
-          className="text-sm text-primary hover:text-primary-dark"
-        >
-          ← {service.name}
+        <Link href="/hizmetler" className="text-sm text-primary hover:text-primary-dark">
+          ← Hizmet değiştir
         </Link>
 
-        <div className="mt-4 flex items-center gap-4">
+        <div className="mt-6">
+          <QuoteFlowSteps currentStep={2} />
+        </div>
+
+        <div className="mt-6 flex items-center gap-4">
           <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-secondary">
             {serviceImage && (
               <Image
