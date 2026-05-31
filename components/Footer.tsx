@@ -80,32 +80,41 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-8 border-t border-white/10 pt-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="max-w-3xl">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-white/90">
                 İletişim
               </h4>
-              <ul className="mt-3 space-y-1.5 text-xs leading-relaxed text-white/55">
-                <li><span className="text-white/70">Unvan:</span> {companyInfo.legalName}</li>
-                <li><span className="text-white/70">Kurucu:</span> {companyInfo.founder}</li>
-                <li><span className="text-white/70">Adres:</span> {companyInfo.address}</li>
-                <li>
-                  <span className="text-white/70">E-posta:</span>{" "}
-                  <a href={`mailto:${companyInfo.email}`} className="hover:text-white">
-                    {companyInfo.email}
-                  </a>
-                </li>
-                <li>
-                  <span className="text-white/70">Telefon:</span>{" "}
-                  <a href={`tel:${companyInfo.phone.replace(/\s/g, "")}`} className="hover:text-white">
-                    {companyInfo.phone}
-                  </a>
-                </li>
-                <li>
-                  <span className="text-white/70">Vergi Dairesi / No:</span>{" "}
-                  {companyInfo.taxOffice} — {companyInfo.taxNo}
-                </li>
-              </ul>
+              <p className="mt-3 text-sm text-white/75">
+                <span className="font-semibold text-white">{companyInfo.legalName}</span>
+                <span className="mx-2 text-white/30">·</span>
+                <span>{companyInfo.founder}</span>
+              </p>
+              <p className="mt-2 text-sm leading-snug text-white/60">
+                {companyInfo.addressLine1}
+                <br />
+                {companyInfo.addressLine2}
+              </p>
+              <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-white/60">
+                <a href={`mailto:${companyInfo.email}`} className="transition hover:text-white">
+                  {companyInfo.email}
+                </a>
+                <span className="hidden text-white/25 sm:inline" aria-hidden>
+                  ·
+                </span>
+                <a
+                  href={`tel:${companyInfo.phone.replace(/\s/g, "")}`}
+                  className="transition hover:text-white"
+                >
+                  {companyInfo.phone}
+                </a>
+                <span className="hidden text-white/25 sm:inline" aria-hidden>
+                  ·
+                </span>
+                <span>
+                  {companyInfo.taxOffice} V.D. {companyInfo.taxNo}
+                </span>
+              </p>
             </div>
             <Link
               href="/iletisim"

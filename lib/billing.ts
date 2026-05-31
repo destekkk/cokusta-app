@@ -3,18 +3,7 @@ export function getVatRate(): number {
   return Number.isFinite(rate) ? rate : 0.20;
 }
 
-export function getCompanyInfo() {
-  return {
-    name: process.env.COMPANY_NAME ?? "Çokusta Teknoloji",
-    taxNumber: process.env.COMPANY_TAX_NUMBER ?? "9330231496",
-    taxOffice: process.env.COMPANY_TAX_OFFICE ?? "Ali Fuat Cebesoy",
-    address:
-      process.env.COMPANY_ADDRESS ??
-      "Hanlı Merkez Mah. Anıl Sok. No:7, Arifiye / Sakarya",
-    email: process.env.COMPANY_EMAIL ?? "destek@cokusta.com",
-    phone: process.env.COMPANY_PHONE ?? "+90 555 526 9770",
-  };
-}
+export { getCompanyInfo } from "@/lib/company-contact";
 
 export function calculateVat(subtotal: number, vatRate = getVatRate()) {
   const vatAmount = Math.round(subtotal * vatRate * 100) / 100;
