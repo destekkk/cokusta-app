@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   description:
     "Doğrulanmış ustalar, şeffaf teklif süreci ve güvenli ödeme ile profesyonel hizmet alın.",
   robots: { index: true, follow: true },
+  verification: {
+    google: "vVMBJfyCZHCxXulXHot9d73US5sTTbrJfT_nZdU4vtw",
+  },
 };
 
 export default function RootLayout({
