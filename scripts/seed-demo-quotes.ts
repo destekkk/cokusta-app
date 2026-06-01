@@ -1,9 +1,9 @@
 /**
- * Her hizmet için demo teklif talepleri oluşturur (varsayılan: 20 adet, yayında/open).
+ * Her il için açık teklif talepleri oluşturur (varsayılan: 20 adet/il, yayında/open).
  *
  * Kullanım:
  *   npm run seed:quotes
- *   npm run seed:quotes -- --per-service=20
+ *   npm run seed:quotes -- --per-city=20
  */
 import { promises as fs } from "fs";
 import path from "path";
@@ -14,7 +14,6 @@ import { cities, getDistricts } from "../lib/data/cities";
 import { getJobDescriptionExample } from "../lib/data/job-description-examples";
 import type { QuoteRequest, Service, Store } from "../lib/types";
 
-const CLEAR_DEMO = process.argv.includes("--clear");
 const DEMO_PREFIX = "demo-quote-";
 
 const firstNames = [
@@ -29,14 +28,23 @@ const lastNames = [
   "Güneş", "Aksoy", "Tekin", "Bulut",
 ];
 
-function parsePerServiceArg(): number {
-  const arg = process.argv.find((a) => a.startsWith("--per-service="));
+function parsePerCityArg(): number {
+  const arg = process.argv.find((a) => a.startsWith("--per-city="));
   if (!arg) return 20;
   const n = parseInt(arg.split("=")[1] ?? "20", 10);
   return Number.isFinite(n) && n > 0 ? n : 20;
 }
 
-const QUOTES_PER_SERVICE = parsePerServiceArg();
+const QUOTES_PER_CITY = parsePerCityArg();
+
+function cityKey(city: string): string {
+  return city
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
 
 async function loadEnvFile() {
   for (const name of [".env.local", ".env"]) {
@@ -73,23 +81,33 @@ function buildAnswers(service: Service): Record<string, string> {
 function buildNotes(service: Service, index: number): string {
   const raw = getJobDescriptionExample(service.slug, service.categorySlug);
   const base = raw.replace(/^Örn:\s*/i, "").trim();
-  return `${base} Talep #${index + 1} — demo içerik.`;
+  const variants = [
+    base,
+    `${base} Uygun zamanda başlayabiliriz.`,
+    `${base} Keşif sonrası netleştirilebilir.`,
+    `${base} Detayları görüşerek paylaşırım.`,
+  ];
+  return variants[index % variants.length];
 }
 
-function buildQuote(service: Service, index: number, globalIndex: number): QuoteRequest {
-  const city = cities[globalIndex % cities.length];
+function buildQuote(
+  service: Service,
+  city: string,
+  indexInCity: number,
+  globalIndex: number
+): QuoteRequest {
   const districtList = getDistricts(city);
-  const district = districtList[index % districtList.length];
-  const name = `${firstNames[index % firstNames.length]} ${lastNames[(index + globalIndex) % lastNames.length]}`;
-  const phone = `+9053${String(10000000 + globalIndex).slice(-8)}`;
+  const district = districtList[indexInCity % districtList.length];
+  const name = `${firstNames[indexInCity % firstNames.length]} ${lastNames[(indexInCity + globalIndex) % lastNames.length]}`;
+  const phone = `053${String(20000000 + globalIndex).slice(-8)}`;
 
-  const daysAgo = index % 14;
+  const daysAgo = indexInCity % 14;
   const createdAt = new Date();
   createdAt.setDate(createdAt.getDate() - daysAgo);
-  createdAt.setHours(9 + (index % 8), (index * 7) % 60, 0, 0);
+  createdAt.setHours(9 + (indexInCity % 8), (indexInCity * 7) % 60, 0, 0);
 
   return {
-    id: `${DEMO_PREFIX}${service.slug}-${String(index + 1).padStart(2, "0")}`,
+    id: `${DEMO_PREFIX}${cityKey(city)}-${String(indexInCity + 1).padStart(2, "0")}`,
     serviceSlug: service.slug,
     serviceName: service.name,
     categoryName: getCategoryName(service.categorySlug),
@@ -98,13 +116,13 @@ function buildQuote(service: Service, index: number, globalIndex: number): Quote
     district,
     name,
     phone,
-    email: `musteri${globalIndex + 1}@ornek.com`,
-    notes: buildNotes(service, index),
+    email: `musteri${globalIndex + 1}@gmail.com`,
+    notes: buildNotes(service, indexInCity),
     createdAt: createdAt.toISOString(),
     status: "open",
-    urgent: index === 0 && globalIndex % 17 === 0,
+    urgent: indexInCity === 0 && globalIndex % 17 === 0,
     urgentDeadline:
-      index === 0 && globalIndex % 17 === 0
+      indexInCity === 0 && globalIndex % 17 === 0
         ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
         : undefined,
   };
@@ -114,9 +132,10 @@ function buildAllQuotes(): QuoteRequest[] {
   const quotes: QuoteRequest[] = [];
   let globalIndex = 0;
 
-  for (const service of services) {
-    for (let i = 0; i < QUOTES_PER_SERVICE; i++) {
-      quotes.push(buildQuote(service, i, globalIndex));
+  for (const city of cities) {
+    for (let i = 0; i < QUOTES_PER_CITY; i++) {
+      const service = services[(globalIndex + i) % services.length];
+      quotes.push(buildQuote(service, city, i, globalIndex));
       globalIndex++;
     }
   }
@@ -197,7 +216,7 @@ async function main() {
   const usePrisma = Boolean(process.env.DATABASE_URL?.trim());
 
   console.log(
-    `${services.length} hizmet × ${QUOTES_PER_SERVICE} = ${quotes.length} demo teklif (yayında/open)`
+    `${cities.length} il × ${QUOTES_PER_CITY} = ${quotes.length} açık teklif (yayında/open)`
   );
   console.log(usePrisma ? "Hedef: PostgreSQL (Prisma)" : "Hedef: data/store.json");
 

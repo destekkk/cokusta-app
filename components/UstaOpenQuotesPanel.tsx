@@ -149,10 +149,6 @@ export default function UstaOpenQuotesPanel() {
 
   return (
     <div className="space-y-6">
-      <UstaReferralCampaign
-        onCreditsUpdated={(balance) => setCreditBalance(balance)}
-      />
-
       {debtNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
@@ -347,6 +343,10 @@ export default function UstaOpenQuotesPanel() {
           </table>
         </div>
       )}
+
+      <UstaReferralCampaign
+        onCreditsUpdated={(balance) => setCreditBalance(balance)}
+      />
     </div>
   );
 }

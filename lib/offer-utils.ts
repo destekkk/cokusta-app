@@ -23,19 +23,36 @@ export function resolveQuoteCategorySlug(quote: QuoteRequest): string | undefine
   return match?.slug;
 }
 
+export type ProviderQuoteScope = "city" | "all";
+
+export function providerCategoryMatches(
+  provider: ProviderRegistration,
+  quote: QuoteRequest
+): boolean {
+  const categorySlug = resolveQuoteCategorySlug(quote);
+  if (!categorySlug) return false;
+  const slugs = Array.isArray(provider.categorySlugs) ? provider.categorySlugs : [];
+  return slugs.includes(categorySlug);
+}
+
 export function providerCanSeeQuote(
+  provider: ProviderRegistration,
+  quote: QuoteRequest,
+  scope: ProviderQuoteScope = "city"
+): boolean {
+  if (provider.status !== "approved") return false;
+  if (!providerCategoryMatches(provider, quote)) return false;
+  if scope === "all") return true;
+  return citiesMatch(provider.city, quote.city);
+}
+
+/** Kategori uygunsa il dışı taleplere de teklif verilebilir. */
+export function providerCanBidOnQuote(
   provider: ProviderRegistration,
   quote: QuoteRequest
 ): boolean {
   if (provider.status !== "approved") return false;
-
-  const categorySlug = resolveQuoteCategorySlug(quote);
-  if (!categorySlug) return false;
-
-  const slugs = Array.isArray(provider.categorySlugs) ? provider.categorySlugs : [];
-  const categoryMatch = slugs.includes(categorySlug);
-  const cityMatch = citiesMatch(provider.city, quote.city);
-  return cityMatch && categoryMatch;
+  return providerCategoryMatches(provider, quote);
 }
 
 export function buildOfferInput(

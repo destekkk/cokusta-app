@@ -54,6 +54,7 @@ import {
   enrichOffer,
   getCurrentOfferPrice,
   parseNegotiation,
+  providerCanBidOnQuote,
   providerCanSeeQuote,
   quoteIsOpenForOffers,
   toPublicQuoteListItem,
@@ -1387,13 +1388,18 @@ export async function getMonthlyLeaderboard(limit = 5) {
     .slice(0, limit);
 }
 
-export async function getOpenQuotesForProvider(providerId: string) {
+export async function getOpenQuotesForProvider(
+  providerId: string,
+  scope: import("./offer-utils").ProviderQuoteScope = "city"
+) {
   const store = await ensureStore();
   const provider = store.providers.find((p) => p.id === providerId);
   if (!provider || provider.status !== "approved") return [];
 
   return store.quoteRequests
-    .filter((quote) => quoteIsOpenForOffers(quote) && providerCanSeeQuote(provider, quote))
+    .filter(
+      (quote) => quoteIsOpenForOffers(quote) && providerCanSeeQuote(provider, quote, scope)
+    )
     .map((quote) => {
       const offerCount = store.providerOffers.filter(
         (o) => o.quoteRequestId === quote.id && o.status === "pending"
@@ -1426,8 +1432,8 @@ export async function submitProviderOffer(
   if (!quote || !quoteIsOpenForOffers(quote)) {
     return { error: "Talep teklif almaya kapalı." };
   }
-  if (!providerCanSeeQuote(provider, quote)) {
-    return { error: "Bu talep bölge veya kategori uygun değil." };
+  if (!providerCanBidOnQuote(provider, quote)) {
+    return { error: "Bu talep kategori uygun değil." };
   }
 
   const balance = provider.creditBalance ?? 0;
