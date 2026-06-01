@@ -70,7 +70,7 @@ const examplesBySlug: Record<string, string> = {
   "kamyonet-tasimaciligi":
     "Örn: Tam gün şoförlü kamyonet, inşaat malzemesi taşıma. Sabah 08:00'de başlasın, yaklaşık 4 saat.",
   "vip-tasima":
-    "Örn: Antika mobilya ve sanat eserleri taşınacak, özel paketleme ve sigorta şart. Beyaz eldivenli ekip.",
+    "Örn: İstanbul Havalimanı karşılama, Mercedes S-Class veya eşdeğeri. 2 yolcu, 3 bavul. Uçuş 14:30, otel Beşiktaş. Karşılama tabelası istiyorum.",
   "ev-aleti-servisi":
     "Örn: Arçelik buzdolabı soğutmuyor, garuntti süresi bitti. Yerinde arıza tespiti ve parça teklifi istiyorum.",
   "bilgisayar-onarim":

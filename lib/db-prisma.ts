@@ -26,7 +26,7 @@ import {
   enrichOffer,
   getCurrentOfferPrice,
   parseNegotiation,
-  ProviderQuoteScope,
+  ProviderQuoteLocationFilter,
   providerCanBidOnQuote,
   providerCanSeeQuote,
   quoteIsOpenForOffers,
@@ -1550,7 +1550,7 @@ export async function getMonthlyLeaderboard(limit = 5) {
 
 export async function getOpenQuotesForProvider(
   providerId: string,
-  scope: ProviderQuoteScope = "city"
+  location: ProviderQuoteLocationFilter = { cityMode: "provider" }
 ) {
   const provider = await getProviderById(providerId);
   if (!provider || provider.status !== "approved") return [];
@@ -1568,7 +1568,7 @@ export async function getOpenQuotesForProvider(
   });
 
   return quotes
-    .filter((quote) => providerCanSeeQuote(provider, quote, scope))
+    .filter((quote) => providerCanSeeQuote(provider, quote, location))
     .map((quote) => {
       const offerCount = allOffers.filter((o) => o.quoteRequestId === quote.id).length;
       const myOfferRow = offers.find((o) => o.quoteRequestId === quote.id);

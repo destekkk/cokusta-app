@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { getOpenQuotesForProvider, getProviderById } from "@/lib/db";
 import { getProviderSessionId } from "@/lib/provider-auth";
-import type { ProviderQuoteScope } from "@/lib/offer-utils";
+import {
+  parseProviderQuoteLocationFilter,
+  type ProviderQuoteLocationFilter,
+} from "@/lib/offer-utils";
 
 import { MAX_CREDIT_DEBT } from "@/lib/credit-debt";
 
@@ -16,14 +19,26 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Hesap onaylı değil." }, { status: 403 });
   }
 
-  const scopeParam = new URL(request.url).searchParams.get("scope");
-  const scope: ProviderQuoteScope = scopeParam === "all" ? "all" : "city";
+  const url = new URL(request.url);
+  const scopeParam = url.searchParams.get("scope");
+  let location: ProviderQuoteLocationFilter;
+  if (scopeParam === "all") {
+    location = { cityMode: "all" };
+  } else {
+    location = parseProviderQuoteLocationFilter(
+      {
+        city: url.searchParams.get("city"),
+        district: url.searchParams.get("district"),
+      },
+      provider.city
+    );
+  }
 
-  const quotes = await getOpenQuotesForProvider(providerId, scope);
+  const quotes = await getOpenQuotesForProvider(providerId, location);
   const creditDebt = provider.creditDebt ?? 0;
   return NextResponse.json({
     quotes,
-    scope,
+    location,
     creditBalance: provider.creditBalance ?? 0,
     creditDebt,
     maxCreditDebt: MAX_CREDIT_DEBT,

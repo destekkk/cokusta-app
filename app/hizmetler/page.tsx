@@ -22,8 +22,7 @@ export default function AllServicesPage() {
         <div className="mx-auto max-w-6xl">
           <h1 className="text-3xl font-bold text-foreground">Teklif Al</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Önce ihtiyacınız olan hizmeti seçin. Kırmızı <strong className="text-foreground">Seç</strong>{" "}
-            butonuna tıklayarak bir sonraki adıma geçin.
+            Ücretsiz teklif almak için önce hizmetinizi seçin, ardından formu doldurun.
           </p>
           <div className="mt-6">
             <QuoteFlowSteps currentStep={1} />
@@ -31,7 +30,18 @@ export default function AllServicesPage() {
         </div>
       </div>
 
-      <div className="sticky top-16 z-40 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
+        <h2 className="text-base font-bold uppercase tracking-wider text-foreground">
+          <span className="text-red-600">*</span> Hizmet Kategorileri
+        </h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          <span className="text-red-600">*</span>{" "}
+          <span className="font-semibold text-foreground">Hizmeti seçin.</span> Kırmızı{" "}
+          <strong className="text-foreground">Seç</strong> butonuna tıklayarak bir sonraki adıma geçin.
+        </p>
+      </div>
+
+      <div className="sticky top-16 z-40 mt-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-6">
         <div className="mx-auto flex max-w-6xl gap-2 overflow-x-auto pb-1">
           {sections.map(({ category }) => (
             <a

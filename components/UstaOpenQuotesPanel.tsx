@@ -9,12 +9,46 @@ import { MAX_CREDIT_DEBT, canSubmitOffer, remainingDebtCapacity } from "@/lib/cr
 import UstaReferralCampaign from "@/components/UstaReferralCampaign";
 import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
 import type { ProviderOffer } from "@/lib/types";
-import { getCurrentOfferPrice, type ProviderQuoteScope } from "@/lib/offer-utils";
+import { cities, getDistricts } from "@/lib/data/cities";
+import { getCurrentOfferPrice, type ProviderQuoteLocationFilter } from "@/lib/offer-utils";
 import type { PublicQuoteRequest } from "@/lib/quote-privacy";
 
 type OpenQuote = PublicQuoteRequest & { myOffer?: ProviderOffer };
 
 const KONTOR_URL = "/usta/kontor?reason=no-credit";
+
+function buildTaleplerUrl(location: ProviderQuoteLocationFilter): string {
+  const params = new URLSearchParams();
+  if (location.cityMode === "all") {
+    params.set("city", "all");
+  } else if (location.cityMode === "selected" && location.selectedCity) {
+    params.set("city", location.selectedCity);
+  }
+  if (location.selectedDistrict) {
+    params.set("district", location.selectedDistrict);
+  }
+  const qs = params.toString();
+  return qs ? `/api/usta/talepler?${qs}` : "/api/usta/talepler";
+}
+
+function activeFilterCity(location: ProviderQuoteLocationFilter, providerCity: string): string {
+  if (location.cityMode === "selected" && location.selectedCity) return location.selectedCity;
+  return providerCity;
+}
+
+function locationSummary(location: ProviderQuoteLocationFilter, providerCity: string): string {
+  if (location.cityMode === "all") return "tüm iller";
+  const city = activeFilterCity(location, providerCity);
+  if (!city) return "";
+  if (location.selectedDistrict) return `${city}, ${location.selectedDistrict}`;
+  return `${city} · tüm ilçeler`;
+}
+
+function citySelectValue(location: ProviderQuoteLocationFilter): string {
+  if (location.cityMode === "all") return "__all__";
+  if (location.cityMode === "selected" && location.selectedCity) return location.selectedCity;
+  return "__provider__";
+}
 
 export default function UstaOpenQuotesPanel() {
   const router = useRouter();
@@ -30,16 +64,19 @@ export default function UstaOpenQuotesPanel() {
   const [debtNotice, setDebtNotice] = useState<string | null>(null);
   const [providerCity, setProviderCity] = useState("");
   const [providerCategories, setProviderCategories] = useState<string[]>([]);
-  const [scope, setScope] = useState<ProviderQuoteScope>("city");
+  const [location, setLocation] = useState<ProviderQuoteLocationFilter>({ cityMode: "provider" });
+  const [refreshing, setRefreshing] = useState(false);
 
   const canOffer = canSubmitOffer(creditBalance, creditDebt);
   const debtRemaining = remainingDebtCapacity(creditDebt);
   const atDebtLimit = creditBalance < 1 && creditDebt >= MAX_CREDIT_DEBT;
 
-  const load = async (nextScope: ProviderQuoteScope = scope) => {
-    setLoading(true);
+  const load = async (nextLocation: ProviderQuoteLocationFilter = location) => {
+    const showFullLoader = quotes.length === 0 && !error;
+    if (showFullLoader) setLoading(true);
+    else setRefreshing(true);
     try {
-      const res = await fetch(`/api/usta/talepler?scope=${nextScope}`);
+      const res = await fetch(buildTaleplerUrl(nextLocation));
       if (res.status === 401) {
         router.push("/usta/giris");
         return;
@@ -47,7 +84,6 @@ export default function UstaOpenQuotesPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
       setQuotes(data.quotes ?? []);
-      setScope(data.scope === "all" ? "all" : "city");
       setCreditBalance(data.creditBalance ?? 0);
       setCreditDebt(data.creditDebt ?? 0);
       setProviderCity(data.providerCity ?? "");
@@ -56,16 +92,40 @@ export default function UstaOpenQuotesPanel() {
       setError(err instanceof Error ? err.message : "Yüklenemedi");
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   useEffect(() => {
-    load(scope);
-  }, [scope]);
+    load(location);
+  }, [location]);
 
-  const changeScope = (next: ProviderQuoteScope) => {
-    if (next !== scope) setScope(next);
+  const onCityChange = (value: string) => {
+    if (value === "__all__") {
+      setLocation({ cityMode: "all" });
+      return;
+    }
+    if (value === "__provider__") {
+      setLocation({ cityMode: "provider" });
+      return;
+    }
+    setLocation({ cityMode: "selected", selectedCity: value });
   };
+
+  const onDistrictChange = (value: string) => {
+    setLocation((prev) => {
+      if (prev.cityMode === "all") return prev;
+      const base =
+        prev.cityMode === "selected" && prev.selectedCity
+          ? { cityMode: "selected" as const, selectedCity: prev.selectedCity }
+          : { cityMode: "provider" as const };
+      if (!value) return base;
+      return { ...base, selectedDistrict: value };
+    });
+  };
+
+  const filterCity = activeFilterCity(location, providerCity);
+  const districtOptions = location.cityMode !== "all" && filterCity ? getDistricts(filterCity) : [];
 
   const goBuyCredits = () => router.push(KONTOR_URL);
 
@@ -231,30 +291,51 @@ export default function UstaOpenQuotesPanel() {
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          {quotes.length} açık talep
-          {scope === "city" && providerCity ? ` · ${providerCity}` : scope === "all" ? " · tüm iller" : ""}
+          {refreshing ? "Güncelleniyor…" : `${quotes.length} açık talep`}
+          {!refreshing && locationSummary(location, providerCity)
+            ? ` · ${locationSummary(location, providerCity)}`
+            : ""}
         </p>
-        <div className="inline-flex rounded-lg border border-border bg-card p-1 text-sm">
-          <button
-            type="button"
-            onClick={() => changeScope("city")}
-            className={`rounded-md px-3 py-1.5 font-medium transition ${
-              scope === "city" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {providerCity ? `Kendi ilim (${providerCity})` : "Kendi ilim"}
-          </button>
-          <button
-            type="button"
-            onClick={() => changeScope("all")}
-            className={`rounded-md px-3 py-1.5 font-medium transition ${
-              scope === "all" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Tüm iller
-          </button>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+            İl
+            <select
+              value={citySelectValue(location)}
+              onChange={(e) => onCityChange(e.target.value)}
+              className="min-w-[180px] rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+            >
+              <option value="__provider__">
+                {providerCity ? `Kendi ilim (${providerCity})` : "Kendi ilim"}
+              </option>
+              <option value="__all__">Tüm iller</option>
+              <optgroup label="İl seç">
+                {cities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </label>
+          {location.cityMode !== "all" && filterCity && (
+            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+              İlçe
+              <select
+                value={location.selectedDistrict ?? ""}
+                onChange={(e) => onDistrictChange(e.target.value)}
+                className="min-w-[160px] rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
+              >
+                <option value="">Tüm ilçeler</option>
+                {districtOptions.map((district) => (
+                  <option key={district} value={district}>
+                    {district}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       </div>
 

@@ -2,7 +2,7 @@ import type { OfferNegotiationEntry, ProviderOffer, ProviderRegistration, QuoteR
 import { generateId } from "@/lib/id";
 import { categories } from "@/lib/data/categories";
 import { getServiceBySlug } from "@/lib/data/services";
-import { citiesMatch } from "@/lib/location-match";
+import { citiesMatch, districtsMatch } from "@/lib/location-match";
 import { sanitizeQuoteForProvider } from "@/lib/quote-privacy";
 
 export function quoteIsOpenForOffers(quote: QuoteRequest): boolean {
@@ -23,7 +23,35 @@ export function resolveQuoteCategorySlug(quote: QuoteRequest): string | undefine
   return match?.slug;
 }
 
+export type ProviderQuoteLocationFilter = {
+  cityMode: "provider" | "all" | "selected";
+  selectedCity?: string;
+  selectedDistrict?: string;
+};
+
+/** @deprecated ProviderQuoteLocationFilter kullanın */
 export type ProviderQuoteScope = "city" | "all";
+
+export function parseProviderQuoteLocationFilter(
+  params: { city?: string | null; district?: string | null },
+  providerCity: string
+): ProviderQuoteLocationFilter {
+  const city = params.city?.trim();
+  const district = params.district?.trim() || undefined;
+  if (city === "all") return { cityMode: "all" };
+  if (city) return { cityMode: "selected", selectedCity: city, selectedDistrict: district };
+  return { cityMode: "provider", selectedDistrict: district };
+}
+
+export function locationFilterToQuery(location: ProviderQuoteLocationFilter, providerCity: string) {
+  if (location.cityMode === "all") {
+    return { city: "all" as const, district: undefined };
+  }
+  if (location.cityMode === "selected" && location.selectedCity) {
+    return { city: location.selectedCity, district: location.selectedDistrict };
+  }
+  return { city: undefined, district: location.selectedDistrict, providerCity };
+}
 
 export function providerCategoryMatches(
   provider: ProviderRegistration,
@@ -38,12 +66,25 @@ export function providerCategoryMatches(
 export function providerCanSeeQuote(
   provider: ProviderRegistration,
   quote: QuoteRequest,
-  scope: ProviderQuoteScope = "city"
+  location: ProviderQuoteLocationFilter = { cityMode: "provider" }
 ): boolean {
   if (provider.status !== "approved") return false;
   if (!providerCategoryMatches(provider, quote)) return false;
-  if (scope === "all") return true;
-  return citiesMatch(provider.city, quote.city);
+
+  if (location.cityMode === "all") return true;
+
+  const targetCity =
+    location.cityMode === "selected" && location.selectedCity
+      ? location.selectedCity
+      : provider.city;
+
+  if (!citiesMatch(targetCity, quote.city)) return false;
+
+  if (location.selectedDistrict) {
+    if (!districtsMatch(location.selectedDistrict, quote.district)) return false;
+  }
+
+  return true;
 }
 
 /** Kategori uygunsa il dışı taleplere de teklif verilebilir. */

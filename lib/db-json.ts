@@ -1390,7 +1390,7 @@ export async function getMonthlyLeaderboard(limit = 5) {
 
 export async function getOpenQuotesForProvider(
   providerId: string,
-  scope: import("./offer-utils").ProviderQuoteScope = "city"
+  location: import("./offer-utils").ProviderQuoteLocationFilter = { cityMode: "provider" }
 ) {
   const store = await ensureStore();
   const provider = store.providers.find((p) => p.id === providerId);
@@ -1398,7 +1398,7 @@ export async function getOpenQuotesForProvider(
 
   return store.quoteRequests
     .filter(
-      (quote) => quoteIsOpenForOffers(quote) && providerCanSeeQuote(provider, quote, scope)
+      (quote) => quoteIsOpenForOffers(quote) && providerCanSeeQuote(provider, quote, location)
     )
     .map((quote) => {
       const offerCount = store.providerOffers.filter(

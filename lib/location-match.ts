@@ -17,3 +17,11 @@ export function citiesMatch(providerCity: string | undefined, quoteCity: string)
   if (provider === quote) return true;
   return quote.includes(provider) || provider.includes(quote);
 }
+
+export function normalizeDistrictName(district: string): string {
+  return normalizeCityName(district);
+}
+
+export function districtsMatch(a: string, b: string): boolean {
+  return normalizeDistrictName(a) === normalizeDistrictName(b);
+}

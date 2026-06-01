@@ -25,7 +25,7 @@ export const SERVICE_SEARCH_TERMS: Record<string, string[]> = {
   "uluslararasi-tasimacilik": ["uluslararası taşımacılık", "nakliyeci", "yurtdışı nakliye"],
   "ozel-esya-tasima": ["özel eşya taşıma", "nakliyeci", "piyano taşıma", "antika taşıma"],
   "kamyonet-tasimaciligi": ["kamyonet", "kamyonet taşımacılığı", "nakliyeci", "minivan taşıma"],
-  "vip-tasima": ["vip taşıma", "nakliyeci", "özel taşıma"],
+  "vip-tasima": ["vip araç kiralama", "şoförlü transfer", "vip transfer", "lüks araç kiralama"],
   "boya-badana": ["boyacı", "boya badana", "boya ustası", "badana", "iç cephe boya"],
   "dis-cephe-boya": ["boyacı", "dış cephe boya", "cephe boyacısı", "mantolama boya"],
   "elektrik-tesisati": ["elektrikçi", "elektrik", "elektrik tesisatı", "elektrik ustası", "elektrik arıza"],
