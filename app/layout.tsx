@@ -23,6 +23,12 @@ export const metadata: Metadata = {
   verification: {
     google: "vVMBJfyCZHCxXulXHot9d73US5sTTbrJfT_nZdU4vtw",
   },
+  openGraph: {
+    type: "website",
+    locale: "tr_TR",
+    siteName: SITE_NAME,
+    images: [{ url: "/images/og-cokusta.jpg", width: 882, height: 851, alt: SITE_NAME }],
+  },
 };
 
 export default function RootLayout({

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import IyzicoBadge from "@/components/IyzicoBadge";
 
 type Props = {
   variant?: "light" | "dark";
@@ -31,14 +32,8 @@ export default function PaymentBadges({ variant = "dark", className = "" }: Prop
           className="h-5 w-auto"
         />
       </div>
-      <div className={`${bg} flex h-10 items-center`}>
-        <Image
-          src="/images/payments/iyzico-ile-ode.svg"
-          alt="iyzico ile Öde"
-          width={120}
-          height={24}
-          className="h-5 w-auto"
-        />
+      <div className={`${bg} flex h-10 items-center px-2`}>
+        <IyzicoBadge variant={variant} />
       </div>
     </div>
   );
