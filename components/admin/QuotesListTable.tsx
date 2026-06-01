@@ -18,7 +18,7 @@ const statusLabels: Record<QuoteRequest["status"], string> = {
 const statusColors: Record<QuoteRequest["status"], string> = {
   awaiting_review: "bg-orange-100 text-orange-800",
   open: "bg-amber-100 text-amber-800",
-  accepted: "bg-blue-100 text-blue-800",
+  accepted: "bg-primary/10 text-primary",
   completed: "bg-emerald-100 text-emerald-800",
   cancelled: "bg-red-100 text-red-800",
 };

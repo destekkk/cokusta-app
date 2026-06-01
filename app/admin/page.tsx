@@ -54,7 +54,7 @@ export default async function AdminDashboardPage() {
           <div className="mt-1 text-sm font-medium text-foreground">Yayında (usta bekliyor)</div>
         </Link>
         <Link href="/admin/teklifler" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
-          <div className="text-3xl font-bold text-blue-600">{stats.matchedQuotes}</div>
+          <div className="text-3xl font-bold text-primary">{stats.matchedQuotes}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Eşleştirilmiş iş</div>
         </Link>
         <Link href="/admin/ustalar" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">

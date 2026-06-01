@@ -18,7 +18,7 @@ type QuoteItem = {
 };
 
 function statusClass(status: string) {
-  if (status === "open") return "bg-blue-100 text-blue-800";
+  if (status === "open") return "bg-primary/10 text-primary";
   if (status === "accepted") return "bg-emerald-100 text-emerald-800";
   if (status === "awaiting_review") return "bg-amber-100 text-amber-800";
   if (status === "cancelled") return "bg-red-100 text-red-800";

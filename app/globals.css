@@ -1,20 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: hsl(210 20% 98%);
-  --foreground: hsl(222 47% 11%);
+  --background: hsl(140 20% 98%);
+  --foreground: hsl(155 25% 12%);
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(222 47% 11%);
-  --primary: hsl(213 56% 32%);
-  --primary-dark: hsl(213 56% 24%);
-  --primary-light: hsl(213 40% 96%);
-  --secondary: hsl(221 39% 15%);
-  --secondary-light: hsl(217 28% 22%);
-  --muted: hsl(210 16% 94%);
-  --muted-foreground: hsl(215 16% 46%);
-  --accent: hsl(210 18% 96%);
-  --border: hsl(214 20% 90%);
-  --ring: hsl(213 56% 32%);
+  --card-foreground: hsl(155 25% 12%);
+  --primary: hsl(148 100% 33%);
+  --primary-dark: hsl(148 100% 27%);
+  --primary-light: hsl(145 60% 95%);
+  --secondary: hsl(155 42% 20%);
+  --secondary-light: hsl(155 36% 28%);
+  --muted: hsl(140 16% 94%);
+  --muted-foreground: hsl(150 12% 42%);
+  --accent: hsl(145 30% 96%);
+  --border: hsl(140 18% 90%);
+  --ring: hsl(148 100% 33%);
 }
 
 @theme inline {
@@ -54,12 +54,12 @@ h1, h2, h3, h4 {
 @keyframes cta-soft-glow {
   0%,
   100% {
-    box-shadow: 0 1px 2px hsl(213 56% 24% / 0.12);
+    box-shadow: 0 1px 2px hsl(148 100% 27% / 0.12);
   }
   50% {
     box-shadow:
-      0 0 0 3px hsl(213 56% 45% / 0.16),
-      0 2px 10px hsl(213 56% 32% / 0.22);
+      0 0 0 3px hsl(148 80% 45% / 0.18),
+      0 2px 10px hsl(148 100% 33% / 0.24);
   }
 }
 
