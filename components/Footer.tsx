@@ -43,6 +43,7 @@ export default function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-white/65">
               <li><Link href="/nasil-calisir" className="transition-colors hover:text-white">Nasıl Çalışır?</Link></li>
               <li><Link href="/usta-ol" className="transition-colors hover:text-white">Usta Ol</Link></li>
+              <li><Link href="/usta/uygulama" className="transition-colors hover:text-white">Usta Uygulaması (APK)</Link></li>
               <li><Link href="/lokasyon" className="transition-colors hover:text-white">Lokasyon Rehberi</Link></li>
               <li><Link href="/hizmetler" className="transition-colors hover:text-white">Tüm Hizmetler</Link></li>
               <li><Link href="/hakkimizda" className="transition-colors hover:text-white">Hakkımızda</Link></li>

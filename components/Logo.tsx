@@ -15,25 +15,39 @@ export default function Logo({
 }: Props) {
   const isDark = variant === "dark";
   const textSize = size === "sm" ? "text-sm" : "text-base sm:text-lg";
-  const boxSize = size === "sm" ? "h-9 min-w-[4.5rem] px-2" : "h-11 min-w-[5.5rem] px-2.5 sm:px-3";
+  const padX = size === "sm" ? "px-2.5" : "px-3 sm:px-3.5";
+  const padY = size === "sm" ? "py-1.5" : "py-2 sm:py-2.5";
 
   return (
     <Link
       href={href}
       className={[
-        "inline-flex shrink-0 items-center justify-center rounded-none border-[3px] font-bold leading-none tracking-wide transition-colors",
-        boxSize,
+        "inline-flex shrink-0 overflow-hidden rounded-lg font-bold leading-none tracking-wide shadow-sm transition-opacity hover:opacity-95",
         textSize,
-        isDark
-          ? "border-primary/50 bg-primary/15 text-white hover:border-primary hover:bg-primary/25"
-          : "border-primary bg-primary-light text-secondary hover:border-primary-dark hover:bg-primary/10",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
       aria-label="Çokusta ana sayfa"
     >
-      çok<span className={isDark ? "text-primary-light" : "text-primary"}>usta</span>
+      <span
+        className={[
+          padX,
+          padY,
+          isDark ? "bg-secondary-light text-white" : "bg-secondary text-white",
+        ].join(" ")}
+      >
+        çok
+      </span>
+      <span
+        className={[
+          padX,
+          padY,
+          isDark ? "bg-primary text-white" : "bg-primary text-white",
+        ].join(" ")}
+      >
+        usta
+      </span>
     </Link>
   );
 }

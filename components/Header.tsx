@@ -2,7 +2,7 @@ import Link from "next/link";
 import Logo from "./Logo";
 
 const ctaClassName =
-  "cta-pulse rounded-lg bg-primary px-5 py-2.5 text-sm font-bold tracking-wide text-white shadow-md hover:bg-primary-dark sm:px-6 sm:py-3 sm:text-base";
+  "cta-pulse rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark sm:px-5";
 
 export default function Header() {
   return (
