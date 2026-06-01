@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getQuoteRequestsByPhone, findProviderByPhone } from "@/lib/db";
-import { setCustomerSession } from "@/lib/customer-auth";
+import { attachCustomerSessionCookie } from "@/lib/customer-auth";
 import { getCustomerAuthByPhone } from "@/lib/customer-pin";
 import { isValidProviderPhone, normalizeProviderPhone, verifyProviderPin } from "@/lib/provider-pin";
 
@@ -55,13 +55,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Telefon veya şifre hatalı." }, { status: 401 });
     }
 
-    await setCustomerSession(normalized);
-
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       quoteCount: quotes.length,
       name: quotes[0]?.name,
     });
+    await attachCustomerSessionCookie(response, normalized);
+    return response;
   } catch {
     return NextResponse.json({ error: "Giriş başarısız." }, { status: 500 });
   }

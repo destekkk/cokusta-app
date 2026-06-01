@@ -1,13 +1,12 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
 
 type Mode = "login" | "set-pin";
 
 export default function CustomerLoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<Mode>("login");
   const [phone, setPhone] = useState("");
@@ -31,6 +30,7 @@ export default function CustomerLoginForm() {
       const res = await fetch("/api/musteri/giris", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ phone, pin }),
       });
       const data = await res.json();
@@ -44,8 +44,8 @@ export default function CustomerLoginForm() {
       }
       if (!res.ok) throw new Error(data.error ?? "Giriş başarısız");
 
-      router.push(redirect);
-      router.refresh();
+      // Tam sayfa yönlendirme — çerez middleware'e ulaşmadan client router geçmesin
+      window.location.assign(redirect);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Giriş başarısız");
     } finally {

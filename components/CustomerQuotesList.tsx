@@ -32,7 +32,7 @@ export default function CustomerQuotesList() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/api/musteri/talepler")
+    fetch("/api/musteri/talepler", { credentials: "same-origin" })
       .then(async (res) => {
         if (res.status === 401) {
           router.replace("/musteri/giris");
