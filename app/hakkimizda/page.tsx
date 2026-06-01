@@ -63,8 +63,7 @@ export default function AboutPage() {
         </p>
         <p>
           Amacımız, güvenilir hizmet almayı kolay, erişilebilir ve öngörülebilir kılmaktır.
-          Dijital öncelikli, insan odaklı bir platform olarak {companyInfo.foundingYear} yılında
-          kurulmuştur.
+          Dijital öncelikli, insan odaklı bir platform olarak kurulmuştur.
         </p>
       </section>
 

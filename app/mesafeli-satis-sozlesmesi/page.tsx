@@ -94,7 +94,7 @@ export default function DistanceSalesPage() {
           Alıcı, platform üzerinden sipariş vermekle işbu sözleşmenin tüm maddelerini okuduğunu
           ve kabul ettiğini beyan eder.
         </p>
-        <p className="text-sm">Son güncelleme: Mayıs 2026</p>
+        <p className="text-sm">Son güncelleme: Mayıs</p>
       </section>
     </LegalPageLayout>
   );

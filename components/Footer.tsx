@@ -150,7 +150,7 @@ export default function Footer() {
           </div>
         </div>
         <div className="mt-8 flex flex-col items-center justify-between gap-4 border-t border-white/10 pt-6 sm:flex-row">
-          <p className="text-sm text-white/45">© 2026 Çokusta. Tüm hakları saklıdır.</p>
+          <p className="text-sm text-white/45">© Çokusta. Tüm hakları saklıdır.</p>
           <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
             <Link href="/musteri/kontor" className="text-white/60 transition hover:text-white">
               Kontör
