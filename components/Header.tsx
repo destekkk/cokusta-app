@@ -53,7 +53,7 @@ export default function Header() {
             href="/hizmetler"
             className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark sm:px-5"
           >
-            Teklif Al
+            Hemen Teklif Al
           </Link>
         </div>
       </div>
