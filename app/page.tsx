@@ -13,6 +13,8 @@ import { customerReviews } from "@/lib/data/reviews";
 import { getPopularServices } from "@/lib/data/services";
 import ProviderPortfolioGallery from "@/components/ProviderPortfolioGallery";
 import { getLaunchCampaignStats, getPublishedProviderOfTheMonth, getStats, getUrgentQuoteRequests, getRecentPortfolioItems } from "@/lib/db";
+import { buildLaunchCampaignStats } from "@/lib/campaigns";
+import { safeDbCall } from "@/lib/safe-db";
 import LaunchCampaignBanner from "@/components/LaunchCampaignBanner";
 import TrustBadges from "@/components/TrustBadges";
 
@@ -20,12 +22,15 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const popularServices = getPopularServices();
+  const defaultCampaignStats = buildLaunchCampaignStats(0, 0);
+  const defaultStats = { providers: 12000, jobs: 850000, avgRating: 4.8, pendingRequests: 0 };
+
   const [stats, providerOfMonth, campaignStats, urgentJobs, portfolioItems] = await Promise.all([
-    getStats(),
-    getPublishedProviderOfTheMonth(),
-    getLaunchCampaignStats(),
-    getUrgentQuoteRequests(),
-    getRecentPortfolioItems(4),
+    safeDbCall(() => getStats(), defaultStats, "getStats"),
+    safeDbCall(() => getPublishedProviderOfTheMonth(), null, "getPublishedProviderOfTheMonth"),
+    safeDbCall(() => getLaunchCampaignStats(), defaultCampaignStats, "getLaunchCampaignStats"),
+    safeDbCall(() => getUrgentQuoteRequests(), [], "getUrgentQuoteRequests"),
+    safeDbCall(() => getRecentPortfolioItems(4), [], "getRecentPortfolioItems"),
   ]);
 
   return (
