@@ -1,5 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" fill="none">
-  <rect width="180" height="180" rx="36" fill="#E8B923"/>
-  <text x="90" y="86" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="58" fill="#C2185B">&#199;OK</text>
-  <text x="90" y="142" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-weight="700" font-size="58" fill="#1B4332">USTA</text>
+  <rect width="180" height="180" rx="40" fill="#C46141"/>
+  <g stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M110.3 47.3a5.6 5.6 0 0 0 0 7.9l6.2 6.2a5.6 5.6 0 0 0 7.9 0l14.7-14.7a23.6 23.6 0 0 1-31.4 31.4l-27 27a8.4 8.4 0 0 1-11.9-11.9l27-27a23.6 23.6 0 0 1 31.4-31.4l-14.7 14.7z"/>
+    <path d="M104.1 81.6 71.1 114.6a8.4 8.4 0 0 1-11.9-11.9l33-33"/>
+    <path d="M113.6 90.9 132.2 72.3"/>
+    <path d="M125.4 79.1l-5.1-5.1"/>
+    <path d="M100.1 53.8l6.8 6.8"/>
+  </g>
 </svg>
