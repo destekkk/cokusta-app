@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { agreeToOffer, counterOffer, getQuoteRequestById } from "@/lib/db";
+import { agreeToOffer, counterOffer, getQuoteRequestById, withdrawCustomerAgreement } from "@/lib/db";
 import { getCustomerSessionPhone } from "@/lib/customer-auth";
 import { phonesEqual } from "@/lib/phone-utils";
 
@@ -33,6 +33,12 @@ export async function POST(request: Request, { params }: Props) {
 
     if (action === "counter") {
       const result = await counterOffer(String(offerId), "customer", Number(price), String(message ?? ""));
+      if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
+      return NextResponse.json(result);
+    }
+
+    if (action === "withdraw") {
+      const result = await withdrawCustomerAgreement(String(offerId), sessionPhone);
       if (result.error) return NextResponse.json({ error: result.error }, { status: 400 });
       return NextResponse.json(result);
     }

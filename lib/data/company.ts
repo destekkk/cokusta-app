@@ -2,7 +2,6 @@
 export const companyInfo = {
   brand: "Çokusta",
   legalName: "Çokusta Teknoloji",
-  founder: "Süleyman Yalçınkaya",
   foundingYear: "2026",
   address: "Hanlı Merkez Mah. Anıl Sok. No:7, Arifiye / Sakarya",
   addressLine1: "Hanlı Merkez Mah. Anıl Sok. No:7",

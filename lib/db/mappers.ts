@@ -103,6 +103,7 @@ export function toProvider(row: ProviderWithRelations): ProviderRegistration {
     phone: row.phone,
     email: row.email,
     city: row.city,
+    district: row.district ?? undefined,
     categorySlugs: Array.isArray(row.categorySlugs)
       ? (row.categorySlugs as string[]).filter((slug) => typeof slug === "string")
       : [],
@@ -116,6 +117,7 @@ export function toProvider(row: ProviderWithRelations): ProviderRegistration {
     creditDebt: row.creditDebt,
     iban: row.iban ?? undefined,
     accountHolder: row.accountHolder ?? undefined,
+    escrowBalanceTl: row.escrowBalanceTl ?? 0,
     launchMemberNumber: row.launchMemberNumber ?? undefined,
     launchBonusGranted: row.launchBonusGranted,
     portfolio: row.portfolio?.map(toPortfolioItem),

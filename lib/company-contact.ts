@@ -9,7 +9,6 @@ export function getCompanyInfo() {
     address: process.env.COMPANY_ADDRESS ?? companyInfo.address,
     email: process.env.COMPANY_EMAIL ?? companyInfo.email,
     phone: process.env.COMPANY_PHONE ?? companyInfo.phone,
-    founder: companyInfo.founder,
   };
 }
 
@@ -27,10 +26,6 @@ export function getOrganizationSchema() {
       addressLocality: "Arifiye",
       addressRegion: "Sakarya",
       addressCountry: "TR",
-    },
-    founder: {
-      "@type": "Person",
-      name: companyInfo.founder,
     },
   };
 }

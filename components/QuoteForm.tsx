@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Service, ServiceQuestion } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
@@ -29,6 +29,17 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
   const totalSteps = 3;
   const districts = city ? getDistricts(city) : [];
   const jobDescriptionExample = getJobDescriptionExample(service.slug, service.categorySlug);
+
+  useEffect(() => {
+    fetch("/api/musteri/profil", { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data?.profile) return;
+        if (!defaultCity && data.profile.city) setCity(data.profile.city);
+        if (data.profile.district) setDistrict(data.profile.district);
+      })
+      .catch(() => {});
+  }, [defaultCity]);
 
   const updateAnswer = (id: string, value: string) => {
     setAnswers((prev) => ({ ...prev, [id]: value }));

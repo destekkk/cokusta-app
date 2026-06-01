@@ -23,9 +23,6 @@ export default function ContactPage() {
                 <strong className="text-foreground">Unvan:</strong> {companyInfo.legalName}
               </li>
               <li>
-                <strong className="text-foreground">Kurucu:</strong> {companyInfo.founder}
-              </li>
-              <li>
                 <strong className="text-foreground">Adres:</strong> {companyInfo.address}
               </li>
               <li>

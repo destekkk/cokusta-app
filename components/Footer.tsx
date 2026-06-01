@@ -127,8 +127,6 @@ export default function Footer() {
               <p className="mt-2 text-xs leading-relaxed text-white/60 sm:text-sm">
                 <span className="font-medium text-white/80">{companyInfo.legalName}</span>
                 {" · "}
-                {companyInfo.founder}
-                {" · "}
                 {companyInfo.address}
               </p>
               <p className="mt-1 text-xs leading-relaxed text-white/60 sm:text-sm">

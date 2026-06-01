@@ -53,6 +53,8 @@ enum InvoiceReferenceType {
 enum CreditLedgerType {
   customer_purchase
   customer_payment
+  customer_escrow_payment
+  provider_escrow_release
   provider_offer_spend
   provider_offer_debt
   provider_purchase
@@ -70,6 +72,12 @@ enum CustomerCreditPurchaseStatus {
   pending
   completed
   failed
+}
+
+enum JobEscrowReleaseStatus {
+  none
+  requested
+  released
 }
 
 enum CustomerProviderPaymentStatus {
@@ -118,10 +126,13 @@ model QuoteRequest {
   urgentDeadline      DateTime?   @map("urgent_deadline")
   customerPaidCredits Int?        @map("customer_paid_credits")
   customerPaymentAt   DateTime?   @map("customer_payment_at")
+  escrowPaidAmount    Int?        @map("escrow_paid_amount")
+  escrowServiceFee    Int?        @map("escrow_service_fee")
 
   matchedProvider Provider? @relation(fields: [matchedProviderId], references: [id], onDelete: SetNull)
   offers            ProviderOffer[]
   customerPayments  CustomerProviderPayment[]
+  jobEscrowOrders   CustomerJobEscrowOrder[]
 
   @@index([status])
   @@index([phone])
@@ -146,6 +157,7 @@ model ProviderOffer {
   quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
   provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
   customerPayment CustomerProviderPayment?
+  jobEscrowOrder  CustomerJobEscrowOrder?
 
   @@unique([quoteRequestId, providerId])
   @@index([quoteRequestId])
@@ -161,6 +173,7 @@ model Provider {
   phone              String         @db.VarChar(32)
   email              String         @db.VarChar(255)
   city               String         @db.VarChar(128)
+  district           String?        @db.VarChar(128)
   categorySlugs      Json           @map("category_slugs")
   experience         String         @db.Text
   bio                String         @db.Text
@@ -175,6 +188,7 @@ model Provider {
   pinHash            String?        @map("pin_hash") @db.VarChar(128)
   iban               String?        @db.VarChar(34)
   accountHolder      String?        @map("account_holder") @db.VarChar(255)
+  escrowBalanceTl    Int            @default(0) @map("escrow_balance_tl")
 
   quotes            QuoteRequest[]
   offers            ProviderOffer[]
@@ -185,6 +199,8 @@ model Provider {
   referralsMade     ProviderReferral[] @relation("ReferralsMade")
   referredVia       ProviderReferral?  @relation("ReferredAsFriend")
   customerPayments  CustomerProviderPayment[]
+  jobEscrowOrders   CustomerJobEscrowOrder[]
+  inboxMessages     ProviderInboxMessage[]
   payoutRequests    ProviderPayoutRequest[]
   creditLedger      CreditLedgerEntry[]
 
@@ -286,6 +302,8 @@ model CustomerWallet {
   phone         String   @unique @db.VarChar(32)
   creditBalance Int      @default(0) @map("credit_balance")
   pinHash       String?  @map("pin_hash") @db.VarChar(128)
+  city          String?  @db.VarChar(128)
+  district      String?  @db.VarChar(128)
   createdAt     DateTime @map("created_at")
   updatedAt     DateTime @map("updated_at")
 
@@ -339,6 +357,54 @@ model CustomerProviderPayment {
   @@index([providerId])
   @@index([walletId])
   @@map("customer_provider_payments")
+}
+
+model CustomerJobEscrowOrder {
+  id              String                       @id @db.VarChar(64)
+  quoteRequestId  String                       @unique @map("quote_request_id") @db.VarChar(64)
+  offerId         String                       @unique @map("offer_id") @db.VarChar(64)
+  customerPhone   String                       @map("customer_phone") @db.VarChar(32)
+  providerId      String                       @map("provider_id") @db.VarChar(64)
+  jobAmount       Int                          @map("job_amount")
+  serviceFee      Int                          @map("service_fee")
+  totalAmount     Int                          @map("total_amount")
+  conversationId  String                       @unique @map("conversation_id") @db.VarChar(64)
+  basketId        String                       @map("basket_id") @db.VarChar(64)
+  status          CustomerCreditPurchaseStatus @default(pending)
+  iyzicoToken     String?                      @map("iyzico_token") @db.VarChar(512)
+  iyzicoPaymentId String?                      @map("iyzico_payment_id") @db.VarChar(64)
+  createdAt       DateTime                     @map("created_at")
+  completedAt     DateTime?                    @map("completed_at")
+  releaseStatus   JobEscrowReleaseStatus       @default(none) @map("release_status")
+  releaseRequestedAt DateTime?                 @map("release_requested_at")
+  releasedAt      DateTime?                    @map("released_at")
+
+  quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  offer        ProviderOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  provider     Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([customerPhone])
+  @@index([status])
+  @@map("customer_job_escrow_orders")
+}
+
+model ProviderInboxMessage {
+  id             String   @id @db.VarChar(64)
+  providerId     String   @map("provider_id") @db.VarChar(64)
+  type           String   @db.VarChar(64)
+  title          String   @db.VarChar(255)
+  body           String   @db.Text
+  quoteRequestId String?  @map("quote_request_id") @db.VarChar(64)
+  read           Boolean  @default(false)
+  createdAt      DateTime @map("created_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([read])
+  @@index([createdAt])
+  @@map("provider_inbox_messages")
 }
 
 model ProviderPayoutRequest {

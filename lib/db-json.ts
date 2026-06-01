@@ -1455,6 +1455,17 @@ export async function submitProviderOffer(
     return { error: "Bu talebe zaten teklif verdiniz." };
   }
 
+  const pendingAgreement = store.providerOffers.find(
+    (o) =>
+      o.providerId === providerId &&
+      o.status === "pending" &&
+      o.customerAgreedAt &&
+      !o.providerAgreedAt
+  );
+  if (pendingAgreement) {
+    return { error: "Bekleyen müşteri anlaşması var. Yeni teklif veremezsiniz." };
+  }
+
   const offer: ProviderOffer = {
     id: generateId(),
     quoteRequestId,
@@ -1503,6 +1514,33 @@ export async function getProviderOffersForQuote(quoteId: string): Promise<Provid
       return enrichOffer(o, provider);
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function getProviderOffersByProviderId(
+  providerId: string
+): Promise<import("@/lib/types").ProviderOfferWithQuote[]> {
+  const store = await ensureStore();
+  const provider = store.providers.find((p) => p.id === providerId);
+  const items: import("@/lib/types").ProviderOfferWithQuote[] = [];
+  for (const o of store.providerOffers.filter((x) => x.providerId === providerId)) {
+    const quote = store.quoteRequests.find((q) => q.id === o.quoteRequestId);
+    if (!quote) continue;
+    items.push({
+      offer: enrichOffer(o, provider),
+      quote: {
+        id: quote.id,
+        serviceName: quote.serviceName,
+        city: quote.city,
+        district: quote.district,
+        status: quote.status,
+        createdAt: quote.createdAt,
+      },
+      escrowStatus: null,
+    });
+  }
+  return items.sort(
+    (a, b) => new Date(b.offer.createdAt).getTime() - new Date(a.offer.createdAt).getTime()
+  );
 }
 
 export async function acceptProviderOffer(
@@ -1564,6 +1602,10 @@ export async function counterOffer(
     return { error: "Talep artık pazarlığa kapalı." };
   }
 
+  if (offer.customerAgreedAt) {
+    return { error: "Müşteri anlaştı. Karşı teklif verilemez; usta onayı bekleniyor." };
+  }
+
   if (price <= 0 || message.trim().length < 5) {
     return { error: "Geçerli fiyat ve en az 5 karakterlik açıklama girin." };
   }
@@ -1581,6 +1623,31 @@ export async function counterOffer(
   offer.customerAgreedAt = undefined;
   offer.providerAgreedAt = undefined;
 
+  await saveStore(store);
+  const provider = store.providers.find((p) => p.id === offer.providerId);
+  return { offer: enrichOffer(offer, provider) };
+}
+
+export async function withdrawCustomerAgreement(
+  offerId: string,
+  customerPhone: string
+): Promise<{ offer?: ProviderOffer; error?: string }> {
+  const phone = normalizeProviderPhone(customerPhone);
+  const store = await ensureStore();
+  const offer = store.providerOffers.find((o) => o.id === offerId);
+  if (!offer || offer.status !== "pending") {
+    return { error: "Teklif bulunamadı veya kapalı." };
+  }
+
+  const quote = store.quoteRequests.find((q) => q.id === offer.quoteRequestId);
+  if (!quote) return { error: "Talep bulunamadı." };
+  if (!phonesEqual(quote.phone, phone)) return { error: "Bu talep size ait değil." };
+  if (!offer.customerAgreedAt) return { error: "Aktif bir anlaşma onayınız yok." };
+  if (offer.providerAgreedAt) {
+    return { error: "Usta da onayladı; anlaşmadan vazgeçilemez." };
+  }
+
+  offer.customerAgreedAt = undefined;
   await saveStore(store);
   const provider = store.providers.find((p) => p.id === offer.providerId);
   return { offer: enrichOffer(offer, provider) };
@@ -1607,7 +1674,12 @@ export async function agreeToOffer(
 
   const now = new Date().toISOString();
   if (from === "customer") offer.customerAgreedAt = now;
-  if (from === "provider") offer.providerAgreedAt = now;
+  if (from === "provider") {
+    if (!offer.customerAgreedAt) {
+      return { error: "Müşteri henüz anlaşmadı. Müşteri onayı bekleniyor." };
+    }
+    offer.providerAgreedAt = now;
+  }
 
   if (offer.customerAgreedAt && offer.providerAgreedAt) {
     const result = await acceptProviderOffer(offer.quoteRequestId, offerId);
@@ -2006,4 +2078,62 @@ export async function getProviderReferrals(referrerId: string): Promise<Provider
   return store.providerReferrals
     .filter((r) => r.referrerId === referrerId)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function getCustomerProfile(phone: string): Promise<import("./types").CustomerProfile> {
+  const normalized = normalizeProviderPhone(phone);
+  const store = await ensureStore();
+  if (!store.customerProfiles) store.customerProfiles = {};
+  const saved = store.customerProfiles[normalized];
+  if (saved?.city) {
+    return { phone: normalized, city: saved.city, district: saved.district ?? "" };
+  }
+  const latestQuote = store.quoteRequests
+    .filter((q) => phonesEqual(q.phone, normalized))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+  return {
+    phone: normalized,
+    city: latestQuote?.city ?? "",
+    district: latestQuote?.district ?? "",
+  };
+}
+
+export async function updateCustomerProfile(
+  phone: string,
+  data: { city: string; district?: string }
+): Promise<{ profile?: import("./types").CustomerProfile; error?: string }> {
+  const normalized = normalizeProviderPhone(phone);
+  const city = data.city.trim();
+  const district = data.district?.trim() ?? "";
+  if (!city) return { error: "İl seçin." };
+
+  const store = await ensureStore();
+  if (!store.customerProfiles) store.customerProfiles = {};
+  store.customerProfiles[normalized] = { city, district: district || undefined };
+  await saveStore(store);
+  return { profile: { phone: normalized, city, district } };
+}
+
+export async function updateQuoteRequestLocation(
+  quoteId: string,
+  phone: string,
+  data: { city: string; district: string }
+): Promise<{ quote?: QuoteRequest; error?: string }> {
+  const normalized = normalizeProviderPhone(phone);
+  const city = data.city.trim();
+  const district = data.district.trim();
+  if (!city || !district) return { error: "İl ve ilçe seçin." };
+
+  const store = await ensureStore();
+  const quote = store.quoteRequests.find((q) => q.id === quoteId);
+  if (!quote) return { error: "Talep bulunamadı." };
+  if (!phonesEqual(quote.phone, normalized)) return { error: "Bu talep size ait değil." };
+  if (quote.status !== "open" && quote.status !== "awaiting_review") {
+    return { error: "Bu talebin konumu artık değiştirilemez." };
+  }
+
+  quote.city = city;
+  quote.district = district;
+  await saveStore(store);
+  return { quote };
 }

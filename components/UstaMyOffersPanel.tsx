@@ -1,0 +1,171 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
+import type { ProviderOffer } from "@/lib/types";
+import { getCurrentOfferPrice } from "@/lib/offer-utils";
+
+type OfferItem = {
+  offer: ProviderOffer;
+  quote: {
+    id: string;
+    serviceName: string;
+    city: string;
+    district: string;
+    status: string;
+    createdAt: string;
+  };
+  escrowStatus: "pending" | "completed" | "failed" | null;
+  escrowReleaseStatus?: "none" | "requested" | "released" | null;
+};
+
+function statusBadge(item: OfferItem) {
+  const { offer, quote, escrowStatus, escrowReleaseStatus } = item;
+  if (offer.status === "accepted" || quote.status === "accepted") {
+    if (escrowStatus === "completed" && escrowReleaseStatus === "released") {
+      return (
+        <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+          Ödeme aktarıldı
+        </span>
+      );
+    }
+    return (
+      <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+        Anlaşıldı
+      </span>
+    );
+  }
+  if (offer.status === "rejected" || offer.status === "withdrawn") {
+    return (
+      <span className="rounded-full bg-red-100 px-2.5 py-1 text-xs font-medium text-red-800">
+        Kapalı
+      </span>
+    );
+  }
+  if (offer.customerAgreedAt && !offer.providerAgreedAt) {
+    return (
+      <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-900">
+        Müşteri onayladı — sizin onayınız bekleniyor
+      </span>
+    );
+  }
+  if (escrowStatus === "completed" && escrowReleaseStatus !== "released") {
+    return (
+      <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-900">
+        Ödeme havuzda
+      </span>
+    );
+  }
+  if (escrowReleaseStatus === "released") {
+    return (
+      <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
+        Ödeme aktarıldı
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-muted-foreground">
+      Beklemede
+    </span>
+  );
+}
+
+type Props = {
+  onNegotiate: (
+    offer: ProviderOffer,
+    action: "agree" | "counter",
+    price?: number,
+    message?: string
+  ) => Promise<void>;
+  submitting: boolean;
+  refreshToken?: number;
+};
+
+export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToken = 0 }: Props) {
+  const [items, setItems] = useState<OfferItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch("/api/usta/tekliflerim");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
+      setItems(data.offers ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Yüklenemedi");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    load();
+  }, [refreshToken]);
+
+  if (loading) {
+    return <p className="text-muted-foreground">Teklifleriniz yükleniyor…</p>;
+  }
+
+  if (error) {
+    return <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>;
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+        Henüz teklif vermediniz. Açık talepler sekmesinden teklif gönderebilirsiniz.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+      <table className="w-full min-w-[960px] text-sm">
+        <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+          <tr>
+            <th className="px-4 py-3">Hizmet</th>
+            <th className="px-4 py-3">Konum</th>
+            <th className="px-4 py-3">Teklif</th>
+            <th className="px-4 py-3">Durum</th>
+            <th className="px-4 py-3">İşlem</th>
+          </tr>
+        </thead>
+        <tbody>
+          {items.map((item) => (
+            <tr key={item.offer.id} className="border-t border-border align-top hover:bg-accent/10">
+              <td className="px-4 py-3 font-medium">{item.quote.serviceName}</td>
+              <td className="px-4 py-3 text-muted-foreground">
+                {item.quote.city}
+                {item.quote.district ? `, ${item.quote.district}` : ""}
+                <br />
+                <span className="text-xs">
+                  {new Date(item.offer.createdAt).toLocaleDateString("tr-TR")}
+                </span>
+              </td>
+              <td className="px-4 py-3 font-semibold text-primary">
+                {getCurrentOfferPrice(item.offer).toLocaleString("tr-TR")} ₺
+              </td>
+              <td className="px-4 py-3">{statusBadge(item)}</td>
+              <td className="px-4 py-3">
+                {item.offer.status === "pending" && item.quote.status === "open" ? (
+                  <OfferNegotiationPanel
+                    offer={item.offer}
+                    role="provider"
+                    loading={submitting}
+                    onAgree={() => onNegotiate(item.offer, "agree")}
+                    onCounter={(p, m) => onNegotiate(item.offer, "counter", p, m)}
+                  />
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}

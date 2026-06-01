@@ -1,13 +1,15 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
-import type { CustomerProviderPayment, ProviderOffer } from "@/lib/types";
+import JobEscrowCheckoutModal from "@/components/JobEscrowCheckoutModal";
+import QuoteLocationEditor from "@/components/QuoteLocationEditor";
+import ParamGuvendePaymentOption from "@/components/ParamGuvendePaymentOption";
+import ParamGuvendePitch from "@/components/ParamGuvendePitch";
+import type { CustomerJobEscrowOrder, ProviderOffer } from "@/lib/types";
 import { getCurrentOfferPrice } from "@/lib/offer-utils";
-import { tlToCredits } from "@/lib/credit-economy";
-import { COKUSTA_CREDIT_PRICE } from "@/lib/pricing";
+import { computeParamGuvendeBreakdown } from "@/lib/param-guvende";
 
 type Props = {
   quoteId: string;
@@ -24,10 +26,11 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     customer: { name: string; phone: string; email: string };
     provider: { name: string; phone: string; email: string };
   } | null>(null);
-  const [acceptedOfferId, setAcceptedOfferId] = useState<string | null>(null);
-  const [acceptedOfferPrice, setAcceptedOfferPrice] = useState(0);
-  const [payment, setPayment] = useState<CustomerProviderPayment | null>(null);
-  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [escrow, setEscrow] = useState<CustomerJobEscrowOrder | null>(null);
+  const [quoteCity, setQuoteCity] = useState("");
+  const [quoteDistrict, setQuoteDistrict] = useState("");
+  const [selectedPayOfferId, setSelectedPayOfferId] = useState<string | null>(null);
+  const [checkoutOfferId, setCheckoutOfferId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
 
   const loadOffers = async () => {
@@ -40,28 +43,25 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
     setOffers(data.offers ?? []);
     setQuoteStatus(data.quote?.status ?? "");
+    setQuoteCity(data.quote?.city ?? "");
+    setQuoteDistrict(data.quote?.district ?? "");
     setContacts(data.contacts ?? null);
-    setAcceptedOfferId(data.acceptedOfferId ?? data.acceptedOffer?.id ?? null);
-    setPayment(data.payment ?? null);
-    if (data.acceptedOffer?.price) setAcceptedOfferPrice(data.acceptedOffer.price);
+    setEscrow(data.escrow ?? null);
     setReady(true);
-  };
-
-  const loadWallet = () => {
-    fetch("/api/musteri/kontor/bakiye")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d && setWalletBalance(d.creditBalance ?? 0))
-      .catch(() => {});
   };
 
   useEffect(() => {
     loadOffers().catch((err) => {
       setError(err instanceof Error ? err.message : "Yüklenemedi");
     });
-    loadWallet();
   }, [quoteId]);
 
-  const negotiate = async (offerId: string, action: "agree" | "counter", price?: number, message?: string) => {
+  const negotiate = async (
+    offerId: string,
+    action: "agree" | "counter" | "withdraw",
+    price?: number,
+    message?: string
+  ) => {
     setLoading(true);
     setError("");
     try {
@@ -72,10 +72,8 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "İşlem başarısız");
-      if (data.accepted) {
-        await loadOffers();
-        loadWallet();
-        return;
+      if (action === "withdraw") {
+        setSelectedPayOfferId(null);
       }
       await loadOffers();
     } catch (err) {
@@ -85,12 +83,10 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     }
   };
 
-  const payWithCredits = async () => {
-    if (!acceptedOfferId) return;
-    const creditsNeeded = tlToCredits(acceptedOfferPrice);
+  const releasePayment = async () => {
     if (
       !confirm(
-        `${creditsNeeded} kontör (${(creditsNeeded * COKUSTA_CREDIT_PRICE).toLocaleString("tr-TR")} ₺) ustaya aktarılacak. Onaylıyor musunuz?`
+        "İş tamamlandı mı? Onayladığınızda iş bedeli ustaya aktarılacaktır. Bu işlem geri alınamaz."
       )
     ) {
       return;
@@ -98,36 +94,109 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/musteri/teklif/${quoteId}/odeme`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ offerId: acceptedOfferId }),
-      });
+      const res = await fetch(`/api/musteri/teklif/${quoteId}/odeme-yolla`, { method: "POST" });
       const data = await res.json();
-      if (data.code === "INSUFFICIENT_CREDITS") {
-        throw new Error(`${data.error} Kontör satın alın.`);
-      }
-      if (!res.ok) throw new Error(data.error ?? "Ödeme yapılamadı");
+      if (!res.ok) throw new Error(data.error ?? "İşlem başarısız");
       await loadOffers();
-      loadWallet();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Ödeme yapılamadı");
+      setError(err instanceof Error ? err.message : "İşlem başarısız");
     } finally {
       setLoading(false);
     }
+  };
+
+  const escrowPaid = escrow?.status === "completed";
+  const escrowReleased = escrow?.releaseStatus === "released";
+  const escrowHeld = escrowPaid && !escrowReleased;
+
+  const payableOffers = offers.filter(
+    (o) => o.customerAgreedAt && o.status === "pending" && (!escrowPaid || escrow?.offerId !== o.id)
+  );
+
+  const renderEscrowStatus = (offer: ProviderOffer) => {
+    if (!escrow || escrow.offerId !== offer.id || !escrowPaid) return null;
+
+    if (escrowReleased) {
+      return (
+        <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
+          ✓ {escrow.jobAmount.toLocaleString("tr-TR")} ₺ iş bedeli ustaya aktarıldı
+        </div>
+      );
+    }
+
+    return (
+      <div className="mt-3 space-y-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900">
+        <p>
+          ✓ Param Güvende ile {escrow.totalAmount.toLocaleString("tr-TR")} ₺ ödendi (
+          {escrow.jobAmount.toLocaleString("tr-TR")} ₺ iş + {escrow.serviceFee.toLocaleString("tr-TR")}{" "}
+          ₺ hizmet bedeli). Tutar havuzda güvende.
+        </p>
+        {(quoteStatus === "accepted" || quoteStatus === "open") && (
+          <button
+            type="button"
+            disabled={loading}
+            onClick={releasePayment}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+          >
+            İş bitti — ödemeyi yolla
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderPaymentOptions = (offer: ProviderOffer) => {
+    if (!offer.customerAgreedAt) return null;
+    if (escrowPaid && escrow?.offerId === offer.id) {
+      return renderEscrowStatus(offer);
+    }
+    if (escrowPaid) return null;
+
+    const breakdown = computeParamGuvendeBreakdown(getCurrentOfferPrice(offer));
+
+    return (
+      <ParamGuvendePaymentOption
+        offerId={offer.id}
+        providerName={offer.providerName ?? "Usta"}
+        breakdown={breakdown}
+        selected={selectedPayOfferId === offer.id}
+        disabled={loading}
+        onSelect={setSelectedPayOfferId}
+      />
+    );
   };
 
   if (!ready) {
     return <p className="text-muted-foreground">Yükleniyor…</p>;
   }
 
+  const checkoutOffer = offers.find((o) => o.id === checkoutOfferId);
+  const checkoutBreakdown = checkoutOffer
+    ? computeParamGuvendeBreakdown(getCurrentOfferPrice(checkoutOffer))
+    : null;
+
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">
         <strong>{serviceName}</strong> — usta tekliflerini görüntüleyin, karşı teklif verin veya anlaştık deyin.
+        Anlaştıktan sonra hizmet bedeli dökümünü görüp Param Güvende ile ödeyebilirsiniz.
       </p>
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+
+      {(quoteStatus === "open" || quoteStatus === "awaiting_review") && (
+        <QuoteLocationEditor
+          key={`${quoteCity}-${quoteDistrict}`}
+          quoteId={quoteId}
+          city={quoteCity}
+          district={quoteDistrict}
+          editable
+          onUpdated={(city, district) => {
+            setQuoteCity(city);
+            setQuoteDistrict(district);
+          }}
+        />
+      )}
 
       {quoteStatus === "accepted" && contacts && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-5 space-y-3">
@@ -138,25 +207,27 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
               {contacts.provider.phone}
             </a>
           </p>
-          {payment ? (
-            <p className="rounded-lg bg-white/80 px-4 py-3 text-sm text-green-900">
-              ✓ {payment.credits} kontör ustaya ödendi
-            </p>
-          ) : acceptedOfferId ? (
-            <div className="flex flex-wrap gap-2">
+          {escrowHeld && escrow && (
+            <div className="space-y-3 rounded-lg bg-white/80 px-4 py-3 text-sm text-green-900">
+              <p>
+                Param Güvende: {escrow.totalAmount.toLocaleString("tr-TR")} ₺ ödendi,{" "}
+                {escrow.jobAmount.toLocaleString("tr-TR")} ₺ havuzda bekliyor.
+              </p>
               <button
                 type="button"
                 disabled={loading}
-                onClick={payWithCredits}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white"
+                onClick={releasePayment}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
               >
-                Kontör ile öde
+                İş bitti — ödemeyi yolla
               </button>
-              <Link href="/musteri/kontor" className="rounded-lg border border-green-400 px-4 py-2 text-sm font-semibold text-green-900">
-                Kontör al
-              </Link>
             </div>
-          ) : null}
+          )}
+          {escrowReleased && escrow && (
+            <p className="rounded-lg bg-white/80 px-4 py-3 text-sm text-green-900">
+              ✓ {escrow.jobAmount.toLocaleString("tr-TR")} ₺ ustaya aktarıldı
+            </p>
+          )}
         </div>
       )}
 
@@ -173,39 +244,85 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
       )}
 
       {quoteStatus === "open" && offers.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-[900px] text-sm">
-            <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3">Usta</th>
-                <th className="px-4 py-3">Fiyat</th>
-                <th className="px-4 py-3">Pazarlık</th>
-              </tr>
-            </thead>
-            <tbody>
-              {offers.map((offer) => (
-                <tr key={offer.id} className="border-t border-border align-top">
-                  <td className="px-4 py-4">
-                    <p className="font-semibold">{offer.providerName ?? "Usta"}</p>
-                    <p className="text-muted-foreground">{offer.providerCity}</p>
-                  </td>
-                  <td className="px-4 py-4 font-bold text-primary">
-                    {getCurrentOfferPrice(offer).toLocaleString("tr-TR")} ₺
-                  </td>
-                  <td className="px-4 py-4">
+        <>
+          <div className="overflow-x-auto rounded-xl border border-border bg-card">
+            <table className="w-full min-w-[900px] text-sm">
+              <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Usta</th>
+                  <th className="px-4 py-3">Fiyat</th>
+                  <th className="px-4 py-3">Pazarlık &amp; Ödeme</th>
+                </tr>
+              </thead>
+              <tbody>
+                {offers.map((offer) => (
+                  <tr key={offer.id} className="border-t border-border align-top">
+                    <td className="px-4 py-4">
+                      <p className="font-semibold">{offer.providerName ?? "Usta"}</p>
+                      <p className="text-muted-foreground">{offer.providerCity}</p>
+                    </td>
+                    <td className="px-4 py-4 font-bold text-primary">
+                      {getCurrentOfferPrice(offer).toLocaleString("tr-TR")} ₺
+                    </td>
+                    <td className="px-4 py-4">
                     <OfferNegotiationPanel
                       offer={offer}
                       role="customer"
                       loading={loading}
+                      paymentLocked={escrowPaid && escrow?.offerId === offer.id}
                       onAgree={() => negotiate(offer.id, "agree")}
                       onCounter={(price, message) => negotiate(offer.id, "counter", price, message)}
+                      onWithdraw={() => {
+                        if (
+                          confirm(
+                            "Bu ustayla anlaşmaktan vazgeçmek istediğinize emin misiniz? Ödeme seçiminiz de iptal olur."
+                          )
+                        ) {
+                          negotiate(offer.id, "withdraw");
+                        }
+                      }}
                     />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                      {renderPaymentOptions(offer)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {payableOffers.length > 0 && !escrowPaid && (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-4">
+              <div>
+                <p className="text-sm font-semibold">Ödeme yöntemi seçin</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Yukarıdan bir ustanın Param Güvende seçeneğini işaretleyin, ardından ödeme ekranına geçin.
+                </p>
+              </div>
+              <ParamGuvendePitch />
+              <button
+                type="button"
+                disabled={loading || !selectedPayOfferId}
+                onClick={() => selectedPayOfferId && setCheckoutOfferId(selectedPayOfferId)}
+                className="mt-4 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                Ödeme ekranına geç
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {checkoutOfferId && checkoutOffer && checkoutBreakdown && (
+        <JobEscrowCheckoutModal
+          quoteId={quoteId}
+          offerId={checkoutOfferId}
+          serviceName={serviceName}
+          breakdown={checkoutBreakdown}
+          onClose={() => {
+            setCheckoutOfferId(null);
+            loadOffers().catch(() => {});
+          }}
+        />
       )}
     </div>
   );

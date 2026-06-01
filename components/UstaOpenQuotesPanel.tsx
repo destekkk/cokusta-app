@@ -7,6 +7,9 @@ import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getCategoryName } from "@/lib/data/categories";
 import { MAX_CREDIT_DEBT, canSubmitOffer, remainingDebtCapacity } from "@/lib/credit-debt";
 import UstaReferralCampaign from "@/components/UstaReferralCampaign";
+import UstaMyOffersPanel from "@/components/UstaMyOffersPanel";
+import UstaProfileLocationCard from "@/components/UstaProfileLocationCard";
+import UstaInboxPanel from "@/components/UstaInboxPanel";
 import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
 import type { ProviderOffer } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
@@ -16,6 +19,7 @@ import type { PublicQuoteRequest } from "@/lib/quote-privacy";
 type OpenQuote = PublicQuoteRequest & { myOffer?: ProviderOffer };
 
 const KONTOR_URL = "/usta/kontor?reason=no-credit";
+const LOCATION_STORAGE_KEY = "cokusta-usta-location-filter";
 
 function buildTaleplerUrl(location: ProviderQuoteLocationFilter): string {
   const params = new URLSearchParams();
@@ -55,6 +59,7 @@ export default function UstaOpenQuotesPanel() {
   const [quotes, setQuotes] = useState<OpenQuote[]>([]);
   const [creditBalance, setCreditBalance] = useState(0);
   const [creditDebt, setCreditDebt] = useState(0);
+  const [escrowBalanceTl, setEscrowBalanceTl] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -66,6 +71,25 @@ export default function UstaOpenQuotesPanel() {
   const [providerCategories, setProviderCategories] = useState<string[]>([]);
   const [location, setLocation] = useState<ProviderQuoteLocationFilter>({ cityMode: "provider" });
   const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState<"open" | "mine">("open");
+  const [myOffersRefresh, setMyOffersRefresh] = useState(0);
+  const [locationReady, setLocationReady] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LOCATION_STORAGE_KEY);
+      if (saved) setLocation(JSON.parse(saved));
+    } catch {
+      /* ignore */
+    } finally {
+      setLocationReady(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!locationReady) return;
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(location));
+  }, [location, locationReady]);
 
   const canOffer = canSubmitOffer(creditBalance, creditDebt);
   const debtRemaining = remainingDebtCapacity(creditDebt);
@@ -86,6 +110,7 @@ export default function UstaOpenQuotesPanel() {
       setQuotes(data.quotes ?? []);
       setCreditBalance(data.creditBalance ?? 0);
       setCreditDebt(data.creditDebt ?? 0);
+      setEscrowBalanceTl(data.escrowBalanceTl ?? 0);
       setProviderCity(data.providerCity ?? "");
       setProviderCategories(Array.isArray(data.providerCategories) ? data.providerCategories : []);
     } catch (err) {
@@ -97,8 +122,9 @@ export default function UstaOpenQuotesPanel() {
   };
 
   useEffect(() => {
+    if (!locationReady) return;
     load(location);
-  }, [location]);
+  }, [location, locationReady]);
 
   const onCityChange = (value: string) => {
     if (value === "__all__") {
@@ -127,9 +153,14 @@ export default function UstaOpenQuotesPanel() {
   const filterCity = activeFilterCity(location, providerCity);
   const districtOptions = location.cityMode !== "all" && filterCity ? getDistricts(filterCity) : [];
 
+  const pendingCustomerAgreement = quotes.some(
+    (q) => q.myOffer?.customerAgreedAt && !q.myOffer?.providerAgreedAt && q.myOffer?.status === "pending"
+  );
+
   const goBuyCredits = () => router.push(KONTOR_URL);
 
   const startOffer = (quoteId: string) => {
+    if (pendingCustomerAgreement) return;
     if (!canOffer) {
       goBuyCredits();
       return;
@@ -202,6 +233,7 @@ export default function UstaOpenQuotesPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "İşlem başarısız");
       await load();
+      setMyOffersRefresh((v) => v + 1);
     } catch (err) {
       setError(err instanceof Error ? err.message : "İşlem başarısız");
     } finally {
@@ -239,6 +271,11 @@ export default function UstaOpenQuotesPanel() {
         <div>
           <p className="text-sm text-muted-foreground">Kalan teklif kontörü</p>
           <p className="text-2xl font-bold text-primary">{creditBalance}</p>
+          {escrowBalanceTl > 0 && (
+            <p className="mt-1 text-sm font-medium text-emerald-700">
+              Param Güvende bakiyesi: {escrowBalanceTl.toLocaleString("tr-TR")} ₺
+            </p>
+          )}
           {creditDebt > 0 && (
             <p className="mt-1 text-sm font-medium text-amber-700">
               Borç kredisi: {creditDebt}/{MAX_CREDIT_DEBT} kontör
@@ -291,6 +328,58 @@ export default function UstaOpenQuotesPanel() {
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
+      {pendingCustomerAgreement && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Bir müşteri sizinle anlaşmayı onayladı. Yeni teklif veremezsiniz; bekleyen anlaşmayı onaylayın veya
+          müşteri vazgeçene kadar bekleyin.
+        </p>
+      )}
+
+      <UstaProfileLocationCard
+        onUpdated={(city) => {
+          setProviderCity(city);
+        }}
+      />
+
+      <UstaInboxPanel />
+
+      <div className="flex gap-2 border-b border-border">
+        <button
+          type="button"
+          onClick={() => setTab("open")}
+          className={`border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
+            tab === "open"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Açık Talepler
+        </button>
+        <button
+          type="button"
+          onClick={() => setTab("mine")}
+          className={`border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
+            tab === "mine"
+              ? "border-primary text-primary"
+              : "border-transparent text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Verdiğim Teklifler
+        </button>
+      </div>
+
+      {tab === "mine" ? (
+        <UstaMyOffersPanel
+          onNegotiate={negotiate}
+          submitting={submitting}
+          refreshToken={myOffersRefresh}
+        />
+      ) : (
+        <>
+      <p className="text-xs text-muted-foreground">
+        Kategori uygun olduğu sürece farklı illerdeki taleplere de teklif verebilirsiniz. İl filtresinden
+        &quot;Tüm iller&quot; veya başka bir il seçin.
+      </p>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="text-sm text-muted-foreground">
           {refreshing ? "Güncelleniyor…" : `${quotes.length} açık talep`}
@@ -443,7 +532,8 @@ export default function UstaOpenQuotesPanel() {
                       <button
                         type="button"
                         onClick={() => startOffer(quote.id)}
-                        className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-white ${
+                        disabled={pendingCustomerAgreement}
+                        className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${
                           !canOffer ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
                         }`}
                       >
@@ -461,6 +551,8 @@ export default function UstaOpenQuotesPanel() {
       <UstaReferralCampaign
         onCreditsUpdated={(balance) => setCreditBalance(balance)}
       />
+        </>
+      )}
     </div>
   );
 }

@@ -10,6 +10,11 @@ import {
   failCustomerCreditPurchaseOrder,
   getCustomerCreditOrderByConversationId,
 } from "@/lib/db-credits";
+import {
+  fulfillJobEscrowOrder,
+  failJobEscrowOrder,
+  getJobEscrowOrderByConversationId,
+} from "@/lib/db-escrow";
 import { getSiteUrl } from "@/lib/iyzico/config";
 
 export async function POST(request: Request) {
@@ -28,6 +33,32 @@ export async function POST(request: Request) {
 
     if (!conversationId) {
       return NextResponse.redirect(new URL("/usta/kontor/sonuc?status=error", siteUrl));
+    }
+
+    if (conversationId.startsWith("cust-escrow-")) {
+      const escrowOrder = await getJobEscrowOrderByConversationId(conversationId);
+
+      if (result.paymentStatus === "SUCCESS") {
+        const fulfilled = await fulfillJobEscrowOrder(conversationId, result.paymentId);
+        const orderId = fulfilled.order?.id ?? escrowOrder?.id ?? "";
+        const quoteId = fulfilled.order?.quoteRequestId ?? escrowOrder?.quoteRequestId ?? "";
+        return NextResponse.redirect(
+          new URL(
+            `/musteri/teklif/odeme-sonuc?status=success&order=${orderId}&quote=${quoteId}`,
+            siteUrl
+          )
+        );
+      }
+
+      await failJobEscrowOrder(conversationId);
+      const orderId = escrowOrder?.id ?? "";
+      const quoteId = escrowOrder?.quoteRequestId ?? "";
+      return NextResponse.redirect(
+        new URL(
+          `/musteri/teklif/odeme-sonuc?status=failed&order=${orderId}&quote=${quoteId}`,
+          siteUrl
+        )
+      );
     }
 
     if (conversationId.startsWith("cust-credit-")) {

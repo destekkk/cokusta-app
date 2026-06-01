@@ -8,21 +8,35 @@ type Props = {
   offer: ProviderOffer;
   role: "customer" | "provider";
   loading?: boolean;
+  paymentLocked?: boolean;
   onCounter: (price: number, message: string) => void;
   onAgree: () => void;
+  onWithdraw?: () => void;
 };
 
 export default function OfferNegotiationPanel({
   offer,
   role,
   loading = false,
+  paymentLocked = false,
   onCounter,
   onAgree,
+  onWithdraw,
 }: Props) {
   const [price, setPrice] = useState("");
   const [message, setMessage] = useState("");
   const [showCounter, setShowCounter] = useState(false);
   const currentPrice = getCurrentOfferPrice(offer);
+
+  const customerAgreed = !!offer.customerAgreedAt;
+  const providerAgreed = !!offer.providerAgreedAt;
+  const canCounter = offer.status === "pending" && !customerAgreed;
+  const canWithdraw =
+    role === "customer" &&
+    customerAgreed &&
+    !providerAgreed &&
+    !paymentLocked &&
+    !!onWithdraw;
 
   return (
     <div className="space-y-3">
@@ -41,17 +55,29 @@ export default function OfferNegotiationPanel({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {offer.customerAgreedAt && (
+        {customerAgreed && (
           <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
             Müşteri anlaştı ✓
           </span>
         )}
-        {offer.providerAgreedAt && (
+        {providerAgreed && (
           <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
             Usta anlaştı ✓
           </span>
         )}
       </div>
+
+      {role === "provider" && offer.status === "pending" && !customerAgreed && (
+        <p className="text-xs text-muted-foreground">
+          Müşteri &quot;Anlaştık&quot; dedikten sonra siz de onaylayabilirsiniz.
+        </p>
+      )}
+
+      {role === "provider" && offer.status === "pending" && customerAgreed && !providerAgreed && (
+        <p className="text-xs text-amber-800">
+          Müşteri anlaştı. Yalnızca &quot;Anlaştık&quot; ile onaylayabilirsiniz; yeni teklif verilemez.
+        </p>
+      )}
 
       {offer.status === "pending" && (
         <div className="flex flex-wrap gap-2">
@@ -59,25 +85,39 @@ export default function OfferNegotiationPanel({
             type="button"
             disabled={
               loading ||
-              (role === "customer" ? !!offer.customerAgreedAt : !!offer.providerAgreedAt)
+              (role === "customer"
+                ? customerAgreed
+                : providerAgreed || !customerAgreed)
             }
             onClick={onAgree}
             className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
             Anlaştık
           </button>
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => setShowCounter((v) => !v)}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-semibold"
-          >
-            Karşı Teklif Ver
-          </button>
+          {canCounter && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={() => setShowCounter((v) => !v)}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold"
+            >
+              Karşı Teklif Ver
+            </button>
+          )}
+          {canWithdraw && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onWithdraw}
+              className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+            >
+              Anlaşmaktan vazgeç
+            </button>
+          )}
         </div>
       )}
 
-      {showCounter && (
+      {showCounter && canCounter && (
         <div className="grid gap-2 sm:grid-cols-[140px_1fr_auto]">
           <input
             type="number"

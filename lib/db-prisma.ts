@@ -12,6 +12,7 @@ import type {
   ProviderPortfolioItem,
   ProviderRegistration,
   ProviderOffer,
+  ProviderOfferWithQuote,
   ProviderSummary,
   QuoteRequest,
   TaxDeclaration,
@@ -403,6 +404,7 @@ export async function updateProvider(
       phone: data.phone,
       email: data.email,
       city: data.city,
+      district: data.district !== undefined ? data.district?.trim() || null : undefined,
       categorySlugs: data.categorySlugs,
       experience: data.experience,
       bio: data.bio,
@@ -1616,6 +1618,18 @@ export async function submitProviderOffer(
   });
   if (existing) return { error: "Bu talebe zaten teklif verdiniz." };
 
+  const pendingAgreement = await prisma.providerOffer.findFirst({
+    where: {
+      providerId,
+      status: "pending",
+      customerAgreedAt: { not: null },
+      providerAgreedAt: null,
+    },
+  });
+  if (pendingAgreement) {
+    return { error: "Bekleyen müşteri anlaşması var. Yeni teklif veremezsiniz." };
+  }
+
   const id = generateId();
   const createdAt = new Date();
   const newDebt = useDebt ? debt + 1 : debt;
@@ -1698,6 +1712,47 @@ export async function getProviderOffersForQuote(quoteId: string): Promise<Provid
   return rows.map((row) => mapOfferFromRow(row, providerMap.get(row.providerId)));
 }
 
+export async function getProviderOffersByProviderId(
+  providerId: string
+): Promise<ProviderOfferWithQuote[]> {
+  const provider = await getProviderById(providerId);
+  const rows = await prisma.providerOffer.findMany({
+    where: { providerId },
+    orderBy: { createdAt: "desc" },
+  });
+  if (rows.length === 0) return [];
+
+  const quoteIds = [...new Set(rows.map((r) => r.quoteRequestId))];
+  const quotes = await prisma.quoteRequest.findMany({ where: { id: { in: quoteIds } } });
+  const quoteMap = new Map(quotes.map((q) => [q.id, toQuoteRequest(q)]));
+  const escrows = await prisma.customerJobEscrowOrder.findMany({
+    where: { quoteRequestId: { in: quoteIds } },
+  });
+  const escrowMap = new Map(escrows.map((e) => [e.quoteRequestId, e]));
+
+  const items: ProviderOfferWithQuote[] = [];
+  for (const row of rows) {
+    const quote = quoteMap.get(row.quoteRequestId);
+    if (!quote) continue;
+    const escrowRow = escrowMap.get(row.quoteRequestId);
+    items.push({
+      offer: mapOfferFromRow(row, provider ?? undefined),
+      quote: {
+        id: quote.id,
+        serviceName: quote.serviceName,
+        city: quote.city,
+        district: quote.district,
+        status: quote.status,
+        createdAt: quote.createdAt,
+      },
+      escrowStatus: (escrowRow?.status as ProviderOfferWithQuote["escrowStatus"]) ?? null,
+      escrowReleaseStatus:
+        (escrowRow?.releaseStatus as ProviderOfferWithQuote["escrowReleaseStatus"]) ?? null,
+    });
+  }
+  return items;
+}
+
 export async function acceptProviderOffer(quoteId: string, offerId: string) {
   const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
   const offerRow = await prisma.providerOffer.findUnique({ where: { id: offerId } });
@@ -1764,6 +1819,10 @@ export async function counterOffer(
     return { error: "Talep artık pazarlığa kapalı." };
   }
 
+  if (row.customerAgreedAt) {
+    return { error: "Müşteri anlaştı. Karşı teklif verilemez; usta onayı bekleniyor." };
+  }
+
   if (price <= 0 || message.trim().length < 5) {
     return { error: "Geçerli fiyat ve en az 5 karakterlik açıklama girin." };
   }
@@ -1792,6 +1851,42 @@ export async function counterOffer(
   };
 }
 
+export async function withdrawCustomerAgreement(
+  offerId: string,
+  customerPhone: string
+): Promise<{ offer?: ProviderOffer; error?: string }> {
+  const phone = normalizeProviderPhone(customerPhone);
+  const row = await prisma.providerOffer.findUnique({ where: { id: offerId } });
+  if (!row || row.status !== "pending") {
+    return { error: "Teklif bulunamadı veya kapalı." };
+  }
+
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: row.quoteRequestId } });
+  if (!quoteRow) return { error: "Talep bulunamadı." };
+  if (!phonesEqual(quoteRow.phone, phone)) return { error: "Bu talep size ait değil." };
+  if (!row.customerAgreedAt) return { error: "Aktif bir anlaşma onayınız yok." };
+  if (row.providerAgreedAt) {
+    return { error: "Usta da onayladı; anlaşmadan vazgeçilemez." };
+  }
+
+  const escrow = await prisma.customerJobEscrowOrder.findUnique({
+    where: { quoteRequestId: row.quoteRequestId },
+  });
+  if (escrow?.status === "completed") {
+    return { error: "Ödeme yapıldığı için anlaşmadan vazgeçilemez." };
+  }
+
+  const updated = await prisma.providerOffer.update({
+    where: { id: offerId },
+    data: { customerAgreedAt: null },
+  });
+
+  const provider = await prisma.provider.findUnique({ where: { id: row.providerId } });
+  return {
+    offer: mapOfferFromRow(updated, provider ? toProvider(provider) : undefined),
+  };
+}
+
 export async function agreeToOffer(
   offerId: string,
   from: "customer" | "provider",
@@ -1810,6 +1905,10 @@ export async function agreeToOffer(
   const quote = toQuoteRequest(quoteRow);
   if (!quoteIsOpenForOffers(quote)) {
     return { error: "Talep artık pazarlığa kapalı." };
+  }
+
+  if (from === "provider" && !row.customerAgreedAt) {
+    return { error: "Müşteri henüz anlaşmadı. Müşteri onayı bekleniyor." };
   }
 
   const now = new Date();
@@ -2336,4 +2435,84 @@ export async function getProviderReferrals(
     creditsAwarded: row.creditsAwarded,
     createdAt: row.createdAt.toISOString(),
   }));
+}
+
+export async function getCustomerProfile(phone: string): Promise<import("./types").CustomerProfile> {
+  const normalized = normalizeProviderPhone(phone);
+  const wallet = await prisma.customerWallet.findFirst({ where: { phone: normalized } });
+  if (wallet?.city) {
+    return {
+      phone: normalized,
+      city: wallet.city,
+      district: wallet.district ?? "",
+    };
+  }
+
+  const latestQuote = await prisma.quoteRequest.findFirst({
+    where: { phone: normalized },
+    orderBy: { createdAt: "desc" },
+  });
+  return {
+    phone: normalized,
+    city: latestQuote?.city ?? "",
+    district: latestQuote?.district ?? "",
+  };
+}
+
+export async function updateCustomerProfile(
+  phone: string,
+  data: { city: string; district?: string }
+): Promise<{ profile?: import("./types").CustomerProfile; error?: string }> {
+  const normalized = normalizeProviderPhone(phone);
+  const city = data.city.trim();
+  const district = data.district?.trim() ?? "";
+  if (!city) return { error: "İl seçin." };
+
+  const existing = await prisma.customerWallet.findFirst({ where: { phone: normalized } });
+  const now = new Date();
+
+  if (existing) {
+    await prisma.customerWallet.update({
+      where: { id: existing.id },
+      data: { city, district: district || null, updatedAt: now },
+    });
+  } else {
+    await prisma.customerWallet.create({
+      data: {
+        id: generateId(),
+        phone: normalized,
+        creditBalance: 0,
+        city,
+        district: district || null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+  }
+
+  return { profile: { phone: normalized, city, district } };
+}
+
+export async function updateQuoteRequestLocation(
+  quoteId: string,
+  phone: string,
+  data: { city: string; district: string }
+): Promise<{ quote?: QuoteRequest; error?: string }> {
+  const normalized = normalizeProviderPhone(phone);
+  const city = data.city.trim();
+  const district = data.district.trim();
+  if (!city || !district) return { error: "İl ve ilçe seçin." };
+
+  const row = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
+  if (!row) return { error: "Talep bulunamadı." };
+  if (!phonesEqual(row.phone, normalized)) return { error: "Bu talep size ait değil." };
+  if (row.status !== "open" && row.status !== "awaiting_review") {
+    return { error: "Bu talebin konumu artık değiştirilemez." };
+  }
+
+  const updated = await prisma.quoteRequest.update({
+    where: { id: quoteId },
+    data: { city, district },
+  });
+  return { quote: toQuoteRequest(updated) };
 }

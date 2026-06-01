@@ -2,14 +2,12 @@ import { companyInfo } from "@/lib/data/company";
 
 type Props = {
   variant?: "page" | "footer";
-  showFounder?: boolean;
   showFormLink?: boolean;
   className?: string;
 };
 
 export default function CompanyContactDetails({
   variant = "page",
-  showFounder = true,
   showFormLink = false,
   className = "",
 }: Props) {
@@ -20,7 +18,6 @@ export default function CompanyContactDetails({
 
   const items = [
     { label: "Unvan", value: companyInfo.legalName },
-    ...(showFounder ? [{ label: "Kurucu", value: companyInfo.founder }] : []),
     { label: "Adres", value: companyInfo.address },
     {
       label: "E-posta",

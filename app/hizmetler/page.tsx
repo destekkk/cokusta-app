@@ -22,7 +22,7 @@ export default function AllServicesPage() {
         <div className="mx-auto max-w-6xl">
           <h1 className="text-3xl font-bold text-foreground">Teklif Al</h1>
           <p className="mt-2 max-w-2xl text-muted-foreground">
-            Ücretsiz teklif almak için önce hizmetinizi seçin, ardından formu doldurun.
+            Önce Kategoriyi seçin. Sonra aşağıdan hizmeti seçip tıklayarak bir sonraki adıma geçin.
           </p>
           <div className="mt-6">
             <QuoteFlowSteps currentStep={1} />
@@ -32,7 +32,7 @@ export default function AllServicesPage() {
 
       <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
         <p className="text-sm text-muted-foreground">
-          Önce Kategoriyi seçin. Sonra aşağıdan hizmeti seçip tıklayarak bir sonraki adıma geçin.
+          Ücretsiz teklif almak için önce hizmetinizi seçin, ardından formu doldurun.
         </p>
         <h2 className="mt-4 text-base font-bold uppercase tracking-wider text-foreground">
           <span className="text-red-600">*</span> Hizmet Kategorileri

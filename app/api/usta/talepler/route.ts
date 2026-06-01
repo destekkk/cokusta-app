@@ -44,6 +44,8 @@ export async function GET(request: Request) {
     maxCreditDebt: MAX_CREDIT_DEBT,
     canUseDebt: creditDebt < MAX_CREDIT_DEBT,
     providerCity: provider.city,
+    providerDistrict: provider.district ?? "",
     providerCategories: provider.categorySlugs,
+    escrowBalanceTl: provider.escrowBalanceTl ?? 0,
   });
 }

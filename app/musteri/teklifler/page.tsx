@@ -2,6 +2,7 @@ import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CustomerQuotesList from "@/components/CustomerQuotesList";
+import CustomerProfileLocationCard from "@/components/CustomerProfileLocationCard";
 
 export const metadata = {
   title: "Taleplerim | Çokusta",
@@ -32,7 +33,8 @@ export default function CustomerQuotesPage() {
             Yeni Talep
           </Link>
         </div>
-        <div className="mt-8">
+        <div className="mt-8 space-y-6">
+          <CustomerProfileLocationCard />
           <CustomerQuotesList />
         </div>
       </div>

@@ -59,6 +59,8 @@ export type QuoteRequest = {
   urgentDeadline?: string;
   customerPaidCredits?: number;
   customerPaymentAt?: string;
+  escrowPaidAmount?: number;
+  escrowServiceFee?: number;
 };
 
 export type ProviderOffer = {
@@ -156,6 +158,7 @@ export type ProviderRegistration = {
   phone: string;
   email: string;
   city: string;
+  district?: string;
   categorySlugs: string[];
   experience: string;
   bio: string;
@@ -170,6 +173,8 @@ export type ProviderRegistration = {
   creditDebt?: number;
   iban?: string;
   accountHolder?: string;
+  /** Param Güvende'den ustaya aktarılan TL bakiyesi */
+  escrowBalanceTl?: number;
   /** Lansman kampanyası sıra numarası (1–500) */
   launchMemberNumber?: number;
   launchBonusGranted?: boolean;
@@ -282,12 +287,34 @@ export type ProviderReferral = {
   createdAt: string;
 };
 
+export type CustomerProfile = {
+  phone: string;
+  city: string;
+  district: string;
+};
+
 export type CustomerWallet = {
   id: string;
   phone: string;
   creditBalance: number;
+  city?: string;
+  district?: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ProviderOfferWithQuote = {
+  offer: ProviderOffer;
+  quote: {
+    id: string;
+    serviceName: string;
+    city: string;
+    district: string;
+    status: QuoteRequest["status"];
+    createdAt: string;
+  };
+  escrowStatus: "pending" | "completed" | "failed" | null;
+  escrowReleaseStatus?: "none" | "requested" | "released" | null;
 };
 
 export type CustomerCreditPurchaseOrder = {
@@ -315,6 +342,38 @@ export type CustomerProviderPayment = {
   credits: number;
   tlEquivalent: number;
   status: "pending" | "completed" | "cancelled";
+  createdAt: string;
+};
+
+export type CustomerJobEscrowOrder = {
+  id: string;
+  quoteRequestId: string;
+  offerId: string;
+  customerPhone: string;
+  providerId: string;
+  jobAmount: number;
+  serviceFee: number;
+  totalAmount: number;
+  conversationId: string;
+  basketId: string;
+  status: "pending" | "completed" | "failed";
+  releaseStatus: "none" | "requested" | "released";
+  iyzicoToken?: string;
+  iyzicoPaymentId?: string;
+  createdAt: string;
+  completedAt?: string;
+  releaseRequestedAt?: string;
+  releasedAt?: string;
+};
+
+export type ProviderInboxMessage = {
+  id: string;
+  providerId: string;
+  type: string;
+  title: string;
+  body: string;
+  quoteRequestId?: string;
+  read: boolean;
   createdAt: string;
 };
 
@@ -373,4 +432,5 @@ export type Store = {
   creditPurchaseOrders: CreditPurchaseOrder[];
   providerReferrals: ProviderReferral[];
   customerPinHashes?: Record<string, string>;
+  customerProfiles?: Record<string, { city: string; district?: string }>;
 };

@@ -63,8 +63,8 @@ export default function AboutPage() {
         </p>
         <p>
           Amacımız, güvenilir hizmet almayı kolay, erişilebilir ve öngörülebilir kılmaktır.
-          Dijital öncelikli, insan odaklı bir platform olarak {companyInfo.foundingYear} yılında{" "}
-          {companyInfo.founder} tarafından kurulmuştur.
+          Dijital öncelikli, insan odaklı bir platform olarak {companyInfo.foundingYear} yılında
+          kurulmuştur.
         </p>
       </section>
 
@@ -125,7 +125,6 @@ export default function AboutPage() {
         <h2 className="text-lg font-bold text-foreground">İletişim Bilgileri</h2>
         <ul className="space-y-2">
           <li><strong className="text-foreground">Unvan:</strong> {companyInfo.legalName}</li>
-          <li><strong className="text-foreground">Kurucu:</strong> {companyInfo.founder}</li>
           <li><strong className="text-foreground">Adres:</strong> {companyInfo.address}</li>
           <li><strong className="text-foreground">E-posta:</strong> {companyInfo.email}</li>
           <li><strong className="text-foreground">Telefon:</strong> {companyInfo.phone}</li>

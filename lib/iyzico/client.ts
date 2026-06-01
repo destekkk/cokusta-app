@@ -166,3 +166,80 @@ export async function retrieveCheckoutResult(token: string) {
     token,
   });
 }
+
+export async function initializeJobEscrowCheckout(params: {
+  conversationId: string;
+  basketId: string;
+  jobAmount: number;
+  serviceFee: number;
+  totalAmount: number;
+  serviceName: string;
+  callbackUrl: string;
+  buyer: CheckoutBuyer;
+}) {
+  const { name, surname } = splitName(params.buyer.name);
+  const totalStr = params.totalAmount.toFixed(2);
+
+  const basketItems = [
+    {
+      id: "job-amount",
+      name: `${params.serviceName} — iş bedeli`,
+      category1: "Hizmet",
+      itemType: "VIRTUAL",
+      price: params.jobAmount.toFixed(2),
+    },
+    {
+      id: "service-fee",
+      name: "Param Güvende hizmet bedeli",
+      category1: "Platform",
+      itemType: "VIRTUAL",
+      price: params.serviceFee.toFixed(2),
+    },
+  ];
+
+  const address = `${params.buyer.city}, Türkiye`;
+
+  return iyzicoRequest<{
+    status: string;
+    token: string;
+    checkoutFormContent: string;
+  }>("/payment/iyzipos/checkoutform/initialize/auth", {
+    locale: "tr",
+    conversationId: params.conversationId,
+    price: totalStr,
+    paidPrice: totalStr,
+    currency: "TRY",
+    basketId: params.basketId,
+    paymentGroup: "PRODUCT",
+    callbackUrl: params.callbackUrl,
+    enabledInstallments: [1],
+    buyer: {
+      id: params.buyer.id,
+      name,
+      surname,
+      gsmNumber: formatGsm(params.buyer.phone),
+      email: params.buyer.email || "destek@cokusta.com",
+      identityNumber: "11111111111",
+      registrationAddress: address,
+      ip: params.buyer.ip,
+      city: params.buyer.city,
+      country: "Turkey",
+      zipCode: "34000",
+    },
+    shippingAddress: {
+      contactName: params.buyer.name,
+      city: params.buyer.city,
+      country: "Turkey",
+      address,
+      zipCode: "34000",
+    },
+    billingAddress: {
+      contactName: params.buyer.name,
+      city: params.buyer.city,
+      country: "Turkey",
+      address,
+      zipCode: "34000",
+    },
+    basketItems,
+  });
+}
