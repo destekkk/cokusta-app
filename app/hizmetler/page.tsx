@@ -31,14 +31,12 @@ export default function AllServicesPage() {
       </div>
 
       <div className="mx-auto max-w-6xl px-4 pt-8 sm:px-6">
-        <h2 className="text-base font-bold uppercase tracking-wider text-foreground">
+        <p className="text-sm text-muted-foreground">
+          Önce Kategoriyi seçin. Sonra aşağıdan hizmeti seçip tıklayarak bir sonraki adıma geçin.
+        </p>
+        <h2 className="mt-4 text-base font-bold uppercase tracking-wider text-foreground">
           <span className="text-red-600">*</span> Hizmet Kategorileri
         </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          <span className="text-red-600">*</span>{" "}
-          <span className="font-semibold text-foreground">Hizmeti seçin.</span> Kırmızı{" "}
-          <strong className="text-foreground">Seç</strong> butonuna tıklayarak bir sonraki adıma geçin.
-        </p>
       </div>
 
       <div className="sticky top-16 z-40 mt-4 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm sm:px-6">
