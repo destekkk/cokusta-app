@@ -35,25 +35,23 @@ export default function Header() {
         </nav>
 
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="hidden items-center gap-2 sm:flex">
-            <Link
-              href="/usta/giris"
-              className="rounded-md border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
-            >
-              Usta Girişi
-            </Link>
-            <Link
-              href="/usta-ol"
-              className="rounded-md border-2 border-primary/30 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10"
-            >
-              Usta Ol
-            </Link>
-          </div>
+          <Link
+            href="/usta/giris"
+            className="hidden rounded-md border border-border px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground sm:inline-flex"
+          >
+            Usta Girişi
+          </Link>
           <Link
             href="/hizmetler"
             className="rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark sm:px-5"
           >
             Hemen Teklif Al
+          </Link>
+          <Link
+            href="/usta-ol"
+            className="hidden rounded-md border-2 border-primary/30 bg-primary/5 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 sm:ml-2 sm:inline-flex md:ml-4"
+          >
+            Usta Ol
           </Link>
         </div>
       </div>

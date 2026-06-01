@@ -9,7 +9,7 @@ import { MAX_CREDIT_DEBT, canSubmitOffer, remainingDebtCapacity } from "@/lib/cr
 import UstaReferralCampaign from "@/components/UstaReferralCampaign";
 import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
 import type { ProviderOffer } from "@/lib/types";
-import { getCurrentOfferPrice } from "@/lib/offer-utils";
+import { getCurrentOfferPrice, type ProviderQuoteScope } from "@/lib/offer-utils";
 import type { PublicQuoteRequest } from "@/lib/quote-privacy";
 
 type OpenQuote = PublicQuoteRequest & { myOffer?: ProviderOffer };
@@ -30,15 +30,16 @@ export default function UstaOpenQuotesPanel() {
   const [debtNotice, setDebtNotice] = useState<string | null>(null);
   const [providerCity, setProviderCity] = useState("");
   const [providerCategories, setProviderCategories] = useState<string[]>([]);
+  const [scope, setScope] = useState<ProviderQuoteScope>("city");
 
   const canOffer = canSubmitOffer(creditBalance, creditDebt);
   const debtRemaining = remainingDebtCapacity(creditDebt);
   const atDebtLimit = creditBalance < 1 && creditDebt >= MAX_CREDIT_DEBT;
 
-  const load = async () => {
+  const load = async (nextScope: ProviderQuoteScope = scope) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/usta/talepler");
+      const res = await fetch(`/api/usta/talepler?scope=${nextScope}`);
       if (res.status === 401) {
         router.push("/usta/giris");
         return;
@@ -46,6 +47,7 @@ export default function UstaOpenQuotesPanel() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
       setQuotes(data.quotes ?? []);
+      setScope(data.scope === "all" ? "all" : "city");
       setCreditBalance(data.creditBalance ?? 0);
       setCreditDebt(data.creditDebt ?? 0);
       setProviderCity(data.providerCity ?? "");
@@ -58,8 +60,12 @@ export default function UstaOpenQuotesPanel() {
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    load(scope);
+  }, [scope]);
+
+  const changeScope = (next: ProviderQuoteScope) => {
+    if (next !== scope) setScope(next);
+  };
 
   const goBuyCredits = () => router.push(KONTOR_URL);
 
@@ -224,6 +230,33 @@ export default function UstaOpenQuotesPanel() {
       )}
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          {quotes.length} açık talep
+          {scope === "city" && providerCity ? ` · ${providerCity}` : scope === "all" ? " · tüm iller" : ""}
+        </p>
+        <div className="inline-flex rounded-lg border border-border bg-card p-1 text-sm">
+          <button
+            type="button"
+            onClick={() => changeScope("city")}
+            className={`rounded-md px-3 py-1.5 font-medium transition ${
+              scope === "city" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {providerCity ? `Kendi ilim (${providerCity})` : "Kendi ilim"}
+          </button>
+          <button
+            type="button"
+            onClick={() => changeScope("all")}
+            className={`rounded-md px-3 py-1.5 font-medium transition ${
+              scope === "all" ? "bg-primary text-white" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Tüm iller
+          </button>
+        </div>
+      </div>
 
       {quotes.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
