@@ -2,20 +2,23 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Linking,
   Pressable,
-  SafeAreaView,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
   TextInput,
   View,
 } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import {
   clearToken,
   fetchProfile,
   fetchQuotes,
   getAlertDistrict,
+  getApiBaseUrl,
   getToken,
   login,
   setAlertDistrict,
@@ -25,7 +28,7 @@ import {
 } from "./src/api";
 import { useQuoteAlerts } from "./src/useQuoteAlerts";
 
-export default function App() {
+function AppContent() {
   const [booting, setBooting] = useState(true);
   const [token, setTokenState] = useState<string | null>(null);
   const [phone, setPhone] = useState("");
@@ -122,6 +125,10 @@ export default function App() {
     setQuotes([]);
   };
 
+  const openWebPanel = () => {
+    void Linking.openURL(`${getApiBaseUrl()}/usta/teklifler`);
+  };
+
   if (booting) {
     return (
       <View style={styles.centered}>
@@ -182,16 +189,18 @@ export default function App() {
         <Text style={styles.cardHint}>
           Seçtiğiniz ilçede yeni talep açılınca ses + titreşim bildirimi gelir.
         </Text>
-        <View style={styles.chips}>
-          {districts.map((d) => (
-            <Pressable
-              key={d}
-              onPress={() => void onSelectDistrict(d)}
-              style={[styles.chip, district === d && styles.chipActive]}
-            >
-              <Text style={[styles.chipText, district === d && styles.chipTextActive]}>{d}</Text>
-            </Pressable>
-          ))}
+        <View style={styles.chipsWrap}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+            {districts.map((d) => (
+              <Pressable
+                key={d}
+                onPress={() => void onSelectDistrict(d)}
+                style={[styles.chip, district === d && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, district === d && styles.chipTextActive]}>{d}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
         </View>
         <View style={styles.row}>
           <Text style={styles.switchLabel}>Sesli uyarı açık</Text>
@@ -226,7 +235,7 @@ export default function App() {
             <Text style={styles.empty}>Bu ilçede şu an size uygun açık talep yok.</Text>
           }
           renderItem={({ item }) => (
-            <View style={styles.quoteCard}>
+            <Pressable style={styles.quoteCard} onPress={openWebPanel}>
               <Text style={styles.quoteTitle}>
                 {item.urgent ? "🚨 " : ""}
                 {item.serviceName}
@@ -234,11 +243,24 @@ export default function App() {
               <Text style={styles.quoteMeta}>
                 {item.district}, {item.city} · {item.offerCount ?? 0} teklif
               </Text>
-            </View>
+              <Text style={styles.quoteAction}>Teklif ver →</Text>
+            </Pressable>
           )}
         />
       )}
+
+      <Pressable style={styles.webPanelBtn} onPress={openWebPanel}>
+        <Text style={styles.webPanelBtnText}>Web panelde tüm talepleri gör</Text>
+      </Pressable>
     </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
   );
 }
 
@@ -283,7 +305,8 @@ const styles = StyleSheet.create({
   },
   cardTitle: { fontWeight: "700", fontSize: 16 },
   cardHint: { color: "#666", marginTop: 6, fontSize: 13, lineHeight: 18 },
-  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+  chipsWrap: { marginTop: 12 },
+  chips: { flexDirection: "row", gap: 8, paddingRight: 8 },
   chip: {
     borderWidth: 1,
     borderColor: "#ccc",
@@ -329,4 +352,16 @@ const styles = StyleSheet.create({
   },
   quoteTitle: { fontWeight: "700", fontSize: 15 },
   quoteMeta: { color: "#666", marginTop: 4, fontSize: 13 },
+  quoteAction: { color: "#00A650", fontWeight: "600", marginTop: 8, fontSize: 13 },
+  webPanelBtn: {
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#00A650",
+    borderRadius: 12,
+    padding: 14,
+    alignItems: "center",
+  },
+  webPanelBtnText: { color: "#00A650", fontWeight: "700" },
 });

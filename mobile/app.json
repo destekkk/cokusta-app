@@ -22,7 +22,7 @@
         "backgroundColor": "#00A650"
       },
       "package": "com.cokusta.usta",
-      "permissions": ["VIBRATE", "RECEIVE_BOOT_COMPLETED"]
+      "permissions": ["VIBRATE", "RECEIVE_BOOT_COMPLETED", "POST_NOTIFICATIONS"]
     },
     "plugins": ["expo-notifications"],
     "extra": {

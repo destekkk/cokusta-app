@@ -1,15 +1,11 @@
 # Çok Usta — Usta Mobil Uygulaması
 
-Onaylı ustalar için **ilçe bazlı talep uyarısı** veren Expo (React Native) uygulaması.
+Onaylı ustalar için **ilçe bazlı talep uyarısı** (ses + titreşim + bildirim).
 
-## Özellikler
+## Hızlı başlangıç (telefonda test)
 
-- Telefon + 4 haneli PIN ile giriş (web ile aynı hesap)
-- İlçe seçimi — sadece o ilçedeki yeni talepler için uyarı
-- **45 saniyede bir** kontrol; yeni talepte titreşim + bildirim sesi
-- Uygulama ön plandayken anlık uyarı; arka planda sistem bildirimi
-
-## Kurulum
+1. Telefona [Expo Go](https://expo.dev/go) kurun.
+2. Bilgisayarda:
 
 ```bash
 cd mobile
@@ -17,49 +13,57 @@ npm install
 npx expo start
 ```
 
-Telefonda **Expo Go** ile QR kodu okutun veya:
+3. QR kodu Expo Go ile okutun.
+4. Usta telefonu + 4 haneli PIN ile giriş yapın (web ile aynı hesap).
+
+## Ne yapar?
+
+- İlçe seçin → o ilçede yeni talep açılınca **uyarı**
+- Açık talepleri listeler
+- Talebe dokununca **web usta paneli** açılır (teklif verme)
+- 45 saniyede bir arka planda kontrol
+
+## Play Store APK (test)
+
+Expo hesabı gerekir ([expo.dev](https://expo.dev) ücretsiz kayıt):
 
 ```bash
-npx expo run:android
-npx expo run:ios
+npm install -g eas-cli
+eas login
+cd mobile
+eas build --platform android --profile preview
 ```
 
-## API adresi
+Build bitince indirilen **APK**’yı telefona yükleyebilirsiniz.
 
-Canlı site varsayılan: `https://cokusta.com`
-
-Yerel geliştirme için `.env` veya komut satırı:
+## Play Store / App Store (yayın)
 
 ```bash
-EXPO_PUBLIC_API_URL=http://192.168.x.x:3000 npx expo start
+eas build --platform android --profile production   # AAB
+eas build --platform ios --profile production     # IPA (Apple Developer gerekir)
+eas submit --platform android
 ```
 
-(Bilgisayar IP’si — emülatörde `10.0.2.2:3000` Android)
+`app.json` içinde `com.cokusta.usta` paket adını kendi hesabınıza göre güncelleyin.
 
-## Backend uçları
+## API
 
-| Uç | Açıklama |
-|----|----------|
-| `POST /api/mobile/usta/giris` | Token döner |
-| `GET /api/mobile/usta/profil` | Usta + ilçe listesi |
-| `GET /api/mobile/usta/talepler?district=` | Açık talepler |
-| `GET /api/mobile/usta/yeni-talepler?district=&since=` | Poll için yeni talepler |
+Canlı: `https://cokusta.com`
 
-Authorization: `Bearer {token}`
-
-## Mağaza yayını
-
-Play Store / App Store için:
+Yerel Next.js:
 
 ```bash
-npx expo prebuild
-eas build --platform all
+EXPO_PUBLIC_API_URL=http://192.168.1.X:3000 npx expo start
 ```
 
-`app.json` içinde `bundleIdentifier` / `package` güncelleyin.
+## Gereksinimler
 
-## Notlar
+- Usta hesabı **onaylı** olmalı
+- Giriş şifresi webden (`/usta/giris`) bir kez belirlenmeli
+- Bildirim izni verilmeli (sesli uyarı için)
 
-- Usta profilinde il bilgisi vardır; ilçe uygulama içinde seçilir.
-- Uygulama tamamen kapalıyken anlık uyarı için ileride push notification (FCM) eklenebilir.
-- İlk giriş şifresi web panelinden (`/usta/giris`) belirlenmelidir.
+## Sonraki adımlar (isteğe bağlı)
+
+- FCM push (uygulama kapalıyken anlık uyarı)
+- Uygulama içinden teklif verme
+- Müşteri mobil uygulaması
