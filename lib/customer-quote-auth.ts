@@ -1,5 +1,6 @@
+import { normalizeProviderPhone, phonesEqual } from "@/lib/phone-utils";
+import { getCustomerSessionPhone } from "@/lib/customer-auth";
 import { cookies } from "next/headers";
-import { normalizePhone } from "@/lib/quote-privacy";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
 
@@ -29,7 +30,7 @@ export async function createCustomerQuoteToken(
   quoteId: string,
   phone: string
 ): Promise<string> {
-  return sign(`${quoteId}:${normalizePhone(phone)}`);
+  return sign(`${quoteId}:${normalizeProviderPhone(phone)}`);
 }
 
 export async function setCustomerQuoteAccess(quoteId: string, phone: string): Promise<void> {
@@ -47,6 +48,9 @@ export async function hasCustomerQuoteAccess(
   quoteId: string,
   phone: string
 ): Promise<boolean> {
+  const sessionPhone = await getCustomerSessionPhone();
+  if (sessionPhone && phonesEqual(sessionPhone, phone)) return true;
+
   const cookieStore = await cookies();
   const token = cookieStore.get(cookieName(quoteId))?.value;
   if (!token) return false;
@@ -60,5 +64,5 @@ export async function hasCustomerQuoteAccess(
 }
 
 export function phonesMatch(a: string, b: string): boolean {
-  return normalizePhone(a) === normalizePhone(b);
+  return phonesEqual(a, b);
 }

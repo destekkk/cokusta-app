@@ -16,7 +16,7 @@ const links = [
   { href: "/admin/teklifler", label: "Teklifler" },
   { href: "/admin/musteriler", label: "Müşteriler" },
   { href: "/admin/usta-listesi", label: "Ustalar" },
-  { href: "/admin/oduller", label: "Ödüller" },
+  { href: "/admin/oduller", label: "Ayın Ustası" },
   { href: "/admin/ustalar", label: "Başvurular" },
 ];
 

@@ -83,7 +83,7 @@ export default function IyzicoCheckoutModal({
             </p>
             {hasDebt && (
               <p className="mt-1 text-xs text-amber-700">
-                Paket {price.toLocaleString("tr-TR")} ₺ + borç kapama{" "}
+                Paket {price.toLocaleString("tr-TR")} ₺ + borç kredisi{" "}
                 {checkout.debtAmount.toLocaleString("tr-TR")} ₺
               </p>
             )}
@@ -100,9 +100,9 @@ export default function IyzicoCheckoutModal({
 
         {hasDebt && !confirmed && (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-semibold">Borç bakiyesi tahsilatı</p>
+            <p className="font-semibold">Borç kredisi tahsilatı</p>
             <p className="mt-2">
-              {checkout.debtCredits} kontörlük borç bakiyeniz (
+              {checkout.debtCredits} kontörlük borç krediniz (
               {computeDebtSettlementAmount(checkout.debtCredits).toLocaleString("tr-TR")} ₺) bu
               ödemeye dahil edilecek ve tahsil edilecektir.
             </p>

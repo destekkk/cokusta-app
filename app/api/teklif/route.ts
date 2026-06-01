@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createQuoteRequest } from "@/lib/db";
 import { getCategoryName } from "@/lib/data/categories";
 import { getServiceBySlug } from "@/lib/data/services";
+import { isValidProviderPhone, normalizeProviderPhone } from "@/lib/phone-utils";
 
 export async function POST(request: Request) {
   try {
@@ -25,6 +26,10 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!isValidProviderPhone(String(phone))) {
+      return NextResponse.json({ error: "Geçerli telefon numarası girin." }, { status: 400 });
+    }
+
     const description = String(notes ?? "").trim();
     if (description.length < 15) {
       return NextResponse.json(
@@ -46,7 +51,7 @@ export async function POST(request: Request) {
       city,
       district: district ?? "",
       name,
-      phone,
+      phone: normalizeProviderPhone(String(phone)),
       email: email ?? "",
       notes: description,
       urgent: Boolean(urgent),

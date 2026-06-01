@@ -21,6 +21,7 @@ import type {
   ProviderReferral,
   TaxDeclaration,
 } from "./types";
+import { PROVIDER_OF_MONTH_CREDIT_REWARD } from "./provider-of-month";
 import { REFERRAL_REWARD_CREDITS } from "./referrals";
 import { getCreditPackage } from "./credit-packages";
 import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
@@ -41,7 +42,8 @@ import {
 } from "./billing";
 import { LAUNCH_CAMPAIGN, buildLaunchCampaignStats } from "./campaigns";
 import { MAX_PORTFOLIO_ITEMS } from "./portfolio-upload";
-import { normalizeProviderPhone } from "./provider-pin";
+import { PROVIDER_PHONE_EXISTS } from "./provider-registration";
+import { normalizeProviderPhone, phonesEqual } from "./phone-utils";
 
 type StoredProvider = ProviderRegistration & { pinHash?: string | null };
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
@@ -154,6 +156,7 @@ export async function createQuoteRequest(
   const createdAt = new Date().toISOString();
   const request: QuoteRequest = {
     ...data,
+    phone: normalizeProviderPhone(data.phone),
     id: generateId(),
     createdAt,
     status: "awaiting_review",
@@ -180,10 +183,19 @@ export async function getUrgentQuoteRequests(): Promise<QuoteRequest[]> {
 export async function createProviderRegistration(
   data: Omit<ProviderRegistration, "id" | "createdAt" | "status"> & { pinHash: string }
 ): Promise<ProviderRegistration> {
+  const phone = normalizeProviderPhone(data.phone);
+  const existing = await findProviderByPhone(phone);
+  if (existing) {
+    const err = new Error(PROVIDER_PHONE_EXISTS) as Error & { providerStatus?: string };
+    err.providerStatus = existing.provider.status;
+    throw err;
+  }
+
   const store = await ensureStore();
   const { pinHash, ...rest } = data;
   const provider: StoredProvider = {
     ...rest,
+    phone,
     pinHash,
     id: generateId(),
     createdAt: new Date().toISOString(),
@@ -202,6 +214,13 @@ export async function createProviderRegistration(
 export async function getQuoteRequestById(id: string): Promise<QuoteRequest | undefined> {
   const store = await ensureStore();
   return store.quoteRequests.find((r) => r.id === id);
+}
+
+export async function getQuoteRequestsByPhone(phone: string): Promise<QuoteRequest[]> {
+  const store = await ensureStore();
+  return store.quoteRequests
+    .filter((quote) => phonesEqual(quote.phone, phone))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 export async function getAllQuoteRequests(): Promise<QuoteRequest[]> {
@@ -307,9 +326,18 @@ export async function updateProvider(
 export async function createProviderAdmin(
   data: Omit<ProviderRegistration, "id" | "createdAt" | "reviewedAt" | "rejectionReason">
 ): Promise<ProviderRegistration> {
+  const phone = normalizeProviderPhone(data.phone);
+  const existing = await findProviderByPhone(phone);
+  if (existing) {
+    const err = new Error(PROVIDER_PHONE_EXISTS) as Error & { providerStatus?: string };
+    err.providerStatus = existing.provider.status;
+    throw err;
+  }
+
   const store = await ensureStore();
   const provider: ProviderRegistration = {
     ...data,
+    phone,
     id: generateId(),
     createdAt: new Date().toISOString(),
     platformPurchases: data.platformPurchases ?? [],
@@ -1199,6 +1227,8 @@ export async function selectProviderOfTheMonth(
     certificateId: certificate.id,
     selectedAt: new Date().toISOString(),
     reason: options?.reason,
+    status: "pending",
+    creditsAwarded: 0,
   };
 
   const store = await ensureStore();
@@ -1215,6 +1245,87 @@ export async function selectProviderOfTheMonth(
   return { certificate, selection };
 }
 
+export async function getPublishedProviderOfTheMonth(): Promise<
+  (ProviderOfTheMonth & { certificate?: ProviderCertificate; provider?: ProviderSummary }) | null
+> {
+  const store = await ensureStore();
+  const current = store.providerOfTheMonthHistory
+    .filter((item) => item.status === "published")
+    .sort(
+      (a, b) =>
+        new Date(b.publishedAt ?? b.selectedAt).getTime() -
+        new Date(a.publishedAt ?? a.selectedAt).getTime()
+    )[0];
+  if (!current) return null;
+
+  const certificate = store.providerCertificates.find((cert) => cert.id === current.certificateId);
+  const summaries = await getProviderSummaries();
+  const provider = summaries.find((item) => item.id === current.providerId);
+
+  return { ...normalizeProviderOfMonthRecord(current), certificate, provider };
+}
+
+export async function getProviderOfTheMonthByPeriod(
+  period: string
+): Promise<(ProviderOfTheMonth & { certificate?: ProviderCertificate }) | null> {
+  const store = await ensureStore();
+  const current = store.providerOfTheMonthHistory.find((item) => item.period === period);
+  if (!current) return null;
+  const certificate = store.providerCertificates.find((cert) => cert.id === current.certificateId);
+  return { ...normalizeProviderOfMonthRecord(current), certificate };
+}
+
+export async function publishProviderOfTheMonth(period: string): Promise<ProviderOfTheMonth> {
+  const store = await ensureStore();
+  const index = store.providerOfTheMonthHistory.findIndex((item) => item.period === period);
+  if (index === -1) throw new Error("Bu dönem için seçim bulunamadı.");
+
+  const row = normalizeProviderOfMonthRecord(store.providerOfTheMonthHistory[index]);
+  const creditsToGrant = Math.max(0, PROVIDER_OF_MONTH_CREDIT_REWARD - row.creditsAwarded);
+
+  if (creditsToGrant > 0) {
+    const provider = store.providers.find((p) => p.id === row.providerId);
+    if (provider) {
+      provider.creditBalance = (provider.creditBalance ?? 0) + creditsToGrant;
+    }
+  }
+
+  const updated: ProviderOfTheMonth = {
+    ...row,
+    status: "published",
+    publishedAt: new Date().toISOString(),
+    creditsAwarded: row.creditsAwarded + creditsToGrant,
+  };
+  store.providerOfTheMonthHistory[index] = updated;
+  await saveStore(store);
+  return updated;
+}
+
+export async function unpublishProviderOfTheMonth(period: string): Promise<ProviderOfTheMonth> {
+  const store = await ensureStore();
+  const index = store.providerOfTheMonthHistory.findIndex((item) => item.period === period);
+  if (index === -1) throw new Error("Bu dönem için seçim bulunamadı.");
+
+  const updated: ProviderOfTheMonth = {
+    ...normalizeProviderOfMonthRecord(store.providerOfTheMonthHistory[index]),
+    status: "removed",
+  };
+  store.providerOfTheMonthHistory[index] = updated;
+  await saveStore(store);
+  return updated;
+}
+
+function normalizeProviderOfMonthRecord(
+  item: ProviderOfTheMonth & { status?: ProviderOfTheMonth["status"]; creditsAwarded?: number }
+): ProviderOfTheMonth {
+  return {
+    ...item,
+    status: item.status ?? "published",
+    creditsAwarded: item.creditsAwarded ?? 0,
+    publishedAt: item.publishedAt,
+  };
+}
+
 export async function getCurrentProviderOfTheMonth(): Promise<
   (ProviderOfTheMonth & { certificate?: ProviderCertificate; provider?: ProviderSummary }) | null
 > {
@@ -1226,12 +1337,12 @@ export async function getCurrentProviderOfTheMonth(): Promise<
   const summaries = await getProviderSummaries();
   const provider = summaries.find((item) => item.id === current.providerId);
 
-  return { ...current, certificate, provider };
+  return { ...normalizeProviderOfMonthRecord(current), certificate, provider };
 }
 
 export async function getProviderOfTheMonthHistory(): Promise<ProviderOfTheMonth[]> {
   const store = await ensureStore();
-  return store.providerOfTheMonthHistory;
+  return store.providerOfTheMonthHistory.map(normalizeProviderOfMonthRecord);
 }
 
 export async function getMonthlyLeaderboard(limit = 5) {

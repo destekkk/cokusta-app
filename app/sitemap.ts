@@ -3,12 +3,20 @@ import { categories } from "@/lib/data/categories";
 import { services } from "@/lib/data/services";
 import { SITE_URL } from "@/lib/seo/metadata";
 import {
+  cityCategoryPath,
   cityPath,
   cityServicePath,
+  districtPath,
   districtServicePath,
   getAllCitySlugs,
+  getCityCategoryParams,
   getCityDistrictServiceParams,
+  getCityServiceAliasParams,
   getCityServiceParams,
+  getDistrictHubParams,
+  getDistrictServiceAliasParams,
+  getNeighborhoodServiceParams,
+  neighborhoodServicePath,
 } from "@/lib/seo/slugs";
 
 const CHUNK_SIZE = 4500;
@@ -16,6 +24,7 @@ const CHUNK_SIZE = 4500;
 function buildAllUrls(): string[] {
   const urls: string[] = [
     "",
+    "/lokasyon",
     "/hizmetler",
     "/nasil-calisir",
     "/hakkimizda",
@@ -31,14 +40,29 @@ function buildAllUrls(): string[] {
   for (const cat of categories) urls.push(`/kategori/${cat.slug}`);
   for (const service of services) urls.push(`/hizmet/${service.slug}`);
   for (const citySlug of getAllCitySlugs()) urls.push(cityPath(citySlug));
+  for (const { city, category } of getCityCategoryParams()) {
+    urls.push(cityCategoryPath(city, category));
+  }
   for (const { city, service } of getCityServiceParams()) {
     urls.push(cityServicePath(city, service));
+  }
+  for (const { city, service } of getCityServiceAliasParams()) {
+    urls.push(cityServicePath(city, service));
+  }
+  for (const { city, district } of getDistrictHubParams()) {
+    urls.push(districtPath(city, district));
   }
   for (const { city, district, service } of getCityDistrictServiceParams()) {
     urls.push(districtServicePath(city, district, service));
   }
+  for (const { city, district, service } of getDistrictServiceAliasParams()) {
+    urls.push(districtServicePath(city, district, service));
+  }
+  for (const { city, district, neighborhood, service } of getNeighborhoodServiceParams()) {
+    urls.push(neighborhoodServicePath(city, district, neighborhood, service));
+  }
 
-  return urls;
+  return [...new Set(urls)];
 }
 
 const ALL_URLS = buildAllUrls();

@@ -199,6 +199,9 @@ export function toProviderOfTheMonth(row: PrismaProviderOfTheMonth): ProviderOfT
     certificateId: row.certificateId,
     selectedAt: row.selectedAt.toISOString(),
     reason: row.reason ?? undefined,
+    status: row.status as ProviderOfTheMonth["status"],
+    creditsAwarded: row.creditsAwarded,
+    publishedAt: row.publishedAt?.toISOString(),
   };
 }
 

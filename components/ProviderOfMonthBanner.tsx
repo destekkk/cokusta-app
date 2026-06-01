@@ -58,7 +58,7 @@ export default function ProviderOfMonthBanner({ selection }: Props) {
               🏆
             </div>
             <div className="mt-4 text-xs uppercase tracking-widest text-muted-foreground">
-              Çok Başarılı Usta
+              Ayın Ustası
             </div>
             <div className="mt-1 font-bold text-foreground">{selection.providerName}</div>
             {certificate && (

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { createProviderRegistration } from "@/lib/db";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import {
+  PROVIDER_PHONE_EXISTS,
+  providerPhoneExistsUserMessage,
+} from "@/lib/provider-registration";
+import {
   hashProviderPin,
   isValidProviderPhone,
   normalizeProviderPhone,
@@ -54,7 +58,22 @@ export async function POST(request: Request) {
         ? LAUNCH_CAMPAIGN.provider.freeCredits
         : undefined,
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === PROVIDER_PHONE_EXISTS) {
+      const status = (error as Error & { providerStatus?: string }).providerStatus as
+        | "pending"
+        | "approved"
+        | "rejected"
+        | undefined;
+      return NextResponse.json(
+        {
+          error: providerPhoneExistsUserMessage(status),
+          code: "PHONE_ALREADY_REGISTERED",
+          providerStatus: status,
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json(
       { error: "Kayıt oluşturulamadı." },
       { status: 500 }

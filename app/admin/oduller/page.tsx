@@ -1,33 +1,32 @@
+import { currentPeriod } from "@/lib/blockchain";
 import {
-  getAllCertificates,
-  getCurrentProviderOfTheMonth,
   getMonthlyLeaderboard,
+  getProviderOfTheMonthByPeriod,
   getProviderOfTheMonthHistory,
   getProviderSummaries,
 } from "@/lib/db";
-import ProviderAwardsManager from "@/components/admin/ProviderAwardsManager";
+import ProviderOfMonthManager from "@/components/admin/ProviderOfMonthManager";
 
-export default async function AdminAwardsPage() {
-  const [providers, certificates, currentMonth, history, leaderboard] = await Promise.all([
+export default async function AdminProviderOfMonthPage() {
+  const period = currentPeriod();
+  const [providers, currentSelection, history, leaderboard] = await Promise.all([
     getProviderSummaries(),
-    getAllCertificates(),
-    getCurrentProviderOfTheMonth(),
+    getProviderOfTheMonthByPeriod(period),
     getProviderOfTheMonthHistory(),
     getMonthlyLeaderboard(),
   ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
-      <h1 className="text-2xl font-bold text-foreground">Ödüller & Sertifikalar</h1>
+      <h1 className="text-2xl font-bold text-foreground">Ayın Ustası</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Blockchain tabanlı usta sertifikaları ve ayın ustası seçimi
+        Ustayı seçin, onay bekletin; yayınladığınızda ana sayfada görünür ve 30 kontör hediye edilir.
       </p>
 
       <div className="mt-6">
-        <ProviderAwardsManager
+        <ProviderOfMonthManager
           providers={providers}
-          certificates={certificates}
-          currentMonth={currentMonth}
+          currentSelection={currentSelection}
           history={history}
           leaderboard={leaderboard}
         />

@@ -53,8 +53,8 @@ export default function UstaCreditShop({
     <div className="space-y-6">
       {noCredit && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <strong>Kontörünüz bitti.</strong> Borç limitiniz dolduysa paket satın alın; ödeme sırasında
-          borç bakiyeniz de tahsil edilir.
+          <strong>Kontörünüz bitti.</strong> Borç kredisi limitiniz dolduysa paket satın alın; ödeme
+          sırasında borç krediniz de tahsil edilir.
         </div>
       )}
 
@@ -65,14 +65,14 @@ export default function UstaCreditShop({
             <p className="text-3xl font-bold text-primary">{balance} kontör</p>
             {creditDebt > 0 && (
               <p className="mt-1 text-sm font-medium text-amber-700">
-                Borç bakiyesi: {creditDebt} kontör (
+                Borç kredisi: {creditDebt} kontör (
                 {formatCreditPrice(computeDebtSettlementAmount(creditDebt))})
               </p>
             )}
           </div>
           <div className="text-right text-xs text-muted-foreground">
             <p>Kayıt onayında hediye: {LAUNCH_CAMPAIGN.provider.freeCredits} kontör</p>
-            <p className="mt-1">Borç limiti: en fazla {MAX_CREDIT_DEBT} kontör</p>
+            <p className="mt-1">Borç kredisi limiti: en fazla {MAX_CREDIT_DEBT} kontör</p>
             <p className="mt-1">Her teklif = 1 kontör</p>
           </div>
         </div>
@@ -80,8 +80,8 @@ export default function UstaCreditShop({
 
       {creditDebt > 0 && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <strong>Borç bakiyeniz var.</strong> Paket satın alırken{" "}
-          {formatCreditPrice(computeDebtSettlementAmount(creditDebt))} tutarındaki borç kapama bedeli
+          <strong>Borç krediniz var.</strong> Paket satın alırken{" "}
+          {formatCreditPrice(computeDebtSettlementAmount(creditDebt))} tutarındaki borç kredisi
           paket fiyatına eklenerek tahsil edilecektir.
         </div>
       )}
@@ -137,7 +137,7 @@ export default function UstaCreditShop({
               </p>
               {creditDebt > 0 && (
                 <p className="mt-1 text-xs text-amber-700">
-                  Paket {formatCreditPrice(pkg.price)} + borç{" "}
+                  Paket {formatCreditPrice(pkg.price)} + borç kredisi{" "}
                   {formatCreditPrice(checkout.debtAmount)}
                 </p>
               )}

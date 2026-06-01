@@ -16,3 +16,7 @@ export function normalizeProviderPhone(phone: string): string {
 export function isValidProviderPhone(phone: string): boolean {
   return /^05\d{9}$/.test(normalizeProviderPhone(phone));
 }
+
+export function phonesEqual(a: string, b: string): boolean {
+  return normalizeProviderPhone(a) === normalizeProviderPhone(b);
+}

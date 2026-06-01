@@ -8,7 +8,6 @@ import { buildLocalMetadata } from "@/lib/seo/metadata";
 import {
   findCityBySlug,
   getAllCitySlugs,
-  getCitiesWithDistricts,
   getDistricts,
   toSlug,
 } from "@/lib/seo/slugs";
@@ -34,9 +33,7 @@ export default async function CitySeoPage({ params }: Props) {
   const city = findCityBySlug(citySlug);
   if (!city) notFound();
 
-  const cityDistricts = getCitiesWithDistricts().includes(city)
-    ? getDistricts(city)
-    : [];
+  const cityDistricts = getDistricts(city);
 
   return (
     <SeoLandingLayout
@@ -70,7 +67,7 @@ export default async function CitySeoPage({ params }: Props) {
             {cityDistricts.map((district) => (
               <Link
                 key={district}
-                href={`/lokasyon/${citySlug}/ilce/${toSlug(district)}/ev-temizligi`}
+                href={`/lokasyon/${citySlug}/ilce/${toSlug(district)}`}
                 className="border border-border bg-muted/50 px-3 py-1.5 text-sm hover:border-primary/40 hover:text-primary"
               >
                 {district}
@@ -89,7 +86,7 @@ export default async function CitySeoPage({ params }: Props) {
           {categories.map((cat) => (
             <Link
               key={cat.slug}
-              href={`/kategori/${cat.slug}`}
+              href={`/lokasyon/${citySlug}/kategori/${cat.slug}`}
               className="border border-border bg-card px-4 py-3 text-sm hover:border-primary/40 hover:text-primary"
             >
               {city} {cat.name}

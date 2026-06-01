@@ -3,13 +3,16 @@ import { notFound } from "next/navigation";
 import SeoLandingLayout from "@/components/seo/SeoLandingLayout";
 import { getCategoryName } from "@/lib/data/categories";
 import { formatPrice } from "@/lib/data/services";
+import { capitalizeTr, getPrimarySearchTerm } from "@/lib/seo/keywords";
 import { buildLocalFaqs, buildLocalIntro } from "@/lib/seo/content";
 import { buildLocalMetadata } from "@/lib/seo/metadata";
 import {
+  cityServicePath,
   findCityBySlug,
-  findServiceBySlug,
+  findServiceBySlugOrAlias,
   getTopCityServiceParams,
   getDistricts,
+  resolveServiceSlug,
   toSlug,
 } from "@/lib/seo/slugs";
 
@@ -25,31 +28,36 @@ export const revalidate = 86400;
 export async function generateMetadata({ params }: Props) {
   const { city: citySlug, service: serviceSlug } = await params;
   const city = findCityBySlug(citySlug);
-  const service = findServiceBySlug(serviceSlug);
+  const service = findServiceBySlugOrAlias(serviceSlug);
   if (!city || !service) return {};
+  const canonicalSlug = resolveServiceSlug(serviceSlug) ?? service.slug;
   return buildLocalMetadata({
     city,
     service,
     path: `/lokasyon/${citySlug}/${serviceSlug}`,
+    canonicalPath: cityServicePath(citySlug, canonicalSlug),
   });
 }
 
 export default async function CityServiceSeoPage({ params }: Props) {
   const { city: citySlug, service: serviceSlug } = await params;
   const city = findCityBySlug(citySlug);
-  const service = findServiceBySlug(serviceSlug);
+  const service = findServiceBySlugOrAlias(serviceSlug);
   if (!city || !service) notFound();
 
+  const canonicalSlug = service.slug;
+  const term = capitalizeTr(getPrimarySearchTerm(service.slug));
   const districts = getDistricts(city);
   const faqs = buildLocalFaqs(city, service);
 
   const serviceSchema = {
     "@context": "https://schema.org",
     "@type": "Service",
-    name: `${city} ${service.name}`,
+    name: `${city} ${term}`,
+    alternateName: [`${city} ${service.name}`, `${city} usta`],
     description: service.longDescription,
     areaServed: { "@type": "City", name: city },
-    provider: { "@type": "Organization", name: "Çokusta" },
+    provider: { "@type": "Organization", name: "Çokusta", url: "https://cokusta.com" },
     offers: {
       "@type": "Offer",
       priceCurrency: "TRY",
@@ -64,11 +72,11 @@ export default async function CityServiceSeoPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(serviceSchema) }}
       />
       <SeoLandingLayout
-        title={`${city} ${service.name}`}
+        title={`${city} ${term} — ${service.name} Ustası`}
         intro={buildLocalIntro(city, service)}
         breadcrumbs={[
           { label: city, href: `/lokasyon/${citySlug}` },
-          { label: service.name },
+          { label: `${term} / ${service.name}` },
         ]}
         ctaHref={`/teklif-al/${service.slug}?sehir=${encodeURIComponent(city)}`}
         faqs={faqs}
@@ -87,7 +95,9 @@ export default async function CityServiceSeoPage({ params }: Props) {
         </div>
 
         <section className="mt-10">
-          <h2 className="text-lg font-semibold text-foreground">Hizmet Detayı</h2>
+          <h2 className="text-lg font-semibold text-foreground">
+            {city} {term} hizmeti
+          </h2>
           <p className="mt-3 leading-relaxed text-muted-foreground">{service.longDescription}</p>
           <p className="mt-2 text-sm text-muted-foreground">
             Kategori:{" "}
@@ -100,16 +110,19 @@ export default async function CityServiceSeoPage({ params }: Props) {
         {districts.length > 1 && (
           <section className="mt-10">
             <h2 className="text-lg font-semibold text-foreground">
-              {city} — İlçe Bazlı {service.name}
+              {city} ilçelerinde {term}
             </h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Örnek aramalar: {city} Esenler {term.toLowerCase()}, {city} Arifiye {term.toLowerCase()}
+            </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {districts.map((district) => (
                 <Link
                   key={district}
-                  href={`/lokasyon/${citySlug}/ilce/${toSlug(district)}/${service.slug}`}
+                  href={`/lokasyon/${citySlug}/ilce/${toSlug(district)}/${canonicalSlug}`}
                   className="border border-border bg-muted/50 px-3 py-1.5 text-sm hover:border-primary/40 hover:text-primary"
                 >
-                  {district} {service.name}
+                  {district} {term}
                 </Link>
               ))}
             </div>

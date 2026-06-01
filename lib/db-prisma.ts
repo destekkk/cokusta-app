@@ -16,6 +16,7 @@ import type {
   TaxDeclaration,
   CreditPurchaseOrder,
 } from "./types";
+import { PROVIDER_OF_MONTH_CREDIT_REWARD } from "./provider-of-month";
 import { REFERRAL_REWARD_CREDITS } from "./referrals";
 import { getCreditPackage } from "./credit-packages";
 import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
@@ -61,7 +62,8 @@ import {
 import { generateId } from "./id";
 import { prisma } from "./prisma";
 import { MAX_PORTFOLIO_ITEMS } from "./portfolio-upload";
-import { normalizeProviderPhone } from "./provider-pin";
+import { PROVIDER_PHONE_EXISTS } from "./provider-registration";
+import { normalizeProviderPhone, phonesEqual } from "./phone-utils";
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
 import { getCommissionRate } from "./admin-auth";
 
@@ -137,6 +139,7 @@ export async function createQuoteRequest(
 ): Promise<QuoteRequest> {
   const id = generateId();
   const createdAt = new Date();
+  const phone = normalizeProviderPhone(data.phone);
   const row = await prisma.quoteRequest.create({
     data: {
       id,
@@ -147,7 +150,7 @@ export async function createQuoteRequest(
       city: data.city,
       district: data.district,
       name: data.name,
-      phone: data.phone,
+      phone,
       email: data.email,
       notes: data.notes,
       createdAt,
@@ -177,13 +180,21 @@ export async function getUrgentQuoteRequests(): Promise<QuoteRequest[]> {
 export async function createProviderRegistration(
   data: Omit<ProviderRegistration, "id" | "createdAt" | "status"> & { pinHash: string }
 ): Promise<ProviderRegistration> {
+  const phone = normalizeProviderPhone(data.phone);
+  const existing = await findProviderByPhone(phone);
+  if (existing) {
+    const err = new Error(PROVIDER_PHONE_EXISTS) as Error & { providerStatus?: string };
+    err.providerStatus = existing.provider.status;
+    throw err;
+  }
+
   const id = generateId();
   await prisma.provider.create({
     data: {
       id,
       name: data.name,
       companyName: data.companyName?.trim() || null,
-      phone: data.phone,
+      phone,
       email: data.email,
       city: data.city,
       categorySlugs: data.categorySlugs,
@@ -207,6 +218,13 @@ export async function createProviderRegistration(
 export async function getQuoteRequestById(id: string): Promise<QuoteRequest | undefined> {
   const row = await prisma.quoteRequest.findUnique({ where: { id } });
   return row ? toQuoteRequest(row) : undefined;
+}
+
+export async function getQuoteRequestsByPhone(phone: string): Promise<QuoteRequest[]> {
+  const rows = await prisma.quoteRequest.findMany({ orderBy: { createdAt: "desc" } });
+  return rows
+    .map(toQuoteRequest)
+    .filter((quote) => phonesEqual(quote.phone, phone));
 }
 
 export async function getAllQuoteRequests(): Promise<QuoteRequest[]> {
@@ -359,13 +377,21 @@ export async function updateProvider(
 export async function createProviderAdmin(
   data: Omit<ProviderRegistration, "id" | "createdAt" | "reviewedAt" | "rejectionReason">
 ): Promise<ProviderRegistration> {
+  const phone = normalizeProviderPhone(data.phone);
+  const existing = await findProviderByPhone(phone);
+  if (existing) {
+    const err = new Error(PROVIDER_PHONE_EXISTS) as Error & { providerStatus?: string };
+    err.providerStatus = existing.provider.status;
+    throw err;
+  }
+
   const id = generateId();
   await prisma.provider.create({
     data: {
       id,
       name: data.name,
       companyName: data.companyName?.trim() || null,
-      phone: data.phone,
+      phone,
       email: data.email,
       city: data.city,
       categorySlugs: data.categorySlugs,
@@ -1333,6 +1359,9 @@ export async function selectProviderOfTheMonth(
     certificateId: certificate.id,
     selectedAt: new Date(),
     reason: options?.reason,
+    status: "pending" as const,
+    creditsAwarded: 0,
+    publishedAt: null,
   };
 
   await prisma.providerOfTheMonth.upsert({
@@ -1346,6 +1375,74 @@ export async function selectProviderOfTheMonth(
   });
 
   return { certificate, selection: toProviderOfTheMonth(selectionRow) };
+}
+
+export async function getPublishedProviderOfTheMonth(): Promise<
+  (ProviderOfTheMonth & { certificate?: ProviderCertificate; provider?: ProviderSummary }) | null
+> {
+  const current = await prisma.providerOfTheMonth.findFirst({
+    where: { status: "published" },
+    orderBy: { publishedAt: "desc" },
+  });
+  if (!current) return null;
+
+  const selection = toProviderOfTheMonth(current);
+  const certificate = await getCertificateById(selection.certificateId);
+  const summaries = await getProviderSummaries();
+  const provider = summaries.find((item) => item.id === selection.providerId);
+
+  return { ...selection, certificate, provider };
+}
+
+export async function getProviderOfTheMonthByPeriod(
+  period: string
+): Promise<(ProviderOfTheMonth & { certificate?: ProviderCertificate }) | null> {
+  const row = await prisma.providerOfTheMonth.findUnique({ where: { period } });
+  if (!row) return null;
+  const selection = toProviderOfTheMonth(row);
+  const certificate = await getCertificateById(selection.certificateId);
+  return { ...selection, certificate };
+}
+
+export async function publishProviderOfTheMonth(period: string): Promise<ProviderOfTheMonth> {
+  const row = await prisma.providerOfTheMonth.findUnique({ where: { period } });
+  if (!row) throw new Error("Bu dönem için seçim bulunamadı.");
+
+  const creditsToGrant = Math.max(
+    0,
+    PROVIDER_OF_MONTH_CREDIT_REWARD - (row.creditsAwarded ?? 0)
+  );
+
+  await prisma.$transaction(async (tx) => {
+    if (creditsToGrant > 0) {
+      await tx.provider.update({
+        where: { id: row.providerId },
+        data: { creditBalance: { increment: creditsToGrant } },
+      });
+    }
+    await tx.providerOfTheMonth.update({
+      where: { period },
+      data: {
+        status: "published",
+        publishedAt: new Date(),
+        creditsAwarded: row.creditsAwarded + creditsToGrant,
+      },
+    });
+  });
+
+  const updated = await prisma.providerOfTheMonth.findUniqueOrThrow({ where: { period } });
+  return toProviderOfTheMonth(updated);
+}
+
+export async function unpublishProviderOfTheMonth(period: string): Promise<ProviderOfTheMonth> {
+  const row = await prisma.providerOfTheMonth.findUnique({ where: { period } });
+  if (!row) throw new Error("Bu dönem için seçim bulunamadı.");
+
+  const updated = await prisma.providerOfTheMonth.update({
+    where: { period },
+    data: { status: "removed" },
+  });
+  return toProviderOfTheMonth(updated);
 }
 
 export async function getCurrentProviderOfTheMonth(): Promise<

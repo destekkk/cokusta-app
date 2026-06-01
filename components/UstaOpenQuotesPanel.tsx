@@ -91,7 +91,7 @@ export default function UstaOpenQuotesPanel() {
       setPrice("");
       setMessage("");
       if (data.usedDebt) {
-        setDebtNotice("1 kontör borç bakiyesi tanımlandı.");
+        setDebtNotice("1 kontörlük borç kredisi kullanıldı.");
         setCreditDebt(data.creditDebt ?? creditDebt + 1);
       }
       await load();
@@ -120,11 +120,11 @@ export default function UstaOpenQuotesPanel() {
       {debtNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
-            <p className="text-lg font-semibold text-foreground">Borç bakiyesi</p>
+            <p className="text-lg font-semibold text-foreground">Borç kredisi kullanıldı</p>
             <p className="mt-2 text-sm text-muted-foreground">{debtNotice}</p>
             <p className="mt-2 text-sm text-amber-700">
-              Toplam borcunuz: {creditDebt}/{MAX_CREDIT_DEBT} kontör. Ödeme yaparken borç tutarı da
-              tahsil edilir.
+              Toplam borç krediniz: {creditDebt}/{MAX_CREDIT_DEBT} kontör. Ödeme yaparken borç
+              kredisi de tahsil edilir.
             </p>
             <button
               type="button"
@@ -143,12 +143,13 @@ export default function UstaOpenQuotesPanel() {
           <p className="text-2xl font-bold text-primary">{creditBalance}</p>
           {creditDebt > 0 && (
             <p className="mt-1 text-sm font-medium text-amber-700">
-              Borç bakiyesi: {creditDebt}/{MAX_CREDIT_DEBT} kontör
+              Borç kredisi: {creditDebt}/{MAX_CREDIT_DEBT} kontör
             </p>
           )}
           {creditBalance === 0 && debtRemaining > 0 && (
             <p className="mt-1 text-xs text-muted-foreground">
-              Kontörünüz bitti; {debtRemaining} kontöre kadar borçlanarak teklif verebilirsiniz.
+              Kontörünüz bitti; {debtRemaining} kontöre kadar borç kredisi kullanarak teklif
+              verebilirsiniz.
             </p>
           )}
           {creditBalance <= LAUNCH_CAMPAIGN.provider.freeCredits && creditBalance > 0 && (
@@ -178,8 +179,8 @@ export default function UstaOpenQuotesPanel() {
 
       {atDebtLimit && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Kontör ve borç limitiniz doldu ({MAX_CREDIT_DEBT} kontör). Teklif vermek için paket
-          satın alın; ödeme sırasında borç bakiyeniz de tahsil edilecektir.
+          Kontör ve borç kredisi limitiniz doldu ({MAX_CREDIT_DEBT} kontör). Teklif vermek için
+          paket satın alın; ödeme sırasında borç krediniz de tahsil edilecektir.
           <button
             type="button"
             onClick={goBuyCredits}
@@ -224,7 +225,7 @@ export default function UstaOpenQuotesPanel() {
                 <div className="mt-4 space-y-3 border-t border-border pt-4">
                   {creditBalance < 1 && debtRemaining > 0 && (
                     <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                      Kontörünüz yok; bu teklif 1 kontör borç bakiyesi olarak kaydedilecek.
+                      Kontörünüz yok; bu teklif 1 kontörlük borç kredisi olarak kaydedilecek.
                     </p>
                   )}
                   <input
@@ -248,7 +249,7 @@ export default function UstaOpenQuotesPanel() {
                       onClick={() => submitOffer(quote.id)}
                       className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      {creditBalance < 1 ? "Gönder (borç kontörü)" : "Gönder (1 kontör)"}
+                      {creditBalance < 1 ? "Gönder (borç kredisi ile)" : "Gönder (1 kontör)"}
                     </button>
                     <button
                       type="button"
@@ -270,7 +271,7 @@ export default function UstaOpenQuotesPanel() {
                   {!canOffer
                     ? "Kontör Satın Al →"
                     : creditBalance < 1
-                      ? "Teklif Ver (borç kontörü)"
+                      ? "Teklif Ver (borç kredisi ile)"
                       : "Teklif Ver (1 kontör)"}
                 </button>
               )}

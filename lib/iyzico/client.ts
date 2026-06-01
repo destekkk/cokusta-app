@@ -108,7 +108,7 @@ export async function initializeCreditCheckout(params: {
   if ((params.debtCredits ?? 0) > 0 && (params.debtAmount ?? 0) > 0) {
     basketItems.push({
       id: "borc-kapama",
-      name: `Borç bakiyesi kapama (${params.debtCredits} kontör)`,
+      name: `Borç kredisi kapama (${params.debtCredits} kontör)`,
       category1: "Platform",
       itemType: "VIRTUAL",
       price: params.debtAmount!.toFixed(2),

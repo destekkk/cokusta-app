@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
@@ -17,7 +18,13 @@ export default async function CustomerOffersPage({ params }: Props) {
     <div className="min-h-full bg-background">
       <Header />
       <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
-        <h1 className="text-2xl font-bold">Tekliflerim</h1>
+        <Link
+          href="/musteri/teklifler"
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          ← Tüm taleplerim
+        </Link>
+        <h1 className="mt-4 text-2xl font-bold">Tekliflerim</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           {quote.serviceName} · {quote.city}
           {quote.district ? `, ${quote.district}` : ""}

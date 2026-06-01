@@ -26,6 +26,12 @@ export default function Header() {
             Çok Acil
           </Link>
           <Link
+            href="/musteri/teklifler"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Tekliflerim
+          </Link>
+          <Link
             href="/usta/giris"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >

@@ -45,6 +45,44 @@ enum PurchaseStatus {
 enum InvoiceReferenceType {
   quote
   platform_purchase @map("platform-purchase")
+  customer_purchase @map("customer-purchase")
+  provider_payout @map("provider-payout")
+}
+
+enum CreditLedgerType {
+  customer_purchase
+  customer_payment
+  provider_offer_spend
+  provider_offer_debt
+  provider_purchase
+  provider_payout_request
+  provider_payout_paid
+  provider_payout_fee
+  referral_grant
+  launch_bonus
+  provider_of_month_grant
+  debt_settlement
+  admin_adjustment
+}
+
+enum CustomerCreditPurchaseStatus {
+  pending
+  completed
+  failed
+}
+
+enum CustomerProviderPaymentStatus {
+  pending
+  completed
+  cancelled
+}
+
+enum ProviderPayoutStatus {
+  pending
+  approved
+  paid
+  rejected
+  cancelled
 }
 
 enum CertificateType {
@@ -77,9 +115,12 @@ model QuoteRequest {
   launchMemberNumber  Int?        @map("launch_member_number")
   urgent              Boolean     @default(false)
   urgentDeadline      DateTime?   @map("urgent_deadline")
+  customerPaidCredits Int?        @map("customer_paid_credits")
+  customerPaymentAt   DateTime?   @map("customer_payment_at")
 
   matchedProvider Provider? @relation(fields: [matchedProviderId], references: [id], onDelete: SetNull)
   offers            ProviderOffer[]
+  customerPayments  CustomerProviderPayment[]
 
   @@index([status])
   @@index([phone])
@@ -100,6 +141,7 @@ model ProviderOffer {
 
   quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
   provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  customerPayment CustomerProviderPayment?
 
   @@unique([quoteRequestId, providerId])
   @@index([quoteRequestId])
@@ -127,6 +169,8 @@ model Provider {
   launchMemberNumber Int?           @map("launch_member_number")
   launchBonusGranted Boolean        @default(false) @map("launch_bonus_granted")
   pinHash            String?        @map("pin_hash") @db.VarChar(128)
+  iban               String?        @db.VarChar(34)
+  accountHolder      String?        @map("account_holder") @db.VarChar(255)
 
   quotes            QuoteRequest[]
   offers            ProviderOffer[]
@@ -136,6 +180,9 @@ model Provider {
   creditPurchases   CreditPurchaseOrder[]
   referralsMade     ProviderReferral[] @relation("ReferralsMade")
   referredVia       ProviderReferral?  @relation("ReferredAsFriend")
+  customerPayments  CustomerProviderPayment[]
+  payoutRequests    ProviderPayoutRequest[]
+  creditLedger      CreditLedgerEntry[]
 
   @@index([status])
   @@index([phone])
@@ -230,6 +277,111 @@ model Customer {
   @@map("customers")
 }
 
+model CustomerWallet {
+  id            String   @id @db.VarChar(64)
+  phone         String   @unique @db.VarChar(32)
+  creditBalance Int      @default(0) @map("credit_balance")
+  createdAt     DateTime @map("created_at")
+  updatedAt     DateTime @map("updated_at")
+
+  purchases CustomerCreditPurchaseOrder[]
+  payments  CustomerProviderPayment[]
+  ledger    CreditLedgerEntry[]
+
+  @@map("customer_wallets")
+}
+
+model CustomerCreditPurchaseOrder {
+  id              String                       @id @db.VarChar(64)
+  walletId        String                       @map("wallet_id") @db.VarChar(64)
+  packageSlug     String                       @map("package_slug") @db.VarChar(64)
+  packageName     String                       @map("package_name") @db.VarChar(255)
+  credits         Int
+  amount          Int
+  conversationId  String                       @unique @map("conversation_id") @db.VarChar(64)
+  basketId        String                       @map("basket_id") @db.VarChar(64)
+  status          CustomerCreditPurchaseStatus @default(pending)
+  iyzicoToken     String?                      @map("iyzico_token") @db.VarChar(512)
+  iyzicoPaymentId String?                      @map("iyzico_payment_id") @db.VarChar(64)
+  createdAt       DateTime                     @map("created_at")
+  completedAt     DateTime?                    @map("completed_at")
+
+  wallet CustomerWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([status])
+  @@map("customer_credit_purchase_orders")
+}
+
+model CustomerProviderPayment {
+  id             String                      @id @db.VarChar(64)
+  quoteRequestId String                      @map("quote_request_id") @db.VarChar(64)
+  offerId        String                      @map("offer_id") @db.VarChar(64)
+  walletId       String                      @map("wallet_id") @db.VarChar(64)
+  providerId     String                      @map("provider_id") @db.VarChar(64)
+  credits        Int
+  tlEquivalent   Int                         @map("tl_equivalent")
+  status         CustomerProviderPaymentStatus @default(completed)
+  createdAt      DateTime                    @map("created_at")
+
+  quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  offer        ProviderOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  wallet       CustomerWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+  provider     Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteRequestId])
+  @@index([providerId])
+  @@index([walletId])
+  @@map("customer_provider_payments")
+}
+
+model ProviderPayoutRequest {
+  id               String              @id @db.VarChar(64)
+  providerId       String              @map("provider_id") @db.VarChar(64)
+  period           String              @db.VarChar(16)
+  creditsRequested Int                 @map("credits_requested")
+  grossAmount      Int                 @map("gross_amount")
+  feeAmount        Int                 @map("fee_amount")
+  netAmount        Int                 @map("net_amount")
+  status           ProviderPayoutStatus @default(pending)
+  iban             String?             @db.VarChar(34)
+  accountHolder    String?             @map("account_holder") @db.VarChar(255)
+  adminNote        String?             @map("admin_note") @db.Text
+  requestedAt      DateTime            @map("requested_at")
+  processedAt      DateTime?           @map("processed_at")
+
+  provider Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@index([providerId])
+  @@index([period])
+  @@index([status])
+  @@map("provider_payout_requests")
+}
+
+model CreditLedgerEntry {
+  id               String           @id @db.VarChar(64)
+  type             CreditLedgerType
+  creditsDelta     Int              @map("credits_delta")
+  tlAmount         Int?             @map("tl_amount")
+  customerWalletId String?          @map("customer_wallet_id") @db.VarChar(64)
+  providerId       String?          @map("provider_id") @db.VarChar(64)
+  quoteRequestId   String?          @map("quote_request_id") @db.VarChar(64)
+  referenceId      String?          @map("reference_id") @db.VarChar(64)
+  description      String           @db.Text
+  period           String           @db.VarChar(16)
+  createdAt        DateTime         @map("created_at")
+
+  customerWallet CustomerWallet? @relation(fields: [customerWalletId], references: [id], onDelete: SetNull)
+  provider       Provider?       @relation(fields: [providerId], references: [id], onDelete: SetNull)
+
+  @@index([type])
+  @@index([period])
+  @@index([providerId])
+  @@index([customerWalletId])
+  @@index([createdAt])
+  @@map("credit_ledger_entries")
+}
+
 model Invoice {
   id             String               @id @db.VarChar(64)
   invoiceNo      String               @map("invoice_no") @db.VarChar(64)
@@ -298,17 +450,27 @@ model CertificateBlock {
   @@map("certificate_blocks")
 }
 
+enum ProviderOfMonthStatus {
+  pending
+  published
+  removed
+}
+
 model ProviderOfTheMonth {
-  period        String   @id @db.VarChar(16)
-  periodLabel   String   @map("period_label") @db.VarChar(64)
-  providerId    String   @map("provider_id") @db.VarChar(64)
-  providerName  String   @map("provider_name") @db.VarChar(255)
-  certificateId String   @unique @map("certificate_id") @db.VarChar(64)
-  selectedAt    DateTime @map("selected_at")
-  reason        String?  @db.Text
+  period         String                 @id @db.VarChar(16)
+  periodLabel    String                 @map("period_label") @db.VarChar(64)
+  providerId     String                 @map("provider_id") @db.VarChar(64)
+  providerName   String                 @map("provider_name") @db.VarChar(255)
+  certificateId  String                 @unique @map("certificate_id") @db.VarChar(64)
+  selectedAt     DateTime               @map("selected_at")
+  reason         String?                @db.Text
+  status         ProviderOfMonthStatus  @default(pending)
+  creditsAwarded Int                    @default(0) @map("credits_awarded")
+  publishedAt    DateTime?              @map("published_at")
 
   certificate ProviderCertificate @relation(fields: [certificateId], references: [id], onDelete: Cascade)
 
   @@index([selectedAt])
+  @@index([status])
   @@map("provider_of_the_month_history")
 }

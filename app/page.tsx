@@ -12,7 +12,7 @@ import { categories } from "@/lib/data/categories";
 import { customerReviews } from "@/lib/data/reviews";
 import { getPopularServices } from "@/lib/data/services";
 import ProviderPortfolioGallery from "@/components/ProviderPortfolioGallery";
-import { getLaunchCampaignStats, getCurrentProviderOfTheMonth, getStats, getUrgentQuoteRequests, getRecentPortfolioItems } from "@/lib/db";
+import { getLaunchCampaignStats, getPublishedProviderOfTheMonth, getStats, getUrgentQuoteRequests, getRecentPortfolioItems } from "@/lib/db";
 import LaunchCampaignBanner from "@/components/LaunchCampaignBanner";
 import TrustBadges from "@/components/TrustBadges";
 
@@ -22,7 +22,7 @@ export default async function Home() {
   const popularServices = getPopularServices();
   const [stats, providerOfMonth, campaignStats, urgentJobs, portfolioItems] = await Promise.all([
     getStats(),
-    getCurrentProviderOfTheMonth(),
+    getPublishedProviderOfTheMonth(),
     getLaunchCampaignStats(),
     getUrgentQuoteRequests(),
     getRecentPortfolioItems(4),

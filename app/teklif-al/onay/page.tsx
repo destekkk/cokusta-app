@@ -58,12 +58,21 @@ export default async function QuoteConfirmationPage({ searchParams }: Props) {
               <p className="text-muted-foreground">Talep No</p>
               <p className="font-mono text-xs text-foreground">{request.id}</p>
               {request.status !== "awaiting_review" && (
-                <Link
-                  href={`/tekliflerim/${request.id}`}
-                  className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
-                >
-                  Tekliflerimi gör →
-                </Link>
+                <>
+                  <Link
+                    href={`/tekliflerim/${request.id}`}
+                    className="mt-3 inline-block text-sm font-semibold text-primary hover:underline"
+                  >
+                    Tekliflerimi gör →
+                  </Link>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    veya{" "}
+                    <Link href="/musteri/giris" className="font-medium text-primary hover:underline">
+                      telefonunuzla giriş yaparak
+                    </Link>{" "}
+                    tüm taleplerinizi listeleyin.
+                  </p>
+                </>
               )}
             </div>
           )}

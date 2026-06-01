@@ -208,6 +208,9 @@ async function main() {
         certificateId: entry.certificateId,
         selectedAt: new Date(entry.selectedAt),
         reason: entry.reason ?? null,
+        status: entry.status ?? "published",
+        creditsAwarded: entry.creditsAwarded ?? 0,
+        publishedAt: entry.publishedAt ? new Date(entry.publishedAt) : new Date(entry.selectedAt),
       },
     });
   }

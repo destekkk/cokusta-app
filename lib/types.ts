@@ -154,7 +154,7 @@ export type ProviderRegistration = {
   platformPurchases?: ProviderPlatformPurchase[];
   /** Kullanılabilir teklif kontörü bakiyesi */
   creditBalance?: number;
-  /** Borçlanılmış kontör (en fazla 5) */
+  /** Borç kredisi ile kullanılan kontör (en fazla 5) */
   creditDebt?: number;
   /** Lansman kampanyası sıra numarası (1–500) */
   launchMemberNumber?: number;
@@ -235,6 +235,9 @@ export type ProviderOfTheMonth = {
   certificateId: string;
   selectedAt: string;
   reason?: string;
+  status: "pending" | "published" | "removed";
+  creditsAwarded: number;
+  publishedAt?: string;
 };
 
 export type CreditPurchaseOrder = {

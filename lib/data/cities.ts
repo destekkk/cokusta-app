@@ -176,8 +176,10 @@ export const districts: Record<string, string[]> = {
   Zonguldak: ["Merkez", "Ereğli", "Devrek", "Kozlu", "Alaplı", "Çaycuma"],
 };
 
+import { districtsExtra } from "./districts-extra";
+
 export function getDistricts(city: string): string[] {
-  return districts[city] ?? ["Merkez"];
+  return districts[city] ?? districtsExtra[city] ?? ["Merkez"];
 }
 
 export function searchCities(query: string, limit = 8): string[] {

@@ -43,6 +43,7 @@ export default function Footer() {
             <ul className="mt-4 space-y-2.5 text-sm text-white/65">
               <li><Link href="/nasil-calisir" className="transition-colors hover:text-white">Nasıl Çalışır?</Link></li>
               <li><Link href="/usta-ol" className="transition-colors hover:text-white">Usta Ol</Link></li>
+              <li><Link href="/lokasyon" className="transition-colors hover:text-white">Lokasyon Rehberi</Link></li>
               <li><Link href="/hizmetler" className="transition-colors hover:text-white">Tüm Hizmetler</Link></li>
               <li><Link href="/hakkimizda" className="transition-colors hover:text-white">Hakkımızda</Link></li>
               <li><Link href="/iletisim" className="transition-colors hover:text-white">İletişim</Link></li>
@@ -61,6 +62,35 @@ export default function Footer() {
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+        <div className="mt-8 border-t border-white/10 pt-8">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-white/90">
+            Popüler Aramalar
+          </h4>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {[
+              { href: "/lokasyon/sakarya/elektrikci", label: "Sakarya elektrikçi" },
+              { href: "/lokasyon/sakarya/ilce/arifiye/elektrik-tesisati", label: "Arifiye elektrikçi" },
+              { href: "/lokasyon/istanbul/ilce/esenler/boyaci", label: "Esenler boyacı" },
+              { href: "/lokasyon/istanbul/nakliye", label: "İstanbul nakliyeci" },
+              { href: "/lokasyon/ankara/kategori/elektrik", label: "Ankara elektrik" },
+              { href: "/lokasyon/izmir/boyaci", label: "İzmir boyacı" },
+              { href: "/lokasyon/kocaeli/ilce/gebze", label: "Gebze ustalar" },
+              { href: "/lokasyon/bursa/tesisatci", label: "Bursa tesisatçı" },
+              { href: "/lokasyon/antalya/klima", label: "Antalya klima" },
+              { href: "/lokasyon/adana/boyaci", label: "Adana boyacı" },
+              { href: "/lokasyon/trabzon/temizlik", label: "Trabzon temizlik" },
+              { href: "/lokasyon", label: "Tüm lokasyonlar →" },
+            ].map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className="border border-white/15 px-2.5 py-1 text-xs text-white/65 transition hover:border-white/30 hover:text-white"
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
         </div>
         <div className="mt-8 border-t border-white/10 pt-8">

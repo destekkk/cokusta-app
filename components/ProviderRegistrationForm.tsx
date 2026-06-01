@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { categories } from "@/lib/data/categories";
 import { cities } from "@/lib/data/cities";
 import { CategoryIconBadge } from "@/components/icons/CategoryIcon";
@@ -20,6 +21,7 @@ export default function ProviderRegistrationForm() {
   const [pinConfirm, setPinConfirm] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [loginHint, setLoginHint] = useState(false);
 
   const toggleCategory = (slug: string) => {
     setSelectedCategories((prev) =>
@@ -30,6 +32,7 @@ export default function ProviderRegistrationForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoginHint(false);
 
     if (!name || !phone || !city || selectedCategories.length === 0) {
       setError("Lütfen zorunlu alanları doldurun ve en az bir kategori seçin.");
@@ -66,6 +69,10 @@ export default function ProviderRegistrationForm() {
       });
 
       const data = await res.json();
+      if (data.code === "PHONE_ALREADY_REGISTERED") {
+        setLoginHint(true);
+        throw new Error(data.error ?? "Bu telefon numarasıyla zaten usta kaydı var.");
+      }
       if (!res.ok) throw new Error(data.error ?? "Kayıt başarısız");
 
       router.push(`/usta-ol/onay?id=${data.id}`);
@@ -81,6 +88,10 @@ export default function ProviderRegistrationForm() {
       onSubmit={handleSubmit}
       className="space-y-6 rounded-2xl border border-border bg-card p-6 shadow-sm sm:p-8"
     >
+      <p className="rounded-lg bg-muted/60 px-4 py-3 text-sm text-muted-foreground">
+        Teklif alırken kullandığınız telefon numarasıyla usta başvurusu yapabilirsiniz. Aynı numarayla
+        tekrar usta kaydı oluşturulamaz; müşteri olarak teklif almaya devam edebilirsiniz.
+      </p>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-foreground">
@@ -120,6 +131,15 @@ export default function ProviderRegistrationForm() {
           />
           <p className="mt-1 text-xs text-muted-foreground">Başına 0 yazmadan da girebilirsiniz.</p>
         </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-foreground">E-posta</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full rounded-xl border border-border px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+          />
+        </div>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -156,17 +176,7 @@ export default function ProviderRegistrationForm() {
         Onay sonrası giriş için kullanılacak. 1234 ve 0000 kullanılamaz.
       </p>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-foreground">E-posta</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-xl border border-border px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
-        <div>
+      <div>
           <label className="mb-1.5 block text-sm font-medium text-foreground">Şehir *</label>
           <select
             value={city}
@@ -181,7 +191,6 @@ export default function ProviderRegistrationForm() {
             ))}
           </select>
         </div>
-      </div>
 
       <div>
         <label className="mb-2 block text-sm font-medium text-foreground">
@@ -237,7 +246,14 @@ export default function ProviderRegistrationForm() {
       </div>
 
       {error && (
-        <p className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</p>
+        <div className="space-y-2">
+          <p className="rounded-lg bg-red-50 px-4 py-2.5 text-sm text-red-600">{error}</p>
+          {loginHint && (
+            <Link href="/usta/giris" className="text-sm font-semibold text-primary hover:underline">
+              Usta girişi yap →
+            </Link>
+          )}
+        </div>
       )}
 
       <button

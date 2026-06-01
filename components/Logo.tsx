@@ -21,19 +21,19 @@ export default function Logo({
     <Link
       href={href}
       className={[
-        "inline-flex shrink-0 items-center justify-center rounded-none border-2 font-bold leading-none tracking-wide transition-colors",
+        "inline-flex shrink-0 items-center justify-center rounded-none border-[3px] font-bold leading-none tracking-wide transition-colors",
         boxSize,
         textSize,
         isDark
-          ? "border-white/70 bg-white/10 text-white hover:border-white hover:bg-white/15"
-          : "border-primary bg-primary/5 text-secondary hover:border-primary-dark hover:bg-primary/10",
+          ? "border-orange-400 bg-orange-500/15 text-white hover:border-orange-300 hover:bg-orange-500/25"
+          : "border-orange-500 bg-orange-50 text-secondary hover:border-orange-600 hover:bg-orange-100/80",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
       aria-label="Çokusta ana sayfa"
     >
-      çok<span className={isDark ? "text-primary-light" : "text-primary"}>usta</span>
+      çok<span className={isDark ? "text-orange-300" : "text-orange-600"}>usta</span>
     </Link>
   );
 }

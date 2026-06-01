@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { COOKIE_NAME, isValidSessionToken } from "@/lib/admin-session";
 import { PROVIDER_COOKIE, getProviderSessionFromToken } from "@/lib/provider-session";
+import { CUSTOMER_COOKIE, getCustomerSessionFromToken } from "@/lib/customer-session";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -13,6 +14,17 @@ export async function middleware(request: NextRequest) {
     const session = await getProviderSessionFromToken(token);
     if (!session) {
       const loginUrl = new URL("/usta/giris", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/musteri/teklifler")) {
+    const token = request.cookies.get(CUSTOMER_COOKIE)?.value;
+    const session = await getCustomerSessionFromToken(token);
+    if (!session) {
+      const loginUrl = new URL("/musteri/giris", request.url);
       loginUrl.searchParams.set("redirect", pathname);
       return NextResponse.redirect(loginUrl);
     }
@@ -34,5 +46,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/usta/teklifler", "/usta/kontor"],
+  matcher: ["/admin", "/admin/:path*", "/usta/teklifler", "/usta/kontor", "/musteri/teklifler"],
 };
