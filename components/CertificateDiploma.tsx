@@ -89,9 +89,9 @@ export default function CertificateDiploma({
 
               {/* Header */}
               <div className="text-center">
-                <div className="inline-flex items-center justify-center border-[3px] border-orange-500 bg-orange-50 px-4 py-1.5">
-                  <span className="font-serif text-lg font-bold tracking-wide text-slate-900 sm:text-xl">
-                    çok<span className="text-orange-600">usta</span>
+                <div className="inline-flex items-center justify-center border-[3px] border-primary bg-primary-light px-4 py-1.5">
+                  <span className="font-serif text-lg font-bold tracking-wide text-secondary sm:text-xl">
+                    çok<span className="text-primary">usta</span>
                   </span>
                 </div>
                 <p className="mt-5 font-serif text-xs font-semibold uppercase tracking-[0.35em] text-amber-900/80 sm:text-sm">

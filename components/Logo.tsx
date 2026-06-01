@@ -25,15 +25,15 @@ export default function Logo({
         boxSize,
         textSize,
         isDark
-          ? "border-orange-400 bg-orange-500/15 text-white hover:border-orange-300 hover:bg-orange-500/25"
-          : "border-orange-500 bg-orange-50 text-secondary hover:border-orange-600 hover:bg-orange-100/80",
+          ? "border-primary/50 bg-primary/15 text-white hover:border-primary hover:bg-primary/25"
+          : "border-primary bg-primary-light text-secondary hover:border-primary-dark hover:bg-primary/10",
         className,
       ]
         .filter(Boolean)
         .join(" ")}
       aria-label="Çokusta ana sayfa"
     >
-      çok<span className={isDark ? "text-orange-300" : "text-orange-600"}>usta</span>
+      çok<span className={isDark ? "text-primary-light" : "text-primary"}>usta</span>
     </Link>
   );
 }

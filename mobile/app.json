@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Çok Usta",
+    "slug": "cokusta-usta",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#00A650"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.cokusta.usta",
+      "infoPlist": {
+        "UIBackgroundModes": ["fetch", "remote-notification"]
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#00A650"
+      },
+      "package": "com.cokusta.usta",
+      "permissions": ["VIBRATE", "RECEIVE_BOOT_COMPLETED"]
+    },
+    "plugins": ["expo-notifications"],
+    "extra": {
+      "apiUrl": "https://cokusta.com"
+    }
+  }
+}

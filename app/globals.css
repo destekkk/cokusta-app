@@ -51,24 +51,28 @@ h1, h2, h3, h4 {
   letter-spacing: -0.02em;
 }
 
-@keyframes cta-soft-glow {
+@keyframes cta-soft-pulse {
   0%,
   100% {
-    box-shadow: 0 1px 2px hsl(148 100% 27% / 0.12);
+    filter: brightness(1);
+    box-shadow: 0 1px 2px hsl(148 100% 22% / 0.18);
   }
   50% {
+    filter: brightness(1.1);
     box-shadow:
-      0 0 0 3px hsl(148 80% 45% / 0.18),
-      0 2px 10px hsl(148 100% 33% / 0.24);
+      0 0 0 2px hsl(148 75% 48% / 0.28),
+      0 2px 8px hsl(148 100% 33% / 0.3);
   }
 }
 
 .cta-pulse {
-  animation: cta-soft-glow 4s ease-in-out infinite;
+  animation: cta-soft-pulse 2.8s ease-in-out infinite;
+  will-change: filter, box-shadow;
 }
 
 .cta-pulse:hover {
   animation-play-state: paused;
+  filter: brightness(1.05);
 }
 
 @media (prefers-reduced-motion: reduce) {

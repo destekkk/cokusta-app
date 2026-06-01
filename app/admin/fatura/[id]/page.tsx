@@ -26,7 +26,7 @@ export default async function InvoicePrintPage({ params }: Props) {
         <div className="border border-gray-300 p-8">
           <div className="flex flex-wrap items-start justify-between gap-6 border-b border-gray-300 pb-6">
             <div>
-              <div className="text-2xl font-bold text-[#C25640]">çokusta</div>
+              <div className="text-2xl font-bold text-primary">çokusta</div>
               <div className="mt-4 text-sm leading-6">
                 <div className="font-semibold">{company.name}</div>
                 <div>VKN: {company.taxNumber}</div>
