@@ -263,11 +263,24 @@ export async function getQuoteRequestById(id: string): Promise<QuoteRequest | un
   return row ? toQuoteRequest(row) : undefined;
 }
 
-export async function getQuoteRequestsByPhone(phone: string): Promise<QuoteRequest[]> {
-  const rows = await prisma.quoteRequest.findMany({ orderBy: { createdAt: "desc" } });
-  return rows
-    .map(toQuoteRequest)
-    .filter((quote) => phonesEqual(quote.phone, phone));
+export async function countQuoteRequestsByPhone(phone: string): Promise<number> {
+  const normalized = normalizeProviderPhone(phone);
+  return prisma.quoteRequest.count({ where: { phone: normalized } });
+}
+
+export async function getQuoteRequestsByPhone(
+  phone: string,
+  options?: { limit?: number; offset?: number }
+): Promise<QuoteRequest[]> {
+  const normalized = normalizeProviderPhone(phone);
+  const rows = await prisma.quoteRequest.findMany({
+    where: { phone: normalized },
+    orderBy: { createdAt: "desc" },
+    ...(options?.limit !== undefined
+      ? { take: options.limit, skip: options.offset ?? 0 }
+      : {}),
+  });
+  return rows.map(toQuoteRequest);
 }
 
 export async function getAllQuoteRequests(): Promise<QuoteRequest[]> {

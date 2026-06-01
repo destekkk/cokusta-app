@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getQuoteRequestsByPhone, findProviderByPhone } from "@/lib/db";
+import { countQuoteRequestsByPhone, findProviderByPhone } from "@/lib/db";
 import { attachCustomerSessionCookie } from "@/lib/customer-auth";
 import { getCustomerAuthByPhone } from "@/lib/customer-pin";
 import { isValidProviderPhone, normalizeProviderPhone, verifyProviderPin } from "@/lib/provider-pin";
@@ -17,9 +17,9 @@ export async function POST(request: Request) {
     }
 
     const normalized = normalizeProviderPhone(String(phone));
-    const quotes = await getQuoteRequestsByPhone(normalized);
+    const quoteCount = await countQuoteRequestsByPhone(normalized);
 
-    if (quotes.length === 0) {
+    if (quoteCount === 0) {
       const provider = await findProviderByPhone(normalized);
       if (provider) {
         return NextResponse.json(
@@ -57,8 +57,7 @@ export async function POST(request: Request) {
 
     const response = NextResponse.json({
       success: true,
-      quoteCount: quotes.length,
-      name: quotes[0]?.name,
+      quoteCount,
     });
     await attachCustomerSessionCookie(response, normalized);
     return response;

@@ -25,6 +25,7 @@ export const createQuoteRequest = delegate("createQuoteRequest");
 export const getUrgentQuoteRequests = delegate("getUrgentQuoteRequests");
 export const createProviderRegistration = delegate("createProviderRegistration");
 export const getQuoteRequestById = delegate("getQuoteRequestById");
+export const countQuoteRequestsByPhone = delegate("countQuoteRequestsByPhone");
 export const getQuoteRequestsByPhone = delegate("getQuoteRequestsByPhone");
 export const getAllQuoteRequests = delegate("getAllQuoteRequests");
 export const getAllProviders = delegate("getAllProviders");

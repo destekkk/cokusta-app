@@ -28,23 +28,45 @@ function statusClass(status: string) {
 export default function CustomerQuotesList() {
   const router = useRouter();
   const [quotes, setQuotes] = useState<QuoteItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const pageSize = 50;
+
+  const loadQuotes = async (nextOffset: number, append: boolean) => {
+    const res = await fetch(`/api/musteri/talepler?limit=${pageSize}&offset=${nextOffset}`, {
+      credentials: "same-origin",
+    });
+    if (res.status === 401) {
+      router.replace("/musteri/giris");
+      return null;
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
+    setTotal(data.total ?? data.quotes?.length ?? 0);
+    setOffset(nextOffset + (data.quotes?.length ?? 0));
+    setQuotes((prev) => (append ? [...prev, ...(data.quotes ?? [])] : (data.quotes ?? [])));
+    return data;
+  };
 
   useEffect(() => {
-    fetch("/api/musteri/talepler", { credentials: "same-origin" })
-      .then(async (res) => {
-        if (res.status === 401) {
-          router.replace("/musteri/giris");
-          return null;
-        }
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
-        setQuotes(data.quotes ?? []);
-      })
+    loadQuotes(0, false)
       .catch((err) => setError(err instanceof Error ? err.message : "Yüklenemedi"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  const loadMore = async () => {
+    setLoadingMore(true);
+    try {
+      await loadQuotes(offset, true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Yüklenemedi");
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const logout = async () => {
     await fetch("/api/musteri/cikis", { method: "POST" });
@@ -58,7 +80,10 @@ export default function CustomerQuotesList() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">{quotes.length} talep (onaylı + onaysız)</p>
+        <p className="text-sm text-muted-foreground">
+          {total > 0 ? `${total} talep` : `${quotes.length} talep`}
+          {quotes.length < total ? ` · ${quotes.length} gösteriliyor` : ""}
+        </p>
         <button
           type="button"
           onClick={logout}
@@ -134,6 +159,19 @@ export default function CustomerQuotesList() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {quotes.length < total && (
+        <div className="flex justify-center">
+          <button
+            type="button"
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-60"
+          >
+            {loadingMore ? "Yükleniyor…" : "Daha fazla göster"}
+          </button>
         </div>
       )}
     </div>

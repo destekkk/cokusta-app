@@ -7,9 +7,8 @@
     "build": "node scripts/vercel-build.mjs",
     "start": "next start",
     "seed:quotes": "npx tsx scripts/seed-demo-quotes.ts",
-    "seed:quotes:20": "npx tsx scripts/seed-demo-quotes.ts -- --per-city=20",
-    "favicon": "node scripts/generate-favicon.mjs public/images/cokusta-cap-logo.png",
-    "approve:demo-quotes": "npx tsx scripts/approve-demo-quotes.ts"
+    "seed:quotes:1000": "npx tsx scripts/seed-demo-quotes.ts -- --per-service=1000",
+    "favicon": "node scripts/generate-favicon.mjs public/images/cokusta-cap-logo.png"
   },
   "dependencies": {
     "@prisma/client": "5.22.0",

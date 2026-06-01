@@ -1,4 +1,4 @@
-import { getQuoteRequestsByPhone } from "@/lib/db";
+import { countQuoteRequestsByPhone } from "@/lib/db";
 import { getOrCreateCustomerWallet } from "@/lib/db-credits";
 import { hashProviderPin, validateProviderPin } from "@/lib/provider-pin";
 import { normalizeProviderPhone } from "@/lib/phone-utils";
@@ -41,16 +41,16 @@ export async function getCustomerAuthByPhone(phone: string): Promise<{
   pinHash: string | null;
 }> {
   const normalized = normalizeProviderPhone(phone);
-  const quotes = await getQuoteRequestsByPhone(normalized);
+  const quoteCount = await countQuoteRequestsByPhone(normalized);
 
   if (isDatabaseEnabled()) {
     const wallet = await prisma.customerWallet.findFirst({ where: { phone: normalized } });
-    return { quoteCount: quotes.length, pinHash: wallet?.pinHash ?? null };
+    return { quoteCount, pinHash: wallet?.pinHash ?? null };
   }
 
   const store = await readJsonStore();
   return {
-    quoteCount: quotes.length,
+    quoteCount,
     pinHash: store.customerPinHashes?.[normalized] ?? null,
   };
 }

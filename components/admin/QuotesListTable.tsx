@@ -147,22 +147,6 @@ export default function QuotesListTable({
     }
   };
 
-  const approveDemoQuotes = async () => {
-    setLoading("demo");
-    setMessage("");
-    try {
-      const res = await fetch("/api/admin/teklif/demo-onayla", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Onaylanamadı");
-      setMessage(`${data.count ?? 0} demo teklif yayına alındı.`);
-      router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Onaylanamadı");
-    } finally {
-      setLoading(null);
-    }
-  };
-
   const filterCounts = useMemo(() => {
     const counts: Record<string, number> = { all: quotes.length };
     for (const q of quotes) {
@@ -200,14 +184,6 @@ export default function QuotesListTable({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
-        <button
-          type="button"
-          disabled={loading !== null}
-          onClick={approveDemoQuotes}
-          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-800 hover:bg-emerald-100 disabled:opacity-60"
-        >
-          {loading === "demo" ? "Onaylanıyor…" : "Demo Teklifleri Onayla"}
-        </button>
         <button
           type="button"
           disabled={loading !== null || selectedIds.length === 0}

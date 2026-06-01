@@ -222,11 +222,28 @@ export async function getQuoteRequestById(id: string): Promise<QuoteRequest | un
   return store.quoteRequests.find((r) => r.id === id);
 }
 
-export async function getQuoteRequestsByPhone(phone: string): Promise<QuoteRequest[]> {
+export async function countQuoteRequestsByPhone(phone: string): Promise<number> {
   const store = await ensureStore();
-  return store.quoteRequests
+  return store.quoteRequests.filter((quote) => phonesEqual(quote.phone, phone)).length;
+}
+
+export async function getQuoteRequestsByPhone(
+  phone: string,
+  options?: { limit?: number; offset?: number }
+): Promise<QuoteRequest[]> {
+  const store = await ensureStore();
+  let list = store.quoteRequests
     .filter((quote) => phonesEqual(quote.phone, phone))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+  const offset = options?.offset ?? 0;
+  if (options?.limit !== undefined) {
+    list = list.slice(offset, offset + options.limit);
+  } else if (offset > 0) {
+    list = list.slice(offset);
+  }
+
+  return list;
 }
 
 export async function getAllQuoteRequests(): Promise<QuoteRequest[]> {

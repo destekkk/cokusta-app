@@ -43,8 +43,7 @@ export default async function AdminQuotesPage() {
         Talepleri listeden seçip toplu <strong>Onayla</strong>, <strong>Reddet</strong> veya{" "}
         <strong>Usta ile Eşleştir</strong> yapabilirsiniz.{" "}
         <strong>Otomatik Eşleştir</strong> usta teklifi varsa en düşük fiyatlıyı kabul eder;
-        yoksa şehir ve kategori uyumlu ustayı atar. Demo teklifler için{" "}
-        <strong>Demo Teklifleri Onayla</strong> butonunu kullanın.
+        yoksa şehir ve kategori uyumlu ustayı atar.
       </div>
 
       <div className="mt-6">
