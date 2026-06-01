@@ -72,6 +72,16 @@ export type ProviderOffer = {
   estimatedDays?: number;
   status: "pending" | "accepted" | "rejected" | "withdrawn";
   createdAt: string;
+  negotiation?: OfferNegotiationEntry[];
+  customerAgreedAt?: string;
+  providerAgreedAt?: string;
+};
+
+export type OfferNegotiationEntry = {
+  from: "customer" | "provider";
+  price: number;
+  message: string;
+  createdAt: string;
 };
 
 export type ProviderPlatformPurchase = {
@@ -362,4 +372,5 @@ export type Store = {
   providerOfTheMonthHistory: ProviderOfTheMonth[];
   creditPurchaseOrders: CreditPurchaseOrder[];
   providerReferrals: ProviderReferral[];
+  customerPinHashes?: Record<string, string>;
 };

@@ -103,7 +103,9 @@ export function toProvider(row: ProviderWithRelations): ProviderRegistration {
     phone: row.phone,
     email: row.email,
     city: row.city,
-    categorySlugs: row.categorySlugs as string[],
+    categorySlugs: Array.isArray(row.categorySlugs)
+      ? (row.categorySlugs as string[]).filter((slug) => typeof slug === "string")
+      : [],
     experience: row.experience,
     bio: row.bio,
     createdAt: row.createdAt.toISOString(),

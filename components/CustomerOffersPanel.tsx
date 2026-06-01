@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
 import type { CustomerProviderPayment, ProviderOffer } from "@/lib/types";
+import { getCurrentOfferPrice } from "@/lib/offer-utils";
 import { tlToCredits } from "@/lib/credit-economy";
 import { COKUSTA_CREDIT_PRICE } from "@/lib/pricing";
 
@@ -12,8 +15,7 @@ type Props = {
 };
 
 export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
-  const [phone, setPhone] = useState("");
-  const [verified, setVerified] = useState(false);
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [offers, setOffers] = useState<ProviderOffer[]>([]);
@@ -26,11 +28,12 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
   const [acceptedOfferPrice, setAcceptedOfferPrice] = useState(0);
   const [payment, setPayment] = useState<CustomerProviderPayment | null>(null);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [ready, setReady] = useState(false);
 
   const loadOffers = async () => {
     const res = await fetch(`/api/musteri/teklif/${quoteId}/teklifler`);
     if (res.status === 401) {
-      setVerified(false);
+      router.replace(`/musteri/giris?redirect=/tekliflerim/${quoteId}`);
       return;
     }
     const data = await res.json();
@@ -41,7 +44,7 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     setAcceptedOfferId(data.acceptedOfferId ?? data.acceptedOffer?.id ?? null);
     setPayment(data.payment ?? null);
     if (data.acceptedOffer?.price) setAcceptedOfferPrice(data.acceptedOffer.price);
-    setVerified(true);
+    setReady(true);
   };
 
   const loadWallet = () => {
@@ -52,16 +55,35 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
   };
 
   useEffect(() => {
-    fetch(`/api/musteri/teklif/${quoteId}/dogrula`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.verified) {
-          loadOffers().catch(() => setVerified(false));
-          loadWallet();
-        }
-      })
-      .catch(() => {});
+    loadOffers().catch((err) => {
+      setError(err instanceof Error ? err.message : "Yüklenemedi");
+    });
+    loadWallet();
   }, [quoteId]);
+
+  const negotiate = async (offerId: string, action: "agree" | "counter", price?: number, message?: string) => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/musteri/teklif/${quoteId}/pazarlik`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offerId, action, price, message }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "İşlem başarısız");
+      if (data.accepted) {
+        await loadOffers();
+        loadWallet();
+        return;
+      }
+      await loadOffers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "İşlem başarısız");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const payWithCredits = async () => {
     if (!acceptedOfferId) return;
@@ -95,158 +117,94 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     }
   };
 
-  const verify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/musteri/teklif/${quoteId}/dogrula`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Doğrulama başarısız");
-      await loadOffers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Doğrulama başarısız");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const accept = async (offerId: string) => {
-    if (!confirm("Bu ustayı seçmek istediğinize emin misiniz? Telefon numaraları karşılıklı açılacaktır.")) {
-      return;
-    }
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch(`/api/musteri/teklif/${quoteId}/kabul`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ offerId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Kabul edilemedi");
-      await loadOffers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Kabul edilemedi");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!verified) {
-    return (
-      <form onSubmit={verify} className="space-y-4 rounded-2xl border border-border bg-card p-6">
-        <p className="text-sm text-muted-foreground">
-          <strong>{serviceName}</strong> talebinize gelen teklifleri görmek için talep sırasında
-          verdiğiniz telefon numarasını girin.
-        </p>
-        <input
-          type="tel"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="05XX XXX XX XX"
-          className="w-full rounded-xl border border-border px-4 py-3 text-sm"
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white disabled:opacity-60"
-        >
-          {loading ? "Doğrulanıyor…" : "Devam Et"}
-        </button>
-      </form>
-    );
+  if (!ready) {
+    return <p className="text-muted-foreground">Yükleniyor…</p>;
   }
 
   return (
     <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">
+        <strong>{serviceName}</strong> — usta tekliflerini görüntüleyin, karşı teklif verin veya anlaştık deyin.
+      </p>
+
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       {quoteStatus === "accepted" && contacts && (
         <div className="rounded-xl border border-green-200 bg-green-50 p-5 space-y-3">
-          <p className="font-semibold text-green-900">Usta seçildi — iletişim bilgileri açıldı</p>
+          <p className="font-semibold text-green-900">Anlaşma sağlandı — iletişim bilgileri açıldı</p>
           <p className="text-sm text-green-800">
             <strong>Usta:</strong> {contacts.provider.name} ·{" "}
             <a href={`tel:${contacts.provider.phone}`} className="underline">
               {contacts.provider.phone}
             </a>
           </p>
-          <p className="text-sm text-green-800">
-            Sizin numaranız ustaya iletildi: {contacts.customer.phone}
-          </p>
-
           {payment ? (
             <p className="rounded-lg bg-white/80 px-4 py-3 text-sm text-green-900">
-              ✓ {payment.credits} kontör ustaya ödendi ({payment.tlEquivalent.toLocaleString("tr-TR")} ₺)
+              ✓ {payment.credits} kontör ustaya ödendi
             </p>
           ) : acceptedOfferId ? (
-            <div className="rounded-lg border border-green-300 bg-white/80 p-4 space-y-3">
-              <p className="text-sm text-green-900">
-                Teklif tutarı: {acceptedOfferPrice.toLocaleString("tr-TR")} ₺ (
-                {tlToCredits(acceptedOfferPrice)} kontör)
-              </p>
-              {walletBalance !== null && (
-                <p className="text-xs text-green-800">Bakiyeniz: {walletBalance} kontör</p>
-              )}
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={payWithCredits}
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                >
-                  Kontör ile öde
-                </button>
-                <Link
-                  href="/musteri/kontor"
-                  className="rounded-lg border border-green-400 px-4 py-2 text-sm font-semibold text-green-900"
-                >
-                  Kontör al
-                </Link>
-              </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={loading}
+                onClick={payWithCredits}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white"
+              >
+                Kontör ile öde
+              </button>
+              <Link href="/musteri/kontor" className="rounded-lg border border-green-400 px-4 py-2 text-sm font-semibold text-green-900">
+                Kontör al
+              </Link>
             </div>
           ) : null}
         </div>
       )}
 
+      {quoteStatus === "awaiting_review" && (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Talebiniz admin onayı bekliyor. Onaylandıktan sonra ustalar teklif verebilecek.
+        </p>
+      )}
+
       {quoteStatus === "open" && offers.length === 0 && (
         <p className="rounded-xl border border-border bg-card p-6 text-center text-muted-foreground">
-          Henüz usta teklifi gelmedi. Ustalar teklif verdikçe burada görünecek.
+          Henüz usta teklifi gelmedi.
         </p>
       )}
 
       {quoteStatus === "open" && offers.length > 0 && (
-        <div className="space-y-4">
-          <p className="text-sm text-muted-foreground">
-            {offers.length} teklif alındı. Usta telefonları kabul edene kadar gizlidir.
-          </p>
-          {offers.map((offer) => (
-            <article key={offer.id} className="rounded-xl border border-border bg-card p-5">
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-semibold">{offer.providerName ?? "Usta"}</h3>
-                  <p className="text-sm text-muted-foreground">{offer.providerCity}</p>
-                </div>
-                <p className="text-lg font-bold text-primary">
-                  {offer.price.toLocaleString("tr-TR")} ₺
-                </p>
-              </div>
-              <p className="mt-3 text-sm text-muted-foreground">{offer.message}</p>
-              <button
-                type="button"
-                disabled={loading}
-                onClick={() => accept(offer.id)}
-                className="mt-4 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                Bu Ustayı Kabul Et
-              </button>
-            </article>
-          ))}
+        <div className="overflow-x-auto rounded-xl border border-border bg-card">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-4 py-3">Usta</th>
+                <th className="px-4 py-3">Fiyat</th>
+                <th className="px-4 py-3">Pazarlık</th>
+              </tr>
+            </thead>
+            <tbody>
+              {offers.map((offer) => (
+                <tr key={offer.id} className="border-t border-border align-top">
+                  <td className="px-4 py-4">
+                    <p className="font-semibold">{offer.providerName ?? "Usta"}</p>
+                    <p className="text-muted-foreground">{offer.providerCity}</p>
+                  </td>
+                  <td className="px-4 py-4 font-bold text-primary">
+                    {getCurrentOfferPrice(offer).toLocaleString("tr-TR")} ₺
+                  </td>
+                  <td className="px-4 py-4">
+                    <OfferNegotiationPanel
+                      offer={offer}
+                      role="customer"
+                      loading={loading}
+                      onAgree={() => negotiate(offer.id, "agree")}
+                      onCounter={(price, message) => negotiate(offer.id, "counter", price, message)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

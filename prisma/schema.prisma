@@ -131,14 +131,17 @@ model QuoteRequest {
 }
 
 model ProviderOffer {
-  id             String      @id @db.VarChar(64)
-  quoteRequestId String      @map("quote_request_id") @db.VarChar(64)
-  providerId     String      @map("provider_id") @db.VarChar(64)
-  price          Int
-  message        String      @db.Text
-  estimatedDays  Int?        @map("estimated_days")
-  status         OfferStatus @default(pending)
-  createdAt      DateTime    @map("created_at")
+  id               String      @id @db.VarChar(64)
+  quoteRequestId   String      @map("quote_request_id") @db.VarChar(64)
+  providerId       String      @map("provider_id") @db.VarChar(64)
+  price            Int
+  message          String      @db.Text
+  estimatedDays    Int?        @map("estimated_days")
+  status           OfferStatus @default(pending)
+  createdAt        DateTime    @map("created_at")
+  negotiation      Json        @default("[]")
+  customerAgreedAt DateTime?   @map("customer_agreed_at")
+  providerAgreedAt DateTime?   @map("provider_agreed_at")
 
   quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
   provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
@@ -282,6 +285,7 @@ model CustomerWallet {
   id            String   @id @db.VarChar(64)
   phone         String   @unique @db.VarChar(32)
   creditBalance Int      @default(0) @map("credit_balance")
+  pinHash       String?  @map("pin_hash") @db.VarChar(128)
   createdAt     DateTime @map("created_at")
   updatedAt     DateTime @map("updated_at")
 

@@ -23,5 +23,7 @@ export async function GET() {
     creditDebt,
     maxCreditDebt: MAX_CREDIT_DEBT,
     canUseDebt: creditDebt < MAX_CREDIT_DEBT,
+    providerCity: provider.city,
+    providerCategories: provider.categorySlugs,
   });
 }

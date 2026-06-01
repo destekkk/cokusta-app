@@ -4,6 +4,7 @@ import type {
   Customer,
   CustomerSummary,
   Invoice,
+  OfferNegotiationEntry,
   PortfolioWithProvider,
   ProviderCertificate,
   ProviderOfTheMonth,
@@ -21,7 +22,10 @@ import { REFERRAL_REWARD_CREDITS } from "./referrals";
 import { getCreditPackage } from "./credit-packages";
 import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
 import {
+  buildInitialNegotiation,
   enrichOffer,
+  getCurrentOfferPrice,
+  parseNegotiation,
   providerCanSeeQuote,
   quoteIsOpenForOffers,
   toPublicQuoteListItem,
@@ -79,6 +83,42 @@ function customerKeyFromPhone(phone: string, name: string, email: string): strin
 
 function customerKey(quote: QuoteRequest): string {
   return customerKeyFromPhone(quote.phone, quote.name, quote.email);
+}
+
+type OfferRow = {
+  id: string;
+  quoteRequestId: string;
+  providerId: string;
+  price: number;
+  message: string;
+  estimatedDays: number | null;
+  status: string;
+  createdAt: Date;
+  negotiation?: unknown;
+  customerAgreedAt?: Date | null;
+  providerAgreedAt?: Date | null;
+};
+
+function mapOfferFromRow(
+  row: OfferRow,
+  provider?: Pick<ProviderRegistration, "name" | "city">
+): ProviderOffer {
+  return enrichOffer(
+    {
+      id: row.id,
+      quoteRequestId: row.quoteRequestId,
+      providerId: row.providerId,
+      price: row.price,
+      message: row.message,
+      estimatedDays: row.estimatedDays ?? undefined,
+      status: row.status as ProviderOffer["status"],
+      createdAt: row.createdAt.toISOString(),
+      negotiation: parseNegotiation(row.negotiation),
+      customerAgreedAt: row.customerAgreedAt?.toISOString(),
+      providerAgreedAt: row.providerAgreedAt?.toISOString(),
+    },
+    provider
+  );
 }
 
 async function countProviderLaunchSlots(): Promise<number> {
@@ -1510,9 +1550,11 @@ export async function getOpenQuotesForProvider(providerId: string) {
   const provider = await getProviderById(providerId);
   if (!provider || provider.status !== "approved") return [];
 
-  const quotes = (await prisma.quoteRequest.findMany({ where: { status: "open" } })).map(
-    toQuoteRequest
-  );
+  // Tüm talepleri okuyup quoteIsOpenForOffers ile filtrele — eski DB'de status=pending
+  // olarak kalan onaylı ilanlar da open sayılır (toQuoteRequest eşlemesi).
+  const quotes = (await prisma.quoteRequest.findMany({ orderBy: { createdAt: "desc" } }))
+    .map(toQuoteRequest)
+    .filter(quoteIsOpenForOffers);
   const offers = await prisma.providerOffer.findMany({
     where: { providerId },
   });
@@ -1525,21 +1567,7 @@ export async function getOpenQuotesForProvider(providerId: string) {
     .map((quote) => {
       const offerCount = allOffers.filter((o) => o.quoteRequestId === quote.id).length;
       const myOfferRow = offers.find((o) => o.quoteRequestId === quote.id);
-      const myOffer = myOfferRow
-        ? enrichOffer(
-            {
-              id: myOfferRow.id,
-              quoteRequestId: myOfferRow.quoteRequestId,
-              providerId: myOfferRow.providerId,
-              price: myOfferRow.price,
-              message: myOfferRow.message,
-              estimatedDays: myOfferRow.estimatedDays ?? undefined,
-              status: myOfferRow.status as ProviderOffer["status"],
-              createdAt: myOfferRow.createdAt.toISOString(),
-            },
-            provider
-          )
-        : undefined;
+      const myOffer = myOfferRow ? mapOfferFromRow(myOfferRow, provider) : undefined;
       return { ...toPublicQuoteListItem(quote, offerCount, false), myOffer };
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -1602,6 +1630,7 @@ export async function submitProviderOffer(
         estimatedDays: estimatedDays ?? null,
         createdAt,
         status: "pending",
+        negotiation: buildInitialNegotiation(price, message),
       },
     });
     const { appendCreditLedger } = await import("./db-credits");
@@ -1619,16 +1648,17 @@ export async function submitProviderOffer(
   });
 
   return {
-    offer: enrichOffer(
+    offer: mapOfferFromRow(
       {
         id,
         quoteRequestId,
         providerId,
         price: Math.round(price),
         message: message.trim(),
-        estimatedDays,
+        estimatedDays: estimatedDays ?? null,
         status: "pending",
-        createdAt: createdAt.toISOString(),
+        createdAt,
+        negotiation: buildInitialNegotiation(price, message),
       },
       provider
     ),
@@ -1647,21 +1677,7 @@ export async function getOffersForQuoteRequest(quoteId: string): Promise<Provide
   });
   const providerMap = new Map(providers.map((p) => [p.id, toProvider(p)]));
 
-  return rows.map((row) =>
-    enrichOffer(
-      {
-        id: row.id,
-        quoteRequestId: row.quoteRequestId,
-        providerId: row.providerId,
-        price: row.price,
-        message: row.message,
-        estimatedDays: row.estimatedDays ?? undefined,
-        status: row.status as ProviderOffer["status"],
-        createdAt: row.createdAt.toISOString(),
-      },
-      providerMap.get(row.providerId)
-    )
-  );
+  return rows.map((row) => mapOfferFromRow(row, providerMap.get(row.providerId)));
 }
 
 export async function getProviderOffersForQuote(quoteId: string): Promise<ProviderOffer[]> {
@@ -1674,21 +1690,7 @@ export async function getProviderOffersForQuote(quoteId: string): Promise<Provid
   });
   const providerMap = new Map(providers.map((p) => [p.id, toProvider(p)]));
 
-  return rows.map((row) =>
-    enrichOffer(
-      {
-        id: row.id,
-        quoteRequestId: row.quoteRequestId,
-        providerId: row.providerId,
-        price: row.price,
-        message: row.message,
-        estimatedDays: row.estimatedDays ?? undefined,
-        status: row.status as ProviderOffer["status"],
-        createdAt: row.createdAt.toISOString(),
-      },
-      providerMap.get(row.providerId)
-    )
-  );
+  return rows.map((row) => mapOfferFromRow(row, providerMap.get(row.providerId)));
 }
 
 export async function acceptProviderOffer(quoteId: string, offerId: string) {
@@ -1705,6 +1707,9 @@ export async function acceptProviderOffer(quoteId: string, offerId: string) {
   const provider = await prisma.provider.findUnique({ where: { id: offerRow.providerId } });
   if (!provider) return { error: "Usta bulunamadı." };
 
+  const mapped = mapOfferFromRow(offerRow, toProvider(provider));
+  const finalPrice = getCurrentOfferPrice(mapped);
+
   await prisma.$transaction([
     prisma.quoteRequest.update({
       where: { id: quoteId },
@@ -1716,7 +1721,7 @@ export async function acceptProviderOffer(quoteId: string, offerId: string) {
     }),
     prisma.providerOffer.update({
       where: { id: offerId },
-      data: { status: "accepted" },
+      data: { status: "accepted", price: finalPrice },
     }),
     prisma.providerOffer.updateMany({
       where: {
@@ -1730,6 +1735,105 @@ export async function acceptProviderOffer(quoteId: string, offerId: string) {
 
   const updated = await prisma.quoteRequest.findUniqueOrThrow({ where: { id: quoteId } });
   return { quote: toQuoteRequest(updated) };
+}
+
+export async function counterOffer(
+  offerId: string,
+  from: "customer" | "provider",
+  price: number,
+  message: string,
+  actorProviderId?: string
+): Promise<{ offer?: ProviderOffer; error?: string; accepted?: boolean }> {
+  const row = await prisma.providerOffer.findUnique({ where: { id: offerId } });
+  if (!row || row.status !== "pending") {
+    return { error: "Teklif bulunamadı veya kapalı." };
+  }
+  if (from === "provider" && actorProviderId && row.providerId !== actorProviderId) {
+    return { error: "Bu teklife erişiminiz yok." };
+  }
+
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: row.quoteRequestId } });
+  if (!quoteRow) return { error: "Talep bulunamadı." };
+  const quote = toQuoteRequest(quoteRow);
+  if (!quoteIsOpenForOffers(quote)) {
+    return { error: "Talep artık pazarlığa kapalı." };
+  }
+
+  if (price <= 0 || message.trim().length < 5) {
+    return { error: "Geçerli fiyat ve en az 5 karakterlik açıklama girin." };
+  }
+
+  const negotiation = parseNegotiation(row.negotiation);
+  const entry: OfferNegotiationEntry = {
+    from,
+    price: Math.round(price),
+    message: message.trim(),
+    createdAt: new Date().toISOString(),
+  };
+
+  const updated = await prisma.providerOffer.update({
+    where: { id: offerId },
+    data: {
+      price: entry.price,
+      negotiation: [...negotiation, entry],
+      customerAgreedAt: null,
+      providerAgreedAt: null,
+    },
+  });
+
+  const provider = await prisma.provider.findUnique({ where: { id: row.providerId } });
+  return {
+    offer: mapOfferFromRow(updated, provider ? toProvider(provider) : undefined),
+  };
+}
+
+export async function agreeToOffer(
+  offerId: string,
+  from: "customer" | "provider",
+  actorProviderId?: string
+): Promise<{ offer?: ProviderOffer; accepted?: boolean; error?: string }> {
+  const row = await prisma.providerOffer.findUnique({ where: { id: offerId } });
+  if (!row || row.status !== "pending") {
+    return { error: "Teklif bulunamadı veya kapalı." };
+  }
+  if (from === "provider" && actorProviderId && row.providerId !== actorProviderId) {
+    return { error: "Bu teklife erişiminiz yok." };
+  }
+
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: row.quoteRequestId } });
+  if (!quoteRow) return { error: "Talep bulunamadı." };
+  const quote = toQuoteRequest(quoteRow);
+  if (!quoteIsOpenForOffers(quote)) {
+    return { error: "Talep artık pazarlığa kapalı." };
+  }
+
+  const now = new Date();
+  const customerAgreedAt = from === "customer" ? now : row.customerAgreedAt;
+  const providerAgreedAt = from === "provider" ? now : row.providerAgreedAt;
+
+  const updated = await prisma.providerOffer.update({
+    where: { id: offerId },
+    data: {
+      customerAgreedAt,
+      providerAgreedAt,
+    },
+  });
+
+  if (customerAgreedAt && providerAgreedAt) {
+    const result = await acceptProviderOffer(row.quoteRequestId, offerId);
+    if (result.error) return { error: result.error };
+    const acceptedRow = await prisma.providerOffer.findUniqueOrThrow({ where: { id: offerId } });
+    const provider = await prisma.provider.findUnique({ where: { id: row.providerId } });
+    return {
+      accepted: true,
+      offer: mapOfferFromRow(acceptedRow, provider ? toProvider(provider) : undefined),
+    };
+  }
+
+  const provider = await prisma.provider.findUnique({ where: { id: row.providerId } });
+  return {
+    offer: mapOfferFromRow(updated, provider ? toProvider(provider) : undefined),
+  };
 }
 
 export async function getAcceptedContactDetails(quoteId: string) {

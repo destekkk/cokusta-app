@@ -17,7 +17,7 @@ export default async function CustomerOffersPage({ params }: Props) {
   return (
     <div className="min-h-full bg-background">
       <Header />
-      <div className="mx-auto max-w-2xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <Link
           href="/musteri/teklifler"
           className="text-sm font-medium text-primary hover:underline"

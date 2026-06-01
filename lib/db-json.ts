@@ -7,6 +7,7 @@ import type {
   Customer,
   CustomerSummary,
   Invoice,
+  OfferNegotiationEntry,
   PortfolioWithProvider,
   ProviderCertificate,
   ProviderOffer,
@@ -49,7 +50,10 @@ type StoredProvider = ProviderRegistration & { pinHash?: string | null };
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
 import { getCommissionRate } from "./admin-auth";
 import {
+  buildInitialNegotiation,
   enrichOffer,
+  getCurrentOfferPrice,
+  parseNegotiation,
   providerCanSeeQuote,
   quoteIsOpenForOffers,
   toPublicQuoteListItem,
@@ -69,6 +73,7 @@ const emptyStore: Store = {
   providerOfTheMonthHistory: [],
   creditPurchaseOrders: [],
   providerReferrals: [],
+  customerPinHashes: {},
 };
 
 function migrateQuoteStatus(quote: QuoteRequest): QuoteRequest {
@@ -1455,6 +1460,7 @@ export async function submitProviderOffer(
     createdAt: new Date().toISOString(),
     providerName: provider.name,
     providerCity: provider.city,
+    negotiation: buildInitialNegotiation(price, message),
   };
 
   if (useBalance) {
@@ -1519,6 +1525,7 @@ export async function acceptProviderOffer(
   quote.matchedProviderName = provider.name;
   quote.acceptedOfferId = offer.id;
   offer.status = "accepted";
+  offer.price = getCurrentOfferPrice(offer);
 
   for (const o of store.providerOffers) {
     if (o.quoteRequestId === quoteId && o.id !== offerId && o.status === "pending") {
@@ -1528,6 +1535,85 @@ export async function acceptProviderOffer(
 
   await saveStore(store);
   return { quote };
+}
+
+export async function counterOffer(
+  offerId: string,
+  from: "customer" | "provider",
+  price: number,
+  message: string,
+  actorProviderId?: string
+): Promise<{ offer?: ProviderOffer; error?: string }> {
+  const store = await ensureStore();
+  const offer = store.providerOffers.find((o) => o.id === offerId);
+  if (!offer || offer.status !== "pending") {
+    return { error: "Teklif bulunamadı veya kapalı." };
+  }
+  if (from === "provider" && actorProviderId && offer.providerId !== actorProviderId) {
+    return { error: "Bu teklife erişiminiz yok." };
+  }
+
+  const quote = store.quoteRequests.find((q) => q.id === offer.quoteRequestId);
+  if (!quote || !quoteIsOpenForOffers(quote)) {
+    return { error: "Talep artık pazarlığa kapalı." };
+  }
+
+  if (price <= 0 || message.trim().length < 5) {
+    return { error: "Geçerli fiyat ve en az 5 karakterlik açıklama girin." };
+  }
+
+  const negotiation = parseNegotiation(offer.negotiation);
+  const entry: OfferNegotiationEntry = {
+    from,
+    price: Math.round(price),
+    message: message.trim(),
+    createdAt: new Date().toISOString(),
+  };
+
+  offer.price = entry.price;
+  offer.negotiation = [...negotiation, entry];
+  offer.customerAgreedAt = undefined;
+  offer.providerAgreedAt = undefined;
+
+  await saveStore(store);
+  const provider = store.providers.find((p) => p.id === offer.providerId);
+  return { offer: enrichOffer(offer, provider) };
+}
+
+export async function agreeToOffer(
+  offerId: string,
+  from: "customer" | "provider",
+  actorProviderId?: string
+): Promise<{ offer?: ProviderOffer; accepted?: boolean; error?: string }> {
+  const store = await ensureStore();
+  const offer = store.providerOffers.find((o) => o.id === offerId);
+  if (!offer || offer.status !== "pending") {
+    return { error: "Teklif bulunamadı veya kapalı." };
+  }
+  if (from === "provider" && actorProviderId && offer.providerId !== actorProviderId) {
+    return { error: "Bu teklife erişiminiz yok." };
+  }
+
+  const quote = store.quoteRequests.find((q) => q.id === offer.quoteRequestId);
+  if (!quote || !quoteIsOpenForOffers(quote)) {
+    return { error: "Talep artık pazarlığa kapalı." };
+  }
+
+  const now = new Date().toISOString();
+  if (from === "customer") offer.customerAgreedAt = now;
+  if (from === "provider") offer.providerAgreedAt = now;
+
+  if (offer.customerAgreedAt && offer.providerAgreedAt) {
+    const result = await acceptProviderOffer(offer.quoteRequestId, offerId);
+    if (result.error) return { error: result.error };
+    const updated = store.providerOffers.find((o) => o.id === offerId);
+    const provider = store.providers.find((p) => p.id === offer.providerId);
+    return { accepted: true, offer: updated ? enrichOffer(updated, provider) : undefined };
+  }
+
+  await saveStore(store);
+  const provider = store.providers.find((p) => p.id === offer.providerId);
+  return { offer: enrichOffer(offer, provider) };
 }
 
 export async function getAcceptedContactDetails(quoteId: string) {

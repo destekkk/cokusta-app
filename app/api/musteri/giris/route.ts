@@ -1,14 +1,19 @@
 import { NextResponse } from "next/server";
 import { getQuoteRequestsByPhone, findProviderByPhone } from "@/lib/db";
 import { setCustomerSession } from "@/lib/customer-auth";
-import { isValidProviderPhone, normalizeProviderPhone } from "@/lib/phone-utils";
+import { getCustomerAuthByPhone } from "@/lib/customer-pin";
+import { isValidProviderPhone, normalizeProviderPhone, verifyProviderPin } from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   try {
-    const { phone } = await request.json();
+    const { phone, pin } = await request.json();
 
     if (!phone || !isValidProviderPhone(String(phone))) {
       return NextResponse.json({ error: "Geçerli telefon numarası girin." }, { status: 400 });
+    }
+
+    if (!pin || !/^\d{4}$/.test(String(pin))) {
+      return NextResponse.json({ error: "4 haneli giriş şifrenizi girin." }, { status: 400 });
     }
 
     const normalized = normalizeProviderPhone(String(phone));
@@ -33,6 +38,21 @@ export async function POST(request: Request) {
         },
         { status: 404 }
       );
+    }
+
+    const auth = await getCustomerAuthByPhone(normalized);
+    if (!auth.pinHash) {
+      return NextResponse.json(
+        {
+          error: "Giriş şifreniz henüz tanımlı değil. Aşağıdan şifre belirleyin.",
+          code: "NO_PIN_SET",
+        },
+        { status: 403 }
+      );
+    }
+
+    if (!verifyProviderPin(String(pin), auth.pinHash)) {
+      return NextResponse.json({ error: "Telefon veya şifre hatalı." }, { status: 401 });
     }
 
     await setCustomerSession(normalized);
