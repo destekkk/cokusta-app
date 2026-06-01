@@ -54,25 +54,32 @@ h1, h2, h3, h4 {
 @keyframes cta-soft-pulse {
   0%,
   100% {
+    transform: scale(1);
     filter: brightness(1);
-    box-shadow: 0 1px 2px hsl(148 100% 22% / 0.18);
+    box-shadow:
+      0 2px 12px hsl(148 100% 22% / 0.4),
+      0 0 0 0 hsl(148 85% 50% / 0);
   }
   50% {
-    filter: brightness(1.1);
+    transform: scale(1.03);
+    filter: brightness(1.18);
     box-shadow:
-      0 0 0 2px hsl(148 75% 48% / 0.28),
-      0 2px 8px hsl(148 100% 33% / 0.3);
+      0 6px 28px hsl(148 100% 30% / 0.6),
+      0 0 0 8px hsl(148 75% 52% / 0.28),
+      0 0 0 14px hsl(148 80% 55% / 0.12);
   }
 }
 
 .cta-pulse {
-  animation: cta-soft-pulse 2.8s ease-in-out infinite;
-  will-change: filter, box-shadow;
+  animation: cta-soft-pulse 2.2s ease-in-out infinite;
+  will-change: transform, filter, box-shadow;
+  border: 1px solid hsl(148 90% 45% / 0.55);
 }
 
 .cta-pulse:hover {
   animation-play-state: paused;
-  filter: brightness(1.05);
+  transform: scale(1.02);
+  filter: brightness(1.1);
 }
 
 @media (prefers-reduced-motion: reduce) {
