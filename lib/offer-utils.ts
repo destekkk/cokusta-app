@@ -42,7 +42,7 @@ export function providerCanSeeQuote(
 ): boolean {
   if (provider.status !== "approved") return false;
   if (!providerCategoryMatches(provider, quote)) return false;
-  if scope === "all") return true;
+  if (scope === "all") return true;
   return citiesMatch(provider.city, quote.city);
 }
 
