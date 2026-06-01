@@ -330,6 +330,7 @@ model CustomerProviderPayment {
   provider     Provider @relation(fields: [providerId], references: [id], onDelete: Cascade)
 
   @@unique([quoteRequestId])
+  @@unique([offerId])
   @@index([providerId])
   @@index([walletId])
   @@map("customer_provider_payments")

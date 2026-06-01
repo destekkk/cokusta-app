@@ -8,8 +8,13 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (pathname.startsWith("/usta/kontor/sonuc")) return NextResponse.next();
+  if (pathname.startsWith("/musteri/kontor/sonuc")) return NextResponse.next();
 
-  if (pathname.startsWith("/usta/teklifler") || pathname.startsWith("/usta/kontor")) {
+  if (
+    pathname.startsWith("/usta/teklifler") ||
+    pathname.startsWith("/usta/kontor") ||
+    pathname.startsWith("/usta/odeme-talep")
+  ) {
     const token = request.cookies.get(PROVIDER_COOKIE)?.value;
     const session = await getProviderSessionFromToken(token);
     if (!session) {
@@ -20,7 +25,7 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/musteri/teklifler")) {
+  if (pathname.startsWith("/musteri/teklifler") || pathname.startsWith("/musteri/kontor")) {
     const token = request.cookies.get(CUSTOMER_COOKIE)?.value;
     const session = await getCustomerSessionFromToken(token);
     if (!session) {
@@ -46,5 +51,13 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin", "/admin/:path*", "/usta/teklifler", "/usta/kontor", "/musteri/teklifler"],
+  matcher: [
+    "/admin",
+    "/admin/:path*",
+    "/usta/teklifler",
+    "/usta/kontor",
+    "/usta/odeme-talep",
+    "/musteri/teklifler",
+    "/musteri/kontor",
+  ],
 };

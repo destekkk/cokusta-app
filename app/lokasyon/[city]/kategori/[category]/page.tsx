@@ -9,14 +9,14 @@ import {
   findCategoryBySlug,
   findCityBySlug,
   getDistricts,
-  getTopCityCategoryParams,
+  getPrebuildCityCategoryParams,
   toSlug,
 } from "@/lib/seo/slugs";
 
 type Props = { params: Promise<{ city: string; category: string }> };
 
 export async function generateStaticParams() {
-  return getTopCityCategoryParams();
+  return getPrebuildCityCategoryParams();
 }
 
 export const dynamicParams = true;

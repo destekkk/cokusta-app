@@ -22,7 +22,7 @@ type Props = {
 };
 
 export async function generateStaticParams() {
-  return getTopCityDistrictServiceParams();
+  return [];
 }
 
 export const dynamicParams = true;

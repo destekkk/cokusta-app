@@ -8,20 +8,44 @@ import { formatDateTime } from "@/lib/admin-labels";
 import { formatMoney } from "@/lib/billing";
 import BillingActions from "@/components/admin/BillingActions";
 import InvoiceButton from "@/components/admin/InvoiceButton";
+import AdminCreditLedger from "@/components/admin/AdminCreditLedger";
+import {
+  getCreditLedgerEntries,
+  getCreditSettlementSummary,
+  getPendingProviderPayouts,
+} from "@/lib/db-credits";
+import { isDatabaseEnabled } from "@/lib/db/config";
 
 export default async function AdminBillingPage() {
-  const [overview, billable, invoices] = await Promise.all([
+  const [overview, billable, invoices, creditData] = await Promise.all([
     getBillingOverview(),
     getBillableItems(),
     getAllInvoices(),
+    isDatabaseEnabled()
+      ? Promise.all([
+          getCreditSettlementSummary(),
+          getPendingProviderPayouts(),
+          getCreditLedgerEntries(50),
+        ]).then(([summary, payouts, ledger]) => ({ summary, payouts, ledger }))
+      : Promise.resolve(null),
   ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground">Muhasebe & Faturalama</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Fatura kesme, e-Arşiv görüntüleme ve KDV beyannamesi
+        Fatura kesme, kontör defteri, usta ödemeleri ve KDV beyannamesi
       </p>
+
+      {creditData && (
+        <div className="mt-8">
+          <AdminCreditLedger
+            initialSummary={creditData.summary}
+            initialPayouts={creditData.payouts}
+            initialLedger={creditData.ledger}
+          />
+        </div>
+      )}
 
       <div className="mt-8">
         <BillingActions

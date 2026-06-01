@@ -20,6 +20,12 @@ export default function CustomerQuotesPage() {
             </p>
           </div>
           <Link
+            href="/musteri/kontor"
+            className="rounded-xl border border-border px-4 py-2.5 text-sm font-semibold hover:border-primary/40"
+          >
+            Kontör
+          </Link>
+          <Link
             href="/hizmetler"
             className="rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
           >

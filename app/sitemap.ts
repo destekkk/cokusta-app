@@ -1,74 +1,13 @@
 import type { MetadataRoute } from "next";
-import { categories } from "@/lib/data/categories";
-import { services } from "@/lib/data/services";
 import { SITE_URL } from "@/lib/seo/metadata";
 import {
-  cityCategoryPath,
-  cityPath,
-  cityServicePath,
-  districtPath,
-  districtServicePath,
-  getAllCitySlugs,
-  getCityCategoryParams,
-  getCityDistrictServiceParams,
-  getCityServiceAliasParams,
-  getCityServiceParams,
-  getDistrictHubParams,
-  getDistrictServiceAliasParams,
-  getNeighborhoodServiceParams,
-  neighborhoodServicePath,
-} from "@/lib/seo/slugs";
-
-const CHUNK_SIZE = 4500;
-
-function buildAllUrls(): string[] {
-  const urls: string[] = [
-    "",
-    "/lokasyon",
-    "/hizmetler",
-    "/nasil-calisir",
-    "/hakkimizda",
-    "/iletisim",
-    "/usta-ol",
-    "/cok-acil",
-    "/gizlilik-sozlesmesi",
-    "/mesafeli-satis-sozlesmesi",
-    "/teslimat-ve-iade",
-    "/ssl-sertifikasi",
-  ];
-
-  for (const cat of categories) urls.push(`/kategori/${cat.slug}`);
-  for (const service of services) urls.push(`/hizmet/${service.slug}`);
-  for (const citySlug of getAllCitySlugs()) urls.push(cityPath(citySlug));
-  for (const { city, category } of getCityCategoryParams()) {
-    urls.push(cityCategoryPath(city, category));
-  }
-  for (const { city, service } of getCityServiceParams()) {
-    urls.push(cityServicePath(city, service));
-  }
-  for (const { city, service } of getCityServiceAliasParams()) {
-    urls.push(cityServicePath(city, service));
-  }
-  for (const { city, district } of getDistrictHubParams()) {
-    urls.push(districtPath(city, district));
-  }
-  for (const { city, district, service } of getCityDistrictServiceParams()) {
-    urls.push(districtServicePath(city, district, service));
-  }
-  for (const { city, district, service } of getDistrictServiceAliasParams()) {
-    urls.push(districtServicePath(city, district, service));
-  }
-  for (const { city, district, neighborhood, service } of getNeighborhoodServiceParams()) {
-    urls.push(neighborhoodServicePath(city, district, neighborhood, service));
-  }
-
-  return [...new Set(urls)];
-}
-
-const ALL_URLS = buildAllUrls();
+  SITEMAP_CHUNK_SIZE,
+  getSitemapChunkCount,
+  getSitemapUrlChunk,
+} from "@/lib/seo/sitemap-urls";
 
 export async function generateSitemaps() {
-  const count = Math.ceil(ALL_URLS.length / CHUNK_SIZE);
+  const count = getSitemapChunkCount();
   return Array.from({ length: count }, (_, id) => ({ id }));
 }
 
@@ -76,7 +15,9 @@ export default async function sitemap(props: {
   id: Promise<string>;
 }): Promise<MetadataRoute.Sitemap> {
   const id = Number(await props.id);
-  const chunk = ALL_URLS.slice(id * CHUNK_SIZE, (id + 1) * CHUNK_SIZE);
+  const start = id * SITEMAP_CHUNK_SIZE;
+  const end = start + SITEMAP_CHUNK_SIZE;
+  const chunk = getSitemapUrlChunk(start, end);
   const now = new Date();
 
   return chunk.map((path) => {

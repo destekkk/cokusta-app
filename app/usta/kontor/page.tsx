@@ -27,8 +27,11 @@ export default async function UstaCreditPage() {
       <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
         <h1 className="text-2xl font-bold">Kontör Satın Al</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Kartınızla güvenli ödeme — iyzico altyapısı. Ödeme onaylandığında kontörler anında
-          hesabınıza yüklenir.
+          Kartınızla güvenli ödeme — iyzico altyapısı. Müşteriden kazandığınız kontörleri{" "}
+          <a href="/usta/odeme-talep" className="font-medium text-primary hover:underline">
+            aylık nakit talep
+          </a>{" "}
+          edebilir veya teklif vermek için kullanabilirsiniz.
         </p>
         <div className="mt-8">
           <UstaCreditShopWrapper

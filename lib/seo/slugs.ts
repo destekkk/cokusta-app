@@ -89,6 +89,9 @@ export const TOP_CITIES = [
   "Zonguldak",
 ] as const;
 
+/** Build sırasında önceden üretilecek şehirler (Vercel timeout önlemi) */
+export const PREBUILD_CITIES = TOP_CITIES.slice(0, 8);
+
 export function getTopCitySlugs(): string[] {
   return TOP_CITIES.map(toSlug);
 }
@@ -129,13 +132,43 @@ export function getCityDistrictServiceParams() {
 
 export function getTopCityDistrictServiceParams() {
   const params: { city: string; district: string; service: string }[] = [];
-  for (const city of TOP_CITIES) {
+  for (const city of PREBUILD_CITIES) {
     const citySlug = toSlug(city);
     for (const district of getDistricts(city)) {
       const districtSlug = toSlug(district);
       for (const service of services) {
         params.push({ city: citySlug, district: districtSlug, service: service.slug });
       }
+    }
+  }
+  return params;
+}
+
+/** Build — sadece öncelikli şehirler */
+export function getPrebuildCityServiceParams() {
+  return PREBUILD_CITIES.flatMap((city) =>
+    services.map((service) => ({
+      city: toSlug(city),
+      service: service.slug,
+    }))
+  );
+}
+
+export function getPrebuildCityCategoryParams() {
+  return PREBUILD_CITIES.flatMap((city) =>
+    categories.map((cat) => ({
+      city: toSlug(city),
+      category: cat.slug,
+    }))
+  );
+}
+
+export function getPrebuildDistrictHubParams() {
+  const params: { city: string; district: string }[] = [];
+  for (const city of PREBUILD_CITIES) {
+    const citySlug = toSlug(city);
+    for (const district of getDistricts(city)) {
+      params.push({ city: citySlug, district: toSlug(district) });
     }
   }
   return params;
@@ -247,6 +280,33 @@ export function getNeighborhoodServiceParams() {
     const districtSlug = toSlug(district);
     const neighborhoodSlug = toSlug(neighborhood);
     for (const slug of NEIGHBORHOOD_SERVICE_SLUGS) {
+      params.push({
+        city: citySlug,
+        district: districtSlug,
+        neighborhood: neighborhoodSlug,
+        service: slug,
+      });
+    }
+  }
+  return params;
+}
+
+/** Build — mahalle sayfalarında popüler 8 hizmet */
+const PREBUILD_NEIGHBORHOOD_SERVICES = NEIGHBORHOOD_SERVICE_SLUGS.slice(0, 8);
+
+export function getPrebuildNeighborhoodServiceParams() {
+  const params: {
+    city: string;
+    district: string;
+    neighborhood: string;
+    service: string;
+  }[] = [];
+
+  for (const { city, district, neighborhood } of getAllNeighborhoodParams()) {
+    const citySlug = toSlug(city);
+    const districtSlug = toSlug(district);
+    const neighborhoodSlug = toSlug(neighborhood);
+    for (const slug of PREBUILD_NEIGHBORHOOD_SERVICES) {
       params.push({
         city: citySlug,
         district: districtSlug,

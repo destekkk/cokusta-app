@@ -10,7 +10,7 @@ import {
   cityServicePath,
   findCityBySlug,
   findServiceBySlugOrAlias,
-  getTopCityServiceParams,
+  getPrebuildCityServiceParams,
   getDistricts,
   resolveServiceSlug,
   toSlug,
@@ -19,7 +19,7 @@ import {
 type Props = { params: Promise<{ city: string; service: string }> };
 
 export async function generateStaticParams() {
-  return getTopCityServiceParams();
+  return getPrebuildCityServiceParams();
 }
 
 export const dynamicParams = true;

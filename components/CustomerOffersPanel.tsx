@@ -1,7 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { ProviderOffer } from "@/lib/types";
+import type { CustomerProviderPayment, ProviderOffer } from "@/lib/types";
+import { tlToCredits } from "@/lib/credit-economy";
+import { COKUSTA_CREDIT_PRICE } from "@/lib/pricing";
 
 type Props = {
   quoteId: string;
@@ -19,6 +22,10 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     customer: { name: string; phone: string; email: string };
     provider: { name: string; phone: string; email: string };
   } | null>(null);
+  const [acceptedOfferId, setAcceptedOfferId] = useState<string | null>(null);
+  const [acceptedOfferPrice, setAcceptedOfferPrice] = useState(0);
+  const [payment, setPayment] = useState<CustomerProviderPayment | null>(null);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   const loadOffers = async () => {
     const res = await fetch(`/api/musteri/teklif/${quoteId}/teklifler`);
@@ -31,17 +38,62 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     setOffers(data.offers ?? []);
     setQuoteStatus(data.quote?.status ?? "");
     setContacts(data.contacts ?? null);
+    setAcceptedOfferId(data.acceptedOfferId ?? data.acceptedOffer?.id ?? null);
+    setPayment(data.payment ?? null);
+    if (data.acceptedOffer?.price) setAcceptedOfferPrice(data.acceptedOffer.price);
     setVerified(true);
+  };
+
+  const loadWallet = () => {
+    fetch("/api/musteri/kontor/bakiye")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setWalletBalance(d.creditBalance ?? 0))
+      .catch(() => {});
   };
 
   useEffect(() => {
     fetch(`/api/musteri/teklif/${quoteId}/dogrula`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.verified) loadOffers().catch(() => setVerified(false));
+        if (d.verified) {
+          loadOffers().catch(() => setVerified(false));
+          loadWallet();
+        }
       })
       .catch(() => {});
   }, [quoteId]);
+
+  const payWithCredits = async () => {
+    if (!acceptedOfferId) return;
+    const creditsNeeded = tlToCredits(acceptedOfferPrice);
+    if (
+      !confirm(
+        `${creditsNeeded} kontör (${(creditsNeeded * COKUSTA_CREDIT_PRICE).toLocaleString("tr-TR")} ₺) ustaya aktarılacak. Onaylıyor musunuz?`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/musteri/teklif/${quoteId}/odeme`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ offerId: acceptedOfferId }),
+      });
+      const data = await res.json();
+      if (data.code === "INSUFFICIENT_CREDITS") {
+        throw new Error(`${data.error} Kontör satın alın.`);
+      }
+      if (!res.ok) throw new Error(data.error ?? "Ödeme yapılamadı");
+      await loadOffers();
+      loadWallet();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ödeme yapılamadı");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const verify = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,6 +179,38 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
           <p className="text-sm text-green-800">
             Sizin numaranız ustaya iletildi: {contacts.customer.phone}
           </p>
+
+          {payment ? (
+            <p className="rounded-lg bg-white/80 px-4 py-3 text-sm text-green-900">
+              ✓ {payment.credits} kontör ustaya ödendi ({payment.tlEquivalent.toLocaleString("tr-TR")} ₺)
+            </p>
+          ) : acceptedOfferId ? (
+            <div className="rounded-lg border border-green-300 bg-white/80 p-4 space-y-3">
+              <p className="text-sm text-green-900">
+                Teklif tutarı: {acceptedOfferPrice.toLocaleString("tr-TR")} ₺ (
+                {tlToCredits(acceptedOfferPrice)} kontör)
+              </p>
+              {walletBalance !== null && (
+                <p className="text-xs text-green-800">Bakiyeniz: {walletBalance} kontör</p>
+              )}
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={payWithCredits}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                >
+                  Kontör ile öde
+                </button>
+                <Link
+                  href="/musteri/kontor"
+                  className="rounded-lg border border-green-400 px-4 py-2 text-sm font-semibold text-green-900"
+                >
+                  Kontör al
+                </Link>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 

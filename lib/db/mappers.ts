@@ -67,6 +67,8 @@ export function toQuoteRequest(row: PrismaQuote): QuoteRequest {
     launchMemberNumber: row.launchMemberNumber ?? undefined,
     urgent: row.urgent,
     urgentDeadline: row.urgentDeadline?.toISOString(),
+    customerPaidCredits: row.customerPaidCredits ?? undefined,
+    customerPaymentAt: row.customerPaymentAt?.toISOString(),
   };
 }
 
@@ -110,6 +112,8 @@ export function toProvider(row: ProviderWithRelations): ProviderRegistration {
     rejectionReason: row.rejectionReason ?? undefined,
     creditBalance: row.creditBalance,
     creditDebt: row.creditDebt,
+    iban: row.iban ?? undefined,
+    accountHolder: row.accountHolder ?? undefined,
     launchMemberNumber: row.launchMemberNumber ?? undefined,
     launchBonusGranted: row.launchBonusGranted,
     portfolio: row.portfolio?.map(toPortfolioItem),

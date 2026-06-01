@@ -9,14 +9,14 @@ import { buildDistrictMetadata } from "@/lib/seo/metadata";
 import {
   findCityBySlug,
   findDistrictBySlug,
-  getTopDistrictHubParams,
+  getPrebuildDistrictHubParams,
   toSlug,
 } from "@/lib/seo/slugs";
 
 type Props = { params: Promise<{ city: string; district: string }> };
 
 export async function generateStaticParams() {
-  return getTopDistrictHubParams();
+  return getPrebuildDistrictHubParams();
 }
 
 export const dynamicParams = true;

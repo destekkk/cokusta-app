@@ -10,6 +10,7 @@ type Props = {
   price: number;
   credits: number;
   creditDebt?: number;
+  checkoutApiUrl?: string;
   onClose: () => void;
 };
 
@@ -19,6 +20,7 @@ export default function IyzicoCheckoutModal({
   price,
   credits,
   creditDebt = 0,
+  checkoutApiUrl = "/api/usta/kontor/odeme-baslat",
   onClose,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -38,7 +40,7 @@ export default function IyzicoCheckoutModal({
       setLoading(true);
       setError("");
       try {
-        const res = await fetch("/api/usta/kontor/odeme-baslat", {
+        const res = await fetch(checkoutApiUrl, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ packageSlug }),
@@ -70,7 +72,7 @@ export default function IyzicoCheckoutModal({
     return () => {
       cancelled = true;
     };
-  }, [packageSlug, confirmed, hasDebt]);
+  }, [packageSlug, confirmed, hasDebt, checkoutApiUrl]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

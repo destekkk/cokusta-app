@@ -57,6 +57,8 @@ export type QuoteRequest = {
   /** 3 gün içinde tamamlanması gereken çok acil iş */
   urgent?: boolean;
   urgentDeadline?: string;
+  customerPaidCredits?: number;
+  customerPaymentAt?: string;
 };
 
 export type ProviderOffer = {
@@ -156,6 +158,8 @@ export type ProviderRegistration = {
   creditBalance?: number;
   /** Borç kredisi ile kullanılan kontör (en fazla 5) */
   creditDebt?: number;
+  iban?: string;
+  accountHolder?: string;
   /** Lansman kampanyası sıra numarası (1–500) */
   launchMemberNumber?: number;
   launchBonusGranted?: boolean;
@@ -266,6 +270,84 @@ export type ProviderReferral = {
   referredProviderId?: string;
   creditsAwarded: number;
   createdAt: string;
+};
+
+export type CustomerWallet = {
+  id: string;
+  phone: string;
+  creditBalance: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CustomerCreditPurchaseOrder = {
+  id: string;
+  walletId: string;
+  packageSlug: string;
+  packageName: string;
+  credits: number;
+  amount: number;
+  conversationId: string;
+  basketId: string;
+  status: "pending" | "completed" | "failed";
+  iyzicoToken?: string;
+  iyzicoPaymentId?: string;
+  createdAt: string;
+  completedAt?: string;
+};
+
+export type CustomerProviderPayment = {
+  id: string;
+  quoteRequestId: string;
+  offerId: string;
+  walletId: string;
+  providerId: string;
+  credits: number;
+  tlEquivalent: number;
+  status: "pending" | "completed" | "cancelled";
+  createdAt: string;
+};
+
+export type ProviderPayoutRequest = {
+  id: string;
+  providerId: string;
+  period: string;
+  creditsRequested: number;
+  grossAmount: number;
+  feeAmount: number;
+  netAmount: number;
+  status: "pending" | "approved" | "paid" | "rejected" | "cancelled";
+  iban?: string;
+  accountHolder?: string;
+  adminNote?: string;
+  requestedAt: string;
+  processedAt?: string;
+};
+
+export type CreditLedgerEntry = {
+  id: string;
+  type: string;
+  creditsDelta: number;
+  tlAmount?: number;
+  customerWalletId?: string;
+  providerId?: string;
+  quoteRequestId?: string;
+  referenceId?: string;
+  description: string;
+  period: string;
+  createdAt: string;
+};
+
+export type CreditSettlementSummary = {
+  period: string;
+  periodLabel: string;
+  customerPurchasesTl: number;
+  customerPaymentsCredits: number;
+  providerOfferSpend: number;
+  payoutCredits: number;
+  payoutNetTl: number;
+  payoutFeesTl: number;
+  entryCount: number;
 };
 
 export type Store = {
