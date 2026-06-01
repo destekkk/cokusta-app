@@ -5,6 +5,7 @@
  * Kullanım:
  *   npm run seed:quotes
  *   npm run seed:quotes -- --per-service=1000
+ *   npm run seed:quotes:link
  */
 import { promises as fs } from "fs";
 import path from "path";
@@ -14,13 +15,15 @@ import { getCategoryName } from "../lib/data/categories";
 import { cities, getDistricts } from "../lib/data/cities";
 import { getJobDescriptionExample } from "../lib/data/job-description-examples";
 import { hashProviderPin } from "../lib/provider-pin";
-import { normalizeProviderPhone } from "../lib/phone-utils";
+import { normalizeProviderPhone, phonesEqual } from "../lib/phone-utils";
 import { generateId } from "../lib/id";
 import type { QuoteRequest, Service, Store } from "../lib/types";
 
 const SEED_PREFIX = "ilan-";
+const LEGACY_PREFIX = "demo-quote-";
 const SEED_PHONE = "05555269771";
 const SEED_PIN = "2345";
+const QUOTES_PER_CITY = 20;
 
 const firstNames = [
   "Ahmet", "Ayse", "Mehmet", "Fatma", "Mustafa", "Zeynep", "Ali", "Elif",
@@ -41,7 +44,13 @@ function parsePerServiceArg(): number {
   return Number.isFinite(n) && n > 0 ? n : 1000;
 }
 
+function hasFlag(flag: string): boolean {
+  return process.argv.includes(flag);
+}
+
 const QUOTES_PER_SERVICE = parsePerServiceArg();
+const LINK_ONLY = hasFlag("--link-only");
+const SKIP_SERVICE_SEED = hasFlag("--skip-service-seed") || LINK_ONLY;
 const NORMALIZED_PHONE = normalizeProviderPhone(SEED_PHONE);
 
 async function loadEnvFile() {
@@ -135,6 +144,156 @@ function buildAllQuotes(): QuoteRequest[] {
   return quotes;
 }
 
+function cityKey(city: string): string {
+  return city
+    .toLocaleLowerCase("tr-TR")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+function buildLegacyCityQuote(
+  service: Service,
+  city: string,
+  indexInCity: number,
+  globalIndex: number
+): QuoteRequest {
+  const districtList = getDistricts(city);
+  const district = districtList[indexInCity % districtList.length];
+  const name = `${firstNames[indexInCity % firstNames.length]} ${lastNames[(indexInCity + globalIndex) % lastNames.length]}`;
+
+  const daysAgo = indexInCity % 14;
+  const createdAt = new Date();
+  createdAt.setDate(createdAt.getDate() - daysAgo);
+  createdAt.setHours(9 + (indexInCity % 8), (indexInCity * 7) % 60, 0, 0);
+
+  return {
+    id: `${LEGACY_PREFIX}${cityKey(city)}-${String(indexInCity + 1).padStart(2, "0")}`,
+    serviceSlug: service.slug,
+    serviceName: service.name,
+    categoryName: getCategoryName(service.categorySlug),
+    answers: buildAnswers(service),
+    city,
+    district,
+    name,
+    phone: NORMALIZED_PHONE,
+    email: `musteri${globalIndex + 1}@gmail.com`,
+    notes: buildNotes(service, indexInCity),
+    createdAt: createdAt.toISOString(),
+    status: "open",
+    urgent: indexInCity === 0 && globalIndex % 17 === 0,
+    urgentDeadline:
+      indexInCity === 0 && globalIndex % 17 === 0
+        ? new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString()
+        : undefined,
+  };
+}
+
+function buildLegacyCityQuotes(): QuoteRequest[] {
+  const quotes: QuoteRequest[] = [];
+  let globalIndex = 0;
+
+  for (const city of cities) {
+    for (let i = 0; i < QUOTES_PER_CITY; i++) {
+      const service = services[(globalIndex + i) % services.length];
+      quotes.push(buildLegacyCityQuote(service, city, i, globalIndex));
+      globalIndex++;
+    }
+  }
+
+  return quotes;
+}
+
+function quoteToCreateData(quote: QuoteRequest) {
+  return {
+    id: quote.id,
+    serviceSlug: quote.serviceSlug,
+    serviceName: quote.serviceName,
+    categoryName: quote.categoryName,
+    answers: quote.answers,
+    city: quote.city,
+    district: quote.district,
+    name: quote.name,
+    phone: quote.phone,
+    email: quote.email,
+    notes: quote.notes,
+    createdAt: new Date(quote.createdAt),
+    status: "open" as const,
+    urgent: quote.urgent ?? false,
+    urgentDeadline: quote.urgentDeadline ? new Date(quote.urgentDeadline) : null,
+    priorityListing: false,
+  };
+}
+
+async function insertQuotesPrisma(prisma: PrismaClient, quotes: QuoteRequest[], label: string) {
+  if (quotes.length === 0) return;
+
+  const batchSize = 500;
+  for (let i = 0; i < quotes.length; i += batchSize) {
+    const batch = quotes.slice(i, i + batchSize);
+    await prisma.quoteRequest.createMany({
+      data: batch.map(quoteToCreateData),
+      skipDuplicates: true,
+    });
+    console.log(`  ${label}: ${Math.min(i + batchSize, quotes.length)} / ${quotes.length}`);
+  }
+}
+
+async function assignAllQuotesToControlAccountPrisma(
+  prisma: PrismaClient = new PrismaClient(),
+  ownClient = true
+): Promise<number> {
+  try {
+    const rows = await prisma.quoteRequest.findMany({ select: { id: true, phone: true } });
+    const toUpdate = rows.filter((row) => !phonesEqual(row.phone, NORMALIZED_PHONE));
+    if (toUpdate.length === 0) return 0;
+
+    const batchSize = 200;
+    for (let i = 0; i < toUpdate.length; i += batchSize) {
+      const batch = toUpdate.slice(i, i + batchSize);
+      await prisma.$transaction(
+        batch.map((row) =>
+          prisma.quoteRequest.update({
+            where: { id: row.id },
+            data: { phone: NORMALIZED_PHONE },
+          })
+        )
+      );
+    }
+
+    return toUpdate.length;
+  } finally {
+    if (ownClient) await prisma.$disconnect();
+  }
+}
+
+async function assignAllQuotesToControlAccountJson(): Promise<number> {
+  const storePath = path.join(process.cwd(), "data", "store.json");
+  let store: Store;
+
+  try {
+    const raw = await fs.readFile(storePath, "utf-8");
+    store = JSON.parse(raw) as Store;
+  } catch {
+    return 0;
+  }
+
+  let updated = 0;
+  for (const quote of store.quoteRequests) {
+    if (!phonesEqual(quote.phone, NORMALIZED_PHONE)) {
+      quote.phone = NORMALIZED_PHONE;
+      updated++;
+    }
+  }
+
+  if (updated > 0) {
+    await fs.writeFile(storePath, JSON.stringify(store, null, 2), "utf-8");
+  }
+
+  return updated;
+}
+
 async function ensureCustomerPinJson() {
   const storePath = path.join(process.cwd(), "data", "store.json");
   let store: Store;
@@ -193,7 +352,19 @@ async function ensureCustomerPinPrisma() {
   }
 }
 
-async function seedJson(quotes: QuoteRequest[]) {
+async function deleteQuotesByPrefixPrisma(prisma: PrismaClient, prefix: string) {
+  const rows = await prisma.quoteRequest.findMany({
+    where: { id: { startsWith: prefix } },
+    select: { id: true },
+  });
+  const ids = rows.map((row) => row.id);
+  if (ids.length === 0) return;
+
+  await prisma.providerOffer.deleteMany({ where: { quoteRequestId: { in: ids } } });
+  await prisma.quoteRequest.deleteMany({ where: { id: { in: ids } } });
+}
+
+async function seedJson(serviceQuotes: QuoteRequest[], legacyQuotes: QuoteRequest[]) {
   const storePath = path.join(process.cwd(), "data", "store.json");
   let store: Store;
 
@@ -217,61 +388,54 @@ async function seedJson(quotes: QuoteRequest[]) {
     };
   }
 
-  const seedIds = new Set(
-    store.quoteRequests
-      .filter((q) => q.id.startsWith(SEED_PREFIX) || q.id.startsWith("demo-quote-"))
-      .map((q) => q.id)
-  );
-
   if (!store.providerOffers) store.providerOffers = [];
-  store.providerOffers = store.providerOffers.filter((o) => !seedIds.has(o.quoteRequestId));
-  store.quoteRequests = store.quoteRequests.filter((q) => !seedIds.has(q.id));
-  store.quoteRequests.unshift(...quotes);
+
+  if (!SKIP_SERVICE_SEED) {
+    const ilanIds = new Set(
+      store.quoteRequests.filter((q) => q.id.startsWith(SEED_PREFIX)).map((q) => q.id)
+    );
+    store.providerOffers = store.providerOffers.filter((o) => !ilanIds.has(o.quoteRequestId));
+    store.quoteRequests = store.quoteRequests.filter((q) => !ilanIds.has(q.id));
+    store.quoteRequests.unshift(...serviceQuotes);
+  }
+
+  const existingIds = new Set(store.quoteRequests.map((q) => q.id));
+  const missingLegacy = legacyQuotes.filter((q) => !existingIds.has(q.id));
+  store.quoteRequests.unshift(...missingLegacy);
+
+  let linked = 0;
+  for (const quote of store.quoteRequests) {
+    if (!phonesEqual(quote.phone, NORMALIZED_PHONE)) {
+      quote.phone = NORMALIZED_PHONE;
+      linked++;
+    }
+  }
+  if (linked > 0) {
+    console.log(`  ${linked} onceki talep ${SEED_PHONE} numarasina baglandi`);
+  }
+
   await fs.writeFile(storePath, JSON.stringify(store, null, 2), "utf-8");
   await ensureCustomerPinJson();
 }
 
-async function seedPrisma(quotes: QuoteRequest[]) {
+async function seedPrisma(serviceQuotes: QuoteRequest[], legacyQuotes: QuoteRequest[]) {
   const prisma = new PrismaClient();
 
   try {
-    const oldRows = await prisma.quoteRequest.findMany({
-      where: {
-        OR: [{ id: { startsWith: SEED_PREFIX } }, { id: { startsWith: "demo-quote-" } }],
-      },
-      select: { id: true },
-    });
-    const oldIds = oldRows.map((r) => r.id);
-
-    if (oldIds.length > 0) {
-      await prisma.providerOffer.deleteMany({ where: { quoteRequestId: { in: oldIds } } });
-      await prisma.quoteRequest.deleteMany({ where: { id: { in: oldIds } } });
+    if (!SKIP_SERVICE_SEED) {
+      await deleteQuotesByPrefixPrisma(prisma, SEED_PREFIX);
+      await insertQuotesPrisma(prisma, serviceQuotes, "ilan");
     }
 
-    const batchSize = 500;
-    for (let i = 0; i < quotes.length; i += batchSize) {
-      const batch = quotes.slice(i, i + batchSize);
-      await prisma.quoteRequest.createMany({
-        data: batch.map((quote) => ({
-          id: quote.id,
-          serviceSlug: quote.serviceSlug,
-          serviceName: quote.serviceName,
-          categoryName: quote.categoryName,
-          answers: quote.answers,
-          city: quote.city,
-          district: quote.district,
-          name: quote.name,
-          phone: quote.phone,
-          email: quote.email,
-          notes: quote.notes,
-          createdAt: new Date(quote.createdAt),
-          status: "open",
-          urgent: quote.urgent ?? false,
-          urgentDeadline: quote.urgentDeadline ? new Date(quote.urgentDeadline) : null,
-          priorityListing: false,
-        })),
-      });
-      console.log(`  ${Math.min(i + batchSize, quotes.length)} / ${quotes.length}`);
+    await prisma.quoteRequest.updateMany({
+      where: { id: { startsWith: LEGACY_PREFIX } },
+      data: { phone: NORMALIZED_PHONE },
+    });
+    await insertQuotesPrisma(prisma, legacyQuotes, "legacy");
+
+    const linked = await assignAllQuotesToControlAccountPrisma(prisma, false);
+    if (linked > 0) {
+      console.log(`  ${linked} onceki talep ${SEED_PHONE} numarasina baglandi`);
     }
   } finally {
     await prisma.$disconnect();
@@ -282,19 +446,27 @@ async function seedPrisma(quotes: QuoteRequest[]) {
 
 async function main() {
   await loadEnvFile();
-  const quotes = buildAllQuotes();
+  const serviceQuotes = buildAllQuotes();
+  const legacyQuotes = buildLegacyCityQuotes();
   const usePrisma = Boolean(process.env.DATABASE_URL?.trim());
 
-  console.log(
-    `${services.length} hizmet × ${QUOTES_PER_SERVICE} = ${quotes.length} acik teklif (yayinda/open)`
-  );
   console.log(`Musteri hesabi: ${SEED_PHONE} — sifre: ${SEED_PIN}`);
   console.log(usePrisma ? "Hedef: PostgreSQL (Prisma)" : "Hedef: data/store.json");
 
-  if (usePrisma) {
-    await seedPrisma(quotes);
+  if (LINK_ONLY) {
+    console.log("Mod: mevcut talepleri kontrol hesabina bagla + eksik il/ilanlari ekle");
+  } else if (SKIP_SERVICE_SEED) {
+    console.log("Mod: hizmet ilanlari atlandi");
   } else {
-    await seedJson(quotes);
+    console.log(
+      `${services.length} hizmet × ${QUOTES_PER_SERVICE} = ${serviceQuotes.length} ilan + ${legacyQuotes.length} il bazli talep`
+    );
+  }
+
+  if (usePrisma) {
+    await seedPrisma(serviceQuotes, legacyQuotes);
+  } else {
+    await seedJson(serviceQuotes, legacyQuotes);
   }
 
   console.log("Tamamlandi.");
