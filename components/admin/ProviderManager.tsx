@@ -2,10 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { categories } from "@/lib/data/categories";
 import { cities } from "@/lib/data/cities";
+import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
 import type { ProviderSummary } from "@/lib/types";
+
+const statusLabels: Record<ProviderSummary["status"], string> = {
+  pending: "Bekliyor",
+  approved: "Onaylı",
+  rejected: "Reddedildi",
+};
+
+const statusColors: Record<ProviderSummary["status"], string> = {
+  pending: "bg-amber-100 text-amber-800",
+  approved: "bg-emerald-100 text-emerald-800",
+  rejected: "bg-red-100 text-red-800",
+};
 
 type FormData = {
   name: string;
@@ -39,6 +52,18 @@ export default function ProviderManager({
   const [editing, setEditing] = useState<ProviderSummary | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase("tr-TR");
+    if (!q) return providers;
+    return providers.filter((p) =>
+      [p.name, p.phone, p.email ?? "", p.city, p.status, ...p.categorySlugs]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR")
+        .includes(q)
+    );
+  }, [providers, search]);
 
   const toggleCategory = (slug: string) => {
     setForm((prev) => ({
@@ -135,6 +160,16 @@ export default function ProviderManager({
         </button>
       </div>
 
+      {providers.length > 0 && (
+        <AdminTableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Ad, telefon, şehir, durum…"
+          total={providers.length}
+          shown={filtered.length}
+        />
+      )}
+
       {providers.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 text-center text-muted-foreground">
           Henüz kayıtlı usta yok.
@@ -154,7 +189,7 @@ export default function ProviderManager({
               </tr>
             </thead>
             <tbody>
-              {providers.map((provider) => (
+              {filtered.map((provider) => (
                 <tr key={provider.id} className="border-b border-border last:border-0">
                   <td className="px-4 py-4 font-medium">{provider.name}</td>
                   <td className="px-4 py-4">
@@ -164,7 +199,13 @@ export default function ProviderManager({
                     )}
                   </td>
                   <td className="px-4 py-4">{provider.city}</td>
-                  <td className="px-4 py-4 capitalize">{provider.status}</td>
+                  <td className="px-4 py-4">
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusColors[provider.status]}`}
+                    >
+                      {statusLabels[provider.status]}
+                    </span>
+                  </td>
                   <td className="px-4 py-4">
                     <div className="font-semibold">{provider.creditBalance ?? 0}</div>
                     {provider.launchMemberNumber && (

@@ -8,7 +8,26 @@ import { isUrgentActive } from "@/lib/urgent";
 import QuotesListTable from "@/components/admin/QuotesListTable";
 import type { QuoteRequest } from "@/lib/types";
 
-export default async function AdminQuotesPage() {
+type Props = {
+  searchParams: Promise<{ status?: string }>;
+};
+
+const validStatuses = new Set([
+  "all",
+  "awaiting_review",
+  "open",
+  "accepted",
+  "completed",
+  "cancelled",
+]);
+
+export default async function AdminQuotesPage({ searchParams }: Props) {
+  const params = await searchParams;
+  const initialStatus =
+    params.status && validStatuses.has(params.status)
+      ? (params.status as QuoteRequest["status"] | "all")
+      : "awaiting_review";
+
   const [allQuotes, stats, approvedProviders, offerCounts] = await Promise.all([
     getAllQuoteRequests(),
     getAdminStats(),
@@ -35,15 +54,13 @@ export default async function AdminQuotesPage() {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground">Teklif Talepleri</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {quotes.length} talep · {stats.awaitingReviewQuotes} onay bekliyor ·{" "}
+        {quotes.length.toLocaleString("tr-TR")} talep · {stats.awaitingReviewQuotes} onay bekliyor ·{" "}
         {stats.pendingQuotes} yayında
       </p>
 
       <div className="mt-4 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        Talepleri listeden seçip toplu <strong>Onayla</strong>, <strong>Reddet</strong> veya{" "}
-        <strong>Usta ile Eşleştir</strong> yapabilirsiniz.{" "}
-        <strong>Otomatik Eşleştir</strong> usta teklifi varsa en düşük fiyatlıyı kabul eder;
-        yoksa şehir ve kategori uyumlu ustayı atar.
+        Ara, filtrele ve sayfalandır. Toplu <strong>Onayla</strong>, <strong>Reddet</strong>,{" "}
+        <strong>Otomatik Eşleştir</strong> veya usta seçerek eşleştir.
       </div>
 
       <div className="mt-6">
@@ -57,6 +74,7 @@ export default async function AdminQuotesPage() {
             offerCounts={offerCounts}
             approvedProviders={approvedProviders}
             commissionRate={stats.commissionRate}
+            initialStatus={initialStatus}
           />
         )}
       </div>

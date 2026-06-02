@@ -78,7 +78,7 @@ export default function AdminCreditLedger({
         </div>
       </section>
 
-      <section>
+      <section id="payouts">
         <h2 className="text-lg font-bold text-foreground">Bekleyen usta ödeme talepleri</h2>
         {payouts.length === 0 ? (
           <p className="mt-4 text-sm text-muted-foreground">Bekleyen talep yok.</p>

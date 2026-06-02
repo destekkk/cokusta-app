@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { getAdminStats, getAllProviders, getBillingOverview } from "@/lib/db";
-import ProviderApplicationsTable from "@/components/admin/ProviderApplicationsTable";
+import { getPendingProviderPayouts } from "@/lib/db-credits";
+import { isDatabaseEnabled } from "@/lib/db/config";
+import ProviderApplicationsPanel from "@/components/admin/ProviderApplicationsPanel";
 
 export default async function AdminDashboardPage() {
-  const [stats, billing, providers] = await Promise.all([
+  const [stats, billing, providers, payouts] = await Promise.all([
     getAdminStats(),
     getBillingOverview(),
     getAllProviders(),
+    isDatabaseEnabled() ? getPendingProviderPayouts() : Promise.resolve([]),
   ]);
   const pendingProviders = providers.filter((provider) => provider.status === "pending");
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
+    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
       <p className="mt-1 text-muted-foreground">Platform özeti ve kazanç takibi</p>
 
@@ -45,32 +48,49 @@ export default async function AdminDashboardPage() {
 
       {/* Özet kartlar */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Link href="/admin/teklifler" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
+        <Link
+          href="/admin/teklifler?status=awaiting_review"
+          className="rounded-xl border border-orange-200 bg-orange-50 p-5 hover:border-orange-300"
+        >
           <div className="text-3xl font-bold text-orange-600">{stats.awaitingReviewQuotes}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Onay bekleyen teklif</div>
         </Link>
-        <Link href="/admin/teklifler" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
+        <Link
+          href="/admin/teklifler?status=open"
+          className="rounded-xl border border-border bg-card p-5 hover:border-primary/40"
+        >
           <div className="text-3xl font-bold text-amber-600">{stats.pendingQuotes}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Yayında (usta bekliyor)</div>
         </Link>
-        <Link href="/admin/teklifler" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
+        <Link
+          href="/admin/teklifler?status=accepted"
+          className="rounded-xl border border-border bg-card p-5 hover:border-primary/40"
+        >
           <div className="text-3xl font-bold text-primary">{stats.matchedQuotes}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Eşleştirilmiş iş</div>
         </Link>
-        <Link href="/admin/ustalar" className="rounded-xl border border-border bg-card p-5 hover:border-primary/40">
+        <Link
+          href="/admin/ustalar"
+          className="rounded-xl border border-border bg-card p-5 hover:border-primary/40"
+        >
           <div className="text-3xl font-bold text-amber-600">{stats.pendingProviders}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Onay bekleyen usta</div>
         </Link>
-        <div className="rounded-xl border border-border bg-card p-5">
+        <Link
+          href="/admin/teklifler?status=completed"
+          className="rounded-xl border border-border bg-card p-5 hover:border-primary/40"
+        >
           <div className="text-3xl font-bold text-emerald-600">{stats.completedQuotes}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Tamamlanan iş</div>
-        </div>
+        </Link>
       </div>
 
       <section className="mt-8 rounded-2xl border border-border bg-card p-6">
         <h2 className="text-lg font-bold text-foreground">Muhasebe</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          {billing.pendingCount} bekleyen fatura · {billing.currentPeriodLabel} dönemi
+          {billing.pendingCount} bekleyen fatura
+          {payouts.length > 0 ? ` · ${payouts.length} nakit ödeme talebi` : ""} · {billing.currentPeriodLabel}{" "}
+          dönemi
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
@@ -79,6 +99,14 @@ export default async function AdminDashboardPage() {
           >
             Fatura Kes & Beyanname
           </Link>
+          {payouts.length > 0 && (
+            <Link
+              href="/admin/muhasebe#payouts"
+              className="rounded-lg border border-amber-300 bg-amber-50 px-5 py-2.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
+            >
+              {payouts.length} ödeme talebi
+            </Link>
+          )}
           {billing.hasDeclaration && billing.latestDeclaration && (
             <Link
               href={`/admin/beyanname/${billing.latestDeclaration.id}`}
@@ -133,7 +161,7 @@ export default async function AdminDashboardPage() {
             Tümünü gör →
           </Link>
         </div>
-        <ProviderApplicationsTable providers={providers} showAll={false} />
+        <ProviderApplicationsPanel providers={providers} showAll={false} />
       </section>
 
       {/* Hızlı işlemler */}
@@ -145,7 +173,7 @@ export default async function AdminDashboardPage() {
           Usta başvurularını incele ({stats.pendingProviders})
         </Link>
         <Link
-          href="/admin/teklifler"
+          href="/admin/teklifler?status=awaiting_review"
           className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium hover:bg-accent"
         >
           Teklif taleplerini yönet

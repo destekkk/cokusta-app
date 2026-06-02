@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cities } from "@/lib/data/cities";
+import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
 import type { CustomerSummary } from "@/lib/types";
 
 type FormData = {
@@ -36,6 +37,18 @@ export default function CustomerManager({
   const [editing, setEditing] = useState<CustomerSummary | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLocaleLowerCase("tr-TR");
+    if (!q) return customers;
+    return customers.filter((c) =>
+      [c.name, c.phone, c.email ?? "", c.city, String(c.requestCount)]
+        .join(" ")
+        .toLocaleLowerCase("tr-TR")
+        .includes(q)
+    );
+  }, [customers, search]);
 
   const openCreate = () => {
     setEditing(null);
@@ -126,6 +139,16 @@ export default function CustomerManager({
         </button>
       </div>
 
+      {customers.length > 0 && (
+        <AdminTableToolbar
+          search={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Ad, telefon, e-posta, şehir…"
+          total={customers.length}
+          shown={filtered.length}
+        />
+      )}
+
       {customers.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 text-center text-muted-foreground">
           Henüz müşteri kaydı yok.
@@ -144,7 +167,7 @@ export default function CustomerManager({
               </tr>
             </thead>
             <tbody>
-              {customers.map((customer) => (
+              {filtered.map((customer) => (
                 <tr key={customer.id ?? customer.key} className="border-b border-border last:border-0">
                   <td className="px-4 py-4 font-medium">{customer.name}</td>
                   <td className="px-4 py-4">

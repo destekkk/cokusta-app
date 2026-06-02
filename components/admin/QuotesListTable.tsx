@@ -1,10 +1,13 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDateTime } from "@/lib/admin-labels";
 import { quotePhoneForAdmin } from "@/lib/quote-privacy";
+import { isUrgentActive } from "@/lib/urgent";
 import QuoteRow from "@/components/admin/QuoteRow";
+import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
+import AdminProviderPicker from "@/components/admin/AdminProviderPicker";
 import type { ProviderRegistration, QuoteRequest } from "@/lib/types";
 
 const statusLabels: Record<QuoteRequest["status"], string> = {
@@ -30,40 +33,84 @@ type Props = {
   offerCounts: Record<string, number>;
   approvedProviders: ProviderRegistration[];
   commissionRate: number;
+  initialStatus?: Filter;
 };
+
+const PAGE_SIZE = 50;
+
+function matchesSearch(quote: QuoteRequest, query: string): boolean {
+  const q = query.trim().toLocaleLowerCase("tr-TR");
+  if (!q) return true;
+  const haystack = [
+    quote.serviceName,
+    quote.categoryName,
+    quote.name,
+    quote.phone,
+    quote.city,
+    quote.district ?? "",
+    quote.email ?? "",
+  ]
+    .join(" ")
+    .toLocaleLowerCase("tr-TR");
+  return haystack.includes(q);
+}
 
 export default function QuotesListTable({
   quotes,
   offerCounts,
   approvedProviders,
   commissionRate,
+  initialStatus = "all",
 }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>(initialStatus);
+  const [search, setSearch] = useState("");
+  const [cityFilter, setCityFilter] = useState("");
+  const [urgentOnly, setUrgentOnly] = useState(false);
+  const [hasOffersOnly, setHasOffersOnly] = useState(false);
+  const [page, setPage] = useState(1);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [matchProviderId, setMatchProviderId] = useState(approvedProviders[0]?.id ?? "");
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
-  const filtered = useMemo(() => {
-    if (filter === "all") return quotes;
-    return quotes.filter((q) => q.status === filter);
-  }, [quotes, filter]);
+  useEffect(() => {
+    setFilter(initialStatus);
+    setPage(1);
+  }, [initialStatus]);
 
-  const allSelected = filtered.length > 0 && filtered.every((q) => selected.has(q.id));
+  const cities = useMemo(() => {
+    return [...new Set(quotes.map((q) => q.city))].sort((a, b) => a.localeCompare(b, "tr"));
+  }, [quotes]);
+
+  const filtered = useMemo(() => {
+    return quotes.filter((q) => {
+      if (filter !== "all" && q.status !== filter) return false;
+      if (cityFilter && q.city !== cityFilter) return false;
+      if (urgentOnly && !isUrgentActive(q)) return false;
+      if (hasOffersOnly && (offerCounts[q.id] ?? 0) === 0) return false;
+      return matchesSearch(q, search);
+    });
+  }, [quotes, filter, search, cityFilter, urgentOnly, hasOffersOnly, offerCounts]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageItems = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const allSelected = pageItems.length > 0 && pageItems.every((q) => selected.has(q.id));
 
   const toggleAll = () => {
     if (allSelected) {
       setSelected((prev) => {
         const next = new Set(prev);
-        for (const q of filtered) next.delete(q.id);
+        for (const q of pageItems) next.delete(q.id);
         return next;
       });
     } else {
       setSelected((prev) => {
         const next = new Set(prev);
-        for (const q of filtered) next.add(q.id);
+        for (const q of pageItems) next.add(q.id);
         return next;
       });
     }
@@ -85,7 +132,7 @@ export default function QuotesListTable({
     providerId?: string
   ) => {
     if (selectedIds.length === 0) {
-      alert("En az bir talep seçin.");
+      setMessage("En az bir talep seçin.");
       return;
     }
     setLoading(action);
@@ -105,7 +152,7 @@ export default function QuotesListTable({
       setSelected(new Set());
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "İşlem başarısız");
+      setMessage(err instanceof Error ? err.message : "İşlem başarısız");
     } finally {
       setLoading(null);
     }
@@ -171,7 +218,10 @@ export default function QuotesListTable({
           <button
             key={key}
             type="button"
-            onClick={() => setFilter(key)}
+            onClick={() => {
+              setFilter(key);
+              setPage(1);
+            }}
             className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
               filter === key
                 ? "bg-primary text-white"
@@ -182,6 +232,62 @@ export default function QuotesListTable({
           </button>
         ))}
       </div>
+
+      <AdminTableToolbar
+        search={search}
+        onSearchChange={(v) => {
+          setSearch(v);
+          setPage(1);
+        }}
+        searchPlaceholder="Hizmet, müşteri, telefon, şehir…"
+        total={quotes.length}
+        shown={filtered.length}
+        page={safePage}
+        pageCount={pageCount}
+        onPageChange={setPage}
+      >
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={cityFilter}
+            onChange={(e) => {
+              setCityFilter(e.target.value);
+              setPage(1);
+            }}
+            className="rounded-lg border border-border bg-background px-2 py-1.5 text-sm"
+          >
+            <option value="">Tüm iller</option>
+            {cities.map((city) => (
+              <option key={city} value={city}>
+                {city}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => {
+              setUrgentOnly((v) => !v);
+              setPage(1);
+            }}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              urgentOnly ? "bg-red-600 text-white" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            Acil
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setHasOffersOnly((v) => !v);
+              setPage(1);
+            }}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              hasOffersOnly ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+            }`}
+          >
+            Teklif var
+          </button>
+        </div>
+      </AdminTableToolbar>
 
       <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card p-4">
         <button
@@ -214,31 +320,19 @@ export default function QuotesListTable({
           >
             {loading === "reject" ? "…" : "Reddet"}
           </button>
-          <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={matchProviderId}
-              onChange={(e) => setMatchProviderId(e.target.value)}
-              className="rounded-lg border border-border px-3 py-2 text-sm"
-            >
-              {approvedProviders.length === 0 ? (
-                <option value="">Onaylı usta yok</option>
-              ) : (
-                approvedProviders.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} · {p.city}
-                  </option>
-                ))
-              )}
-            </select>
-            <button
-              type="button"
-              disabled={loading !== null || !matchProviderId}
-              onClick={() => runBulk("match", matchProviderId)}
-              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
-            >
-              {loading === "match" ? "…" : "Usta ile Eşleştir"}
-            </button>
-          </div>
+          <AdminProviderPicker
+            providers={approvedProviders}
+            value={matchProviderId}
+            onChange={setMatchProviderId}
+          />
+          <button
+            type="button"
+            disabled={loading !== null || !matchProviderId}
+            onClick={() => runBulk("match", matchProviderId)}
+            className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+          >
+            {loading === "match" ? "…" : "Usta ile Eşleştir"}
+          </button>
           <button
             type="button"
             onClick={() => setSelected(new Set())}
@@ -272,14 +366,14 @@ export default function QuotesListTable({
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {pageItems.length === 0 ? (
               <tr>
                 <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
                   Bu filtrede talep yok.
                 </td>
               </tr>
             ) : (
-              filtered.map((quote) => (
+              pageItems.map((quote) => (
                 <Fragment key={quote.id}>
                   <tr
                     className={`border-b border-border last:border-0 ${
