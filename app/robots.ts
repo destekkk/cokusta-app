@@ -1,13 +1,15 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "@/lib/seo/metadata";
+import { getSitemapChunkUrls } from "@/lib/seo/sitemap-index-xml";
+import { resolveSiteUrl } from "@/lib/seo/site-url";
 
 export default function robots(): MetadataRoute.Robots {
+  const base = resolveSiteUrl();
   return {
     rules: {
       userAgent: "*",
       allow: "/",
       disallow: ["/admin/", "/api/admin/", "/teklif-al/onay", "/usta-ol/onay"],
     },
-    sitemap: `${SITE_URL}/sitemap.xml`,
+    sitemap: [`${base}/sitemap.xml`, ...getSitemapChunkUrls()],
   };
 }

@@ -4,6 +4,14 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  async rewrites() {
+    return [
+      {
+        source: "/sitemap.xml",
+        destination: "/sitemap-index",
+      },
+    ];
+  },
   images: {
     remotePatterns: [
       {

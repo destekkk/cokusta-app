@@ -8,7 +8,9 @@ import {
   getPrimarySearchTerm,
 } from "@/lib/seo/keywords";
 
-export const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cokusta.com";
+import { resolveSiteUrl } from "@/lib/seo/site-url";
+
+export const SITE_URL = resolveSiteUrl();
 export const SITE_NAME = "Çokusta";
 
 type LocalSeoInput = {
