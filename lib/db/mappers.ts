@@ -115,6 +115,7 @@ export function toProvider(row: ProviderWithRelations): ProviderRegistration {
     rejectionReason: row.rejectionReason ?? undefined,
     creditBalance: row.creditBalance,
     creditDebt: row.creditDebt,
+    borcKredisiAktif: row.borcKredisiAktif,
     iban: row.iban ?? undefined,
     accountHolder: row.accountHolder ?? undefined,
     escrowBalanceTl: row.escrowBalanceTl ?? 0,

@@ -14,7 +14,7 @@ export default function LaunchCampaignBanner({ stats }: Props) {
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <div className="inline-flex items-center gap-2 border border-primary/20 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-primary">
-            Lansman Kampanyası
+            {stats.provider.active ? "3 Aylık Kampanya" : "Lansman Kampanyası"}
           </div>
           <h2 className="mt-3 text-2xl font-semibold text-foreground sm:text-3xl">
             Çokusta&apos;ya katılın, avantajları kaçırmayın
@@ -46,25 +46,19 @@ export default function LaunchCampaignBanner({ stats }: Props) {
                 </div>
               </div>
 
-              <div className="mt-5">
-                <div className="mb-1 flex justify-between text-xs text-muted-foreground">
-                  <span>{stats.provider.claimed} usta kaydoldu</span>
-                  <span className="font-semibold text-primary">
-                    {stats.provider.remaining} kontenjan kaldı
-                  </span>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-primary transition-all"
-                    style={{
-                      width: `${(stats.provider.claimed / stats.provider.maxSlots) * 100}%`,
-                    }}
-                  />
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Onay sonrası hesaba{" "}
+              <div className="mt-5 rounded-lg bg-muted/50 px-4 py-3 text-sm">
+                <p className="font-medium text-foreground">
+                  Bitiş: {stats.provider.endsAtLabel}
+                  {stats.provider.daysRemaining > 0 && (
+                    <span className="ml-2 text-primary">
+                      ({stats.provider.daysRemaining} gün kaldı)
+                    </span>
+                  )}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {stats.provider.claimed} usta kampanyaya katıldı · Onay sonrası{" "}
                   <strong className="text-foreground">{stats.provider.freeCredits} kontör</strong>{" "}
-                  yüklenir
+                  otomatik yüklenir
                 </p>
               </div>
 

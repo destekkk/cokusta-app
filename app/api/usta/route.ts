@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createProviderRegistration } from "@/lib/db";
-import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
+import { LAUNCH_CAMPAIGN, isProviderSignupBonusActive } from "@/lib/campaigns";
 import {
   PROVIDER_PHONE_EXISTS,
   providerPhoneExistsUserMessage,
@@ -54,7 +54,7 @@ export async function POST(request: Request) {
       success: true,
       id: provider.id,
       launchMemberNumber: provider.launchMemberNumber,
-      launchCredits: provider.launchMemberNumber
+      launchCredits: isProviderSignupBonusActive()
         ? LAUNCH_CAMPAIGN.provider.freeCredits
         : undefined,
     });

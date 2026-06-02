@@ -41,6 +41,7 @@ export async function GET(request: Request) {
     location,
     creditBalance: provider.creditBalance ?? 0,
     creditDebt,
+    borcKredisiAktif: provider.borcKredisiAktif ?? false,
     maxCreditDebt: MAX_CREDIT_DEBT,
     canUseDebt: creditDebt < MAX_CREDIT_DEBT,
     providerCity: provider.city,

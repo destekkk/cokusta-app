@@ -1,20 +1,21 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getCategoryName } from "@/lib/data/categories";
-import { MAX_CREDIT_DEBT, canSubmitOffer, remainingDebtCapacity } from "@/lib/credit-debt";
+import { MAX_CREDIT_DEBT, canActivateBorcKredisi, canSubmitOffer, remainingDebtCapacity } from "@/lib/credit-debt";
 import UstaReferralCampaign from "@/components/UstaReferralCampaign";
 import UstaMyOffersPanel from "@/components/UstaMyOffersPanel";
 import UstaProfileLocationCard from "@/components/UstaProfileLocationCard";
 import UstaInboxPanel from "@/components/UstaInboxPanel";
 import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
+import ProviderPanelHeader from "@/components/ProviderPanelHeader";
 import type { ProviderOffer } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
 import { getCurrentOfferPrice, type ProviderQuoteLocationFilter } from "@/lib/offer-utils";
 import type { PublicQuoteRequest } from "@/lib/quote-privacy";
+import { readJsonResponse } from "@/lib/safe-fetch";
 
 type OpenQuote = PublicQuoteRequest & { myOffer?: ProviderOffer };
 
@@ -56,9 +57,13 @@ function citySelectValue(location: ProviderQuoteLocationFilter): string {
 
 export default function UstaOpenQuotesPanel() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const tab = searchParams.get("tab") === "mine" ? "mine" : "open";
   const [quotes, setQuotes] = useState<OpenQuote[]>([]);
   const [creditBalance, setCreditBalance] = useState(0);
   const [creditDebt, setCreditDebt] = useState(0);
+  const [borcKredisiAktif, setBorcKredisiAktif] = useState(false);
+  const [activatingBorcKredisi, setActivatingBorcKredisi] = useState(false);
   const [escrowBalanceTl, setEscrowBalanceTl] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -71,7 +76,6 @@ export default function UstaOpenQuotesPanel() {
   const [providerCategories, setProviderCategories] = useState<string[]>([]);
   const [location, setLocation] = useState<ProviderQuoteLocationFilter>({ cityMode: "provider" });
   const [refreshing, setRefreshing] = useState(false);
-  const [tab, setTab] = useState<"open" | "mine">("open");
   const [myOffersRefresh, setMyOffersRefresh] = useState(0);
   const [locationReady, setLocationReady] = useState(false);
 
@@ -91,9 +95,11 @@ export default function UstaOpenQuotesPanel() {
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(location));
   }, [location, locationReady]);
 
-  const canOffer = canSubmitOffer(creditBalance, creditDebt);
+  const canOffer = canSubmitOffer(creditBalance, creditDebt, borcKredisiAktif);
   const debtRemaining = remainingDebtCapacity(creditDebt);
   const atDebtLimit = creditBalance < 1 && creditDebt >= MAX_CREDIT_DEBT;
+  const canActivateDebt = canActivateBorcKredisi(creditBalance, creditDebt, borcKredisiAktif);
+  const borcKredisiPending = borcKredisiAktif || creditDebt > 0;
 
   const load = async (nextLocation: ProviderQuoteLocationFilter = location) => {
     const showFullLoader = quotes.length === 0 && !error;
@@ -105,11 +111,21 @@ export default function UstaOpenQuotesPanel() {
         router.push("/usta/giris");
         return;
       }
-      const data = await res.json();
+      const data = await readJsonResponse<{
+        error?: string;
+        quotes?: OpenQuote[];
+        creditBalance?: number;
+        creditDebt?: number;
+        borcKredisiAktif?: boolean;
+        escrowBalanceTl?: number;
+        providerCity?: string;
+        providerCategories?: string[];
+      }>(res);
       if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
       setQuotes(data.quotes ?? []);
       setCreditBalance(data.creditBalance ?? 0);
       setCreditDebt(data.creditDebt ?? 0);
+      setBorcKredisiAktif(Boolean(data.borcKredisiAktif));
       setEscrowBalanceTl(data.escrowBalanceTl ?? 0);
       setProviderCity(data.providerCity ?? "");
       setProviderCategories(Array.isArray(data.providerCategories) ? data.providerCategories : []);
@@ -157,7 +173,37 @@ export default function UstaOpenQuotesPanel() {
     (q) => q.myOffer?.customerAgreedAt && !q.myOffer?.providerAgreedAt && q.myOffer?.status === "pending"
   );
 
+  const setTab = (next: "open" | "mine") => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "mine") params.set("tab", "mine");
+    else params.delete("tab");
+    router.replace(`/usta/teklifler?${params.toString()}`);
+  };
+
   const goBuyCredits = () => router.push(KONTOR_URL);
+
+  const activateBorcKredisi = async () => {
+    if (!canActivateDebt || activatingBorcKredisi) return;
+    setActivatingBorcKredisi(true);
+    setError("");
+    try {
+      const res = await fetch("/api/usta/borc-kredisi/aktif-et", { method: "POST" });
+      const data = await readJsonResponse<{
+        error?: string;
+        creditBalance?: number;
+        creditDebt?: number;
+        borcKredisiAktif?: boolean;
+      }>(res);
+      if (!res.ok) throw new Error(data.error ?? "Borç kredisi açılamadı");
+      setCreditBalance(data.creditBalance ?? 0);
+      setCreditDebt(data.creditDebt ?? 0);
+      setBorcKredisiAktif(Boolean(data.borcKredisiAktif));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Borç kredisi açılamadı");
+    } finally {
+      setActivatingBorcKredisi(false);
+    }
+  };
 
   const startOffer = (quoteId: string) => {
     if (pendingCustomerAgreement) return;
@@ -185,7 +231,7 @@ export default function UstaOpenQuotesPanel() {
           message,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ error?: string; code?: string; usedDebt?: boolean; creditDebt?: number }>(res);
       if (res.status === 402 || data.code === "INSUFFICIENT_CREDITS") {
         goBuyCredits();
         return;
@@ -204,11 +250,6 @@ export default function UstaOpenQuotesPanel() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const logout = async () => {
-    await fetch("/api/usta/cikis", { method: "POST" });
-    router.push("/usta/giris");
   };
 
   const negotiate = async (
@@ -230,7 +271,7 @@ export default function UstaOpenQuotesPanel() {
           message: counterMessage,
         }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ error?: string }>(res);
       if (!res.ok) throw new Error(data.error ?? "İşlem başarısız");
       await load();
       setMyOffersRefresh((v) => v + 1);
@@ -247,6 +288,13 @@ export default function UstaOpenQuotesPanel() {
 
   return (
     <div className="space-y-6">
+      <ProviderPanelHeader
+        showStats
+        creditBalance={creditBalance}
+        creditDebt={creditDebt}
+        escrowBalanceTl={escrowBalanceTl}
+      />
+
       {debtNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
@@ -267,51 +315,6 @@ export default function UstaOpenQuotesPanel() {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4">
-        <div>
-          <p className="text-sm text-muted-foreground">Kalan teklif kontörü</p>
-          <p className="text-2xl font-bold text-primary">{creditBalance}</p>
-          {escrowBalanceTl > 0 && (
-            <p className="mt-1 text-sm font-medium text-emerald-700">
-              Param Güvende bakiyesi: {escrowBalanceTl.toLocaleString("tr-TR")} ₺
-            </p>
-          )}
-          {creditDebt > 0 && (
-            <p className="mt-1 text-sm font-medium text-amber-700">
-              Borç kredisi: {creditDebt}/{MAX_CREDIT_DEBT} kontör
-            </p>
-          )}
-          {creditBalance === 0 && debtRemaining > 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Kontörünüz bitti; {debtRemaining} kontöre kadar borç kredisi kullanarak teklif
-              verebilirsiniz.
-            </p>
-          )}
-          {creditBalance <= LAUNCH_CAMPAIGN.provider.freeCredits && creditBalance > 0 && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              Hediye kontörlerinizi kullanıyorsunuz.
-            </p>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Link
-            href="/usta/kontor"
-            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white ${
-              atDebtLimit ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
-            }`}
-          >
-            {atDebtLimit ? "Kontör Satın Al" : "Paket Yükle"}
-          </Link>
-          <button
-            type="button"
-            onClick={logout}
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            Çıkış
-          </button>
-        </div>
-      </div>
-
       {atDebtLimit && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           Kontör ve borç kredisi limitiniz doldu ({MAX_CREDIT_DEBT} kontör). Teklif vermek için
@@ -326,6 +329,10 @@ export default function UstaOpenQuotesPanel() {
         </div>
       )}
 
+      {creditBalance <= LAUNCH_CAMPAIGN.provider.freeCredits && creditBalance > 0 && (
+        <p className="text-xs text-muted-foreground">Hediye kontörlerinizi kullanıyorsunuz.</p>
+      )}
+
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
       {pendingCustomerAgreement && (
@@ -335,22 +342,17 @@ export default function UstaOpenQuotesPanel() {
         </p>
       )}
 
-      <UstaProfileLocationCard
-        onUpdated={(city) => {
-          setProviderCity(city);
-        }}
-      />
-
-      <UstaInboxPanel />
-
-      <div className="flex gap-2 border-b border-border">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
+        <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="flex flex-wrap gap-2">
         <button
           type="button"
           onClick={() => setTab("open")}
-          className={`border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
             tab === "open"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+              ? "bg-primary text-white"
+              : "border border-border bg-card text-muted-foreground hover:text-foreground"
           }`}
         >
           Açık Talepler
@@ -358,14 +360,52 @@ export default function UstaOpenQuotesPanel() {
         <button
           type="button"
           onClick={() => setTab("mine")}
-          className={`border-b-2 px-4 py-2 text-sm font-semibold transition-colors ${
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${
             tab === "mine"
-              ? "border-primary text-primary"
-              : "border-transparent text-muted-foreground hover:text-foreground"
+              ? "bg-primary text-white"
+              : "border border-border bg-card text-muted-foreground hover:text-foreground"
           }`}
         >
           Verdiğim Teklifler
         </button>
+        </div>
+
+        {tab === "open" && (canActivateDebt || borcKredisiPending) && (
+          <div className="flex min-w-0 flex-1 flex-col gap-2 sm:max-w-xl sm:items-end">
+            {canActivateDebt ? (
+              <button
+                type="button"
+                onClick={activateBorcKredisi}
+                disabled={activatingBorcKredisi}
+                className="w-full animate-pulse rounded-xl border-2 border-amber-400 bg-amber-50 px-4 py-3 text-left text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100 disabled:animate-none disabled:opacity-70 sm:w-auto sm:text-center"
+              >
+                {activatingBorcKredisi
+                  ? "Borç kredisi tanımlanıyor…"
+                  : `Kontörünüz bitti; ${MAX_CREDIT_DEBT} kontöre kadar borç kredisi kullanarak teklif verebilirsiniz — Borç kredisini aktifleştir`}
+              </button>
+            ) : (
+              <div className="w-full rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 sm:w-auto">
+                <p className="font-semibold">
+                  Borç krediniz aktif
+                  {creditDebt > 0 ? ` (${creditDebt}/${MAX_CREDIT_DEBT} kontör)` : ""}
+                </p>
+                <p className="mt-1 text-xs text-amber-900/90">
+                  Kontör satın alırken borç krediniz de tahsil edilir. Ödeme yapana kadar yeni borç kredisi
+                  açılamaz.
+                </p>
+                {creditBalance < 1 && creditDebt > 0 && (
+                  <button
+                    type="button"
+                    onClick={goBuyCredits}
+                    className="mt-2 font-semibold text-amber-950 underline"
+                  >
+                    Kontör paketlerine git →
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {tab === "mine" ? (
@@ -445,8 +485,96 @@ export default function UstaOpenQuotesPanel() {
           )}
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-border bg-card">
-          <table className="w-full min-w-[960px] text-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {quotes.map((quote) => (
+              <div key={quote.id} className="rounded-xl border border-border bg-card p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <p className="font-semibold text-foreground">
+                      {quote.serviceName}
+                      {quote.urgent && (
+                        <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          Acil
+                        </span>
+                      )}
+                    </p>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      {quote.city}
+                      {quote.district ? `, ${quote.district}` : ""} · {quote.offerCount ?? 0} teklif
+                    </p>
+                  </div>
+                  {quote.myOffer && (
+                    <span className="shrink-0 font-semibold text-primary">
+                      {getCurrentOfferPrice(quote.myOffer).toLocaleString("tr-TR")} ₺
+                    </span>
+                  )}
+                </div>
+                {quote.notes && (
+                  <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{quote.notes}</p>
+                )}
+                <div className="mt-3">
+                  {quote.myOffer ? (
+                    <OfferNegotiationPanel
+                      offer={quote.myOffer}
+                      role="provider"
+                      loading={submitting}
+                      onAgree={() => negotiate(quote.myOffer!, "agree")}
+                      onCounter={(p, m) => negotiate(quote.myOffer!, "counter", p, m)}
+                    />
+                  ) : activeId === quote.id ? (
+                    <div className="space-y-2">
+                      <input
+                        type="number"
+                        placeholder="Tutar (₺)"
+                        value={price}
+                        onChange={(e) => setPrice(e.target.value)}
+                        className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      />
+                      <textarea
+                        placeholder="Açıklama (min. 5 karakter)"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        rows={2}
+                        className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={submitting}
+                          onClick={() => submitOffer(quote.id)}
+                          className="flex-1 rounded-lg bg-primary py-2 text-xs font-semibold text-white"
+                        >
+                          Gönder
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveId(null)}
+                          className="rounded-lg border border-border px-3 py-2 text-xs"
+                        >
+                          Vazgeç
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => startOffer(quote.id)}
+                      disabled={pendingCustomerAgreement}
+                      className={`w-full rounded-lg py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${
+                        !canOffer ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
+                      }`}
+                    >
+                      {!canOffer ? "Kontör Al" : "Hemen Teklif Ver"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+            <table className="w-full min-w-[960px] text-sm">
             <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Hizmet</th>
@@ -546,13 +674,22 @@ export default function UstaOpenQuotesPanel() {
             </tbody>
           </table>
         </div>
-      )}
-
-      <UstaReferralCampaign
-        onCreditsUpdated={(balance) => setCreditBalance(balance)}
-      />
         </>
       )}
+
+      <UstaReferralCampaign onCreditsUpdated={(balance) => setCreditBalance(balance)} />
+        </>
+      )}
+        </div>
+        <aside className="space-y-4 lg:sticky lg:top-24">
+          <UstaProfileLocationCard
+            onUpdated={(city) => {
+              setProviderCity(city);
+            }}
+          />
+          <UstaInboxPanel />
+        </aside>
+      </div>
     </div>
   );
 }

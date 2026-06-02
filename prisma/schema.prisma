@@ -183,6 +183,7 @@ model Provider {
   rejectionReason    String?        @map("rejection_reason") @db.Text
   creditBalance      Int            @default(0) @map("credit_balance")
   creditDebt         Int            @default(0) @map("credit_debt")
+  borcKredisiAktif   Boolean        @default(false) @map("borc_kredisi_aktif")
   launchMemberNumber Int?           @map("launch_member_number")
   launchBonusGranted Boolean        @default(false) @map("launch_bonus_granted")
   pinHash            String?        @map("pin_hash") @db.VarChar(128)
@@ -214,6 +215,9 @@ model ProviderReferral {
   id                 String    @id @db.VarChar(64)
   referrerId         String    @map("referrer_id") @db.VarChar(64)
   referredPhone      String    @unique @map("referred_phone") @db.VarChar(32)
+  referredName       String    @default("") @map("referred_name") @db.VarChar(255)
+  categorySlug       String    @default("") @map("category_slug") @db.VarChar(128)
+  serviceSlugs       Json      @default("[]") @map("service_slugs")
   referredProviderId String?   @unique @map("referred_provider_id") @db.VarChar(64)
   creditsAwarded     Int       @default(5) @map("credits_awarded")
   createdAt          DateTime  @map("created_at")

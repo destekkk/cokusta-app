@@ -1,5 +1,4 @@
 import type { MetadataRoute } from "next";
-import { getSitemapChunkUrls } from "@/lib/seo/sitemap-index-xml";
 import { resolveSiteUrl } from "@/lib/seo/site-url";
 
 export default function robots(): MetadataRoute.Robots {
@@ -10,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/admin/", "/api/admin/", "/teklif-al/onay", "/usta-ol/onay"],
     },
-    sitemap: [`${base}/sitemap.xml`, ...getSitemapChunkUrls()],
+    sitemap: `${base}/sitemap.xml`,
   };
 }

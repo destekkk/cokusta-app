@@ -9,6 +9,7 @@
     "seed:quotes": "npx tsx scripts/seed-demo-quotes.ts",
     "seed:quotes:1000": "npx tsx scripts/seed-demo-quotes.ts -- --per-service=1000",
     "seed:quotes:link": "npx tsx scripts/seed-demo-quotes.ts -- --link-only",
+    "seed:quotes:spread-dates": "npx tsx scripts/seed-demo-quotes.ts -- --spread-dates",
     "favicon": "node scripts/generate-favicon.mjs public/images/cokusta-cap-logo.png"
   },
   "dependencies": {

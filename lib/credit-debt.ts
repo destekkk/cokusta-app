@@ -7,9 +7,24 @@ export function computeDebtSettlementAmount(debtCredits: number): number {
   return debtCredits * COKUSTA_CREDIT_PRICE;
 }
 
-export function canSubmitOffer(creditBalance: number, creditDebt: number): boolean {
+export function canSubmitOffer(
+  creditBalance: number,
+  creditDebt: number,
+  borcKredisiAktif = false
+): boolean {
   if ((creditBalance ?? 0) >= 1) return true;
+  if (!borcKredisiAktif) return false;
   return (creditDebt ?? 0) < MAX_CREDIT_DEBT;
+}
+
+export function canActivateBorcKredisi(
+  creditBalance: number,
+  creditDebt: number,
+  borcKredisiAktif = false
+): boolean {
+  if (borcKredisiAktif) return false;
+  if ((creditDebt ?? 0) > 0) return false;
+  return (creditBalance ?? 0) < 1;
 }
 
 export function remainingDebtCapacity(creditDebt: number): number {

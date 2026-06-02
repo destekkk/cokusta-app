@@ -23,7 +23,7 @@ import type {
   TaxDeclaration,
 } from "./types";
 import { PROVIDER_OF_MONTH_CREDIT_REWARD } from "./provider-of-month";
-import { REFERRAL_REWARD_CREDITS } from "./referrals";
+import { REFERRAL_REWARD_CREDITS, validateReferralInput, type ProviderReferralSubmitInput } from "./referrals";
 import { getCreditPackage } from "./credit-packages";
 import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
 import {
@@ -41,10 +41,17 @@ import {
   generateInvoiceNo,
   getVatRate,
 } from "./billing";
-import { LAUNCH_CAMPAIGN, buildLaunchCampaignStats } from "./campaigns";
+import {
+  LAUNCH_CAMPAIGN,
+  buildLaunchCampaignStats,
+  isProviderSignupBonusActive,
+  isProviderSignupBonusEligible,
+} from "./campaigns";
 import { MAX_PORTFOLIO_ITEMS } from "./portfolio-upload";
 import { PROVIDER_PHONE_EXISTS } from "./provider-registration";
 import { normalizeProviderPhone, phonesEqual } from "./phone-utils";
+import type { CustomerQuotesListFilter } from "./customer-quotes-filter";
+import { tabForQuoteInput } from "./customer-quotes-filter";
 
 type StoredProvider = ProviderRegistration & { pinHash?: string | null };
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
@@ -126,10 +133,9 @@ function countCustomerLaunchSlots(store: Store): number {
 }
 
 function assignProviderLaunchSlot(store: Store, provider: ProviderRegistration): void {
+  if (!isProviderSignupBonusActive()) return;
   const claimed = countProviderLaunchSlots(store);
-  if (claimed < LAUNCH_CAMPAIGN.provider.maxSlots) {
-    provider.launchMemberNumber = claimed + 1;
-  }
+  provider.launchMemberNumber = claimed + 1;
 }
 
 function assignCustomerLaunchSlot(store: Store, request: QuoteRequest): void {
@@ -141,7 +147,13 @@ function assignCustomerLaunchSlot(store: Store, request: QuoteRequest): void {
 }
 
 function grantProviderLaunchBonus(provider: ProviderRegistration): void {
-  if (provider.launchBonusGranted || provider.status !== "approved") return;
+  if (
+    provider.launchBonusGranted ||
+    provider.status !== "approved" ||
+    !isProviderSignupBonusEligible(provider.createdAt)
+  ) {
+    return;
+  }
   provider.creditBalance =
     (provider.creditBalance ?? 0) + LAUNCH_CAMPAIGN.provider.freeCredits;
   provider.launchBonusGranted = true;
@@ -208,6 +220,7 @@ export async function createProviderRegistration(
     status: "pending",
     creditBalance: 0,
     creditDebt: 0,
+    borcKredisiAktif: false,
   };
   assignProviderLaunchSlot(store, provider);
   store.providers.unshift(provider);
@@ -227,22 +240,78 @@ export async function countQuoteRequestsByPhone(phone: string): Promise<number> 
   return store.quoteRequests.filter((quote) => phonesEqual(quote.phone, phone)).length;
 }
 
+async function filterCustomerQuotes(phone: string, filter?: CustomerQuotesListFilter) {
+  const store = await ensureStore();
+  const offerCounts: Record<string, number> = {};
+  for (const offer of store.providerOffers ?? []) {
+    offerCounts[offer.quoteRequestId] = (offerCounts[offer.quoteRequestId] ?? 0) + 1;
+  }
+
+  let list = store.quoteRequests.filter((quote) => phonesEqual(quote.phone, phone));
+
+  const search = filter?.search?.trim().toLocaleLowerCase("tr-TR");
+  if (search) {
+    list = list.filter((q) => q.serviceName.toLocaleLowerCase("tr-TR").includes(search));
+  }
+
+  if (filter?.tab) {
+    list = list.filter((q) => {
+      const tab = tabForQuoteInput({
+        status: q.status,
+        offerCount: offerCounts[q.id] ?? 0,
+      });
+      return tab === filter.tab;
+    });
+  }
+
+  return list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function countCustomerQuotesByPhone(
+  phone: string,
+  filter?: CustomerQuotesListFilter
+): Promise<number> {
+  const list = await filterCustomerQuotes(phone, filter);
+  return list.length;
+}
+
+export async function getCustomerQuoteTabCounts(phone: string): Promise<{
+  waiting: number;
+  offers: number;
+  total: number;
+}> {
+  const store = await ensureStore();
+  const offerCounts: Record<string, number> = {};
+  for (const offer of store.providerOffers ?? []) {
+    offerCounts[offer.quoteRequestId] = (offerCounts[offer.quoteRequestId] ?? 0) + 1;
+  }
+
+  let waiting = 0;
+  let total = 0;
+  for (const quote of store.quoteRequests) {
+    if (!phonesEqual(quote.phone, phone)) continue;
+    total++;
+    const tab = tabForQuoteInput({
+      status: quote.status,
+      offerCount: offerCounts[quote.id] ?? 0,
+    });
+    if (tab === "waiting") waiting++;
+  }
+
+  return { total, waiting, offers: total - waiting };
+}
+
 export async function getQuoteRequestsByPhone(
   phone: string,
-  options?: { limit?: number; offset?: number }
+  options?: CustomerQuotesListFilter
 ): Promise<QuoteRequest[]> {
-  const store = await ensureStore();
-  let list = store.quoteRequests
-    .filter((quote) => phonesEqual(quote.phone, phone))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
+  let list = await filterCustomerQuotes(phone, options);
   const offset = options?.offset ?? 0;
   if (options?.limit !== undefined) {
     list = list.slice(offset, offset + options.limit);
   } else if (offset > 0) {
     list = list.slice(offset);
   }
-
   return list;
 }
 
@@ -1432,6 +1501,36 @@ export async function getOpenQuotesForProvider(
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
+export async function activateProviderBorcKredisi(
+  providerId: string
+): Promise<{ creditBalance?: number; creditDebt?: number; borcKredisiAktif?: boolean; error?: string }> {
+  const store = await ensureStore();
+  const provider = store.providers.find((p) => p.id === providerId);
+  if (!provider || provider.status !== "approved") {
+    return { error: "Usta hesabı onaylı değil." };
+  }
+  if (provider.borcKredisiAktif) {
+    return { error: "Borç kredisi zaten aktif." };
+  }
+  if ((provider.creditDebt ?? 0) > 0) {
+    return { error: "Önce mevcut borç kredinizi ödeyin." };
+  }
+  if ((provider.creditBalance ?? 0) >= 1) {
+    return { error: "Kontörünüz varken borç kredisi açılamaz." };
+  }
+
+  provider.creditBalance = (provider.creditBalance ?? 0) + MAX_CREDIT_DEBT;
+  provider.creditDebt = (provider.creditDebt ?? 0) + MAX_CREDIT_DEBT;
+  provider.borcKredisiAktif = true;
+  await saveStore(store);
+
+  return {
+    creditBalance: provider.creditBalance,
+    creditDebt: provider.creditDebt,
+    borcKredisiAktif: true,
+  };
+}
+
 export async function submitProviderOffer(
   providerId: string,
   quoteRequestId: string,
@@ -1455,8 +1554,9 @@ export async function submitProviderOffer(
 
   const balance = provider.creditBalance ?? 0;
   const debt = provider.creditDebt ?? 0;
+  const borcAktif = provider.borcKredisiAktif ?? false;
   const useBalance = balance >= 1;
-  const useDebt = !useBalance && debt < MAX_CREDIT_DEBT;
+  const useDebt = !useBalance && borcAktif && debt < MAX_CREDIT_DEBT;
 
   if (!useBalance && !useDebt) {
     return { error: "Yetersiz teklif kontörü.", code: "INSUFFICIENT_CREDITS" as const };
@@ -1983,6 +2083,7 @@ export async function fulfillCreditPurchaseOrder(
   const provider = store.providers[providerIndex];
   provider.creditBalance = (provider.creditBalance ?? 0) + order.credits;
   provider.creditDebt = 0;
+  provider.borcKredisiAktif = false;
 
   const purchases = provider.platformPurchases ?? [];
   purchases.unshift({
@@ -2034,7 +2135,7 @@ function linkReferralOnProviderRegistration(
 
 export async function submitProviderReferral(
   referrerId: string,
-  phone: string
+  input: ProviderReferralSubmitInput
 ): Promise<{
   referral?: ProviderReferral;
   creditsAwarded?: number;
@@ -2042,10 +2143,19 @@ export async function submitProviderReferral(
   error?: string;
   code?: string;
 }> {
-  const normalized = normalizeProviderPhone(phone);
+  const validationError = validateReferralInput(input);
+  if (validationError) {
+    return { error: validationError, code: "INVALID_INPUT" };
+  }
+
+  const normalized = normalizeProviderPhone(input.phone);
   if (!/^05\d{9}$/.test(normalized)) {
     return { error: "Geçerli telefon numarası girin.", code: "INVALID_PHONE" };
   }
+
+  const referredName = input.name.trim();
+  const categorySlug = input.categorySlug;
+  const serviceSlugs = [...new Set(input.serviceSlugs.filter(Boolean))];
 
   const store = await ensureStore();
   const referrer = store.providers.find((p) => p.id === referrerId);
@@ -2073,6 +2183,9 @@ export async function submitProviderReferral(
     id,
     referrerId,
     referredPhone: normalized,
+    referredName,
+    categorySlug,
+    serviceSlugs,
     creditsAwarded: REFERRAL_REWARD_CREDITS,
     createdAt,
   };
@@ -2094,6 +2207,12 @@ export async function getProviderReferrals(referrerId: string): Promise<Provider
   const store = await ensureStore();
   return store.providerReferrals
     .filter((r) => r.referrerId === referrerId)
+    .map((r) => ({
+      ...r,
+      referredName: r.referredName ?? "",
+      categorySlug: r.categorySlug ?? "",
+      serviceSlugs: r.serviceSlugs ?? [],
+    }))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 

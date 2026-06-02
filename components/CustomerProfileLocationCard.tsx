@@ -66,7 +66,14 @@ export default function CustomerProfileLocationCard({ onUpdated }: Props) {
     }
   };
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-border bg-card p-4">
+        <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+        <div className="mt-3 h-3 w-48 animate-pulse rounded bg-muted/70" />
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">

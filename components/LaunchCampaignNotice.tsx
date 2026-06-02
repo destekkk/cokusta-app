@@ -10,13 +10,15 @@ export default async function LaunchCampaignNotice() {
     <div className="mb-6 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:p-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-bold text-primary">🎁 Lansman kampanyası</p>
+          <p className="text-sm font-bold text-primary">🎁 3 aylık kampanya</p>
           <p className="mt-1 text-sm text-muted-foreground">
             {LAUNCH_CAMPAIGN.provider.title}. Onay sonrası hesabınıza otomatik yüklenir.
           </p>
           <p className="mt-1 text-xs text-muted-foreground">
-            <strong className="text-foreground">{stats.provider.remaining}</strong> kontenjan
-            kaldı · Bu ay ilk {stats.provider.maxSlots} ustaya {stats.provider.freeCredits} kontör
+            Bitiş: <strong className="text-foreground">{stats.provider.endsAtLabel}</strong>
+            {stats.provider.daysRemaining > 0 && (
+              <> · {stats.provider.daysRemaining} gün kaldı</>
+            )}
           </p>
         </div>
         <div className="shrink-0 rounded-lg bg-primary px-4 py-2 text-center text-white">

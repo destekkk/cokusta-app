@@ -1,7 +1,8 @@
 import { getAdminStats, getAllProviders, getBillingOverview } from "@/lib/db";
 import { getPendingProviderPayouts } from "@/lib/db-credits";
 import { isDatabaseEnabled } from "@/lib/db/config";
-import AdminNav, { type AdminNavBadges } from "@/components/admin/AdminNav";
+import AdminNav from "@/components/admin/AdminNav";
+import type { AdminNavBadges } from "@/components/admin/admin-nav-types";
 
 export const dynamic = "force-dynamic";
 

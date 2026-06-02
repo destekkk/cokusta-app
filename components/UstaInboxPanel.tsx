@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { readJsonResponse } from "@/lib/safe-fetch";
 
 type InboxMessage = {
   id: string;
@@ -20,10 +21,12 @@ export default function UstaInboxPanel() {
   const load = async () => {
     try {
       const res = await fetch("/api/usta/bildirimler");
-      const data = await res.json();
       if (!res.ok) return;
+      const data = await readJsonResponse<{ messages?: InboxMessage[]; unreadCount?: number }>(res);
       setMessages(data.messages ?? []);
       setUnreadCount(data.unreadCount ?? 0);
+    } catch {
+      /* bildirimler opsiyonel */
     } finally {
       setLoading(false);
     }

@@ -9,7 +9,7 @@ import {
   getBadgeLabel,
 } from "@/lib/credit-packages";
 import { COKUSTA_CREDIT_PRICE } from "@/lib/pricing";
-import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
+import { LAUNCH_CAMPAIGN, isProviderSignupBonusActive } from "@/lib/campaigns";
 import {
   computeCheckoutTotal,
   computeDebtSettlementAmount,
@@ -71,7 +71,9 @@ export default function UstaCreditShop({
             )}
           </div>
           <div className="text-right text-xs text-muted-foreground">
-            <p>Kayıt onayında hediye: {LAUNCH_CAMPAIGN.provider.freeCredits} kontör</p>
+            {isProviderSignupBonusActive() && (
+              <p>Kayıt onayında hediye: {LAUNCH_CAMPAIGN.provider.freeCredits} kontör (kampanya)</p>
+            )}
             <p className="mt-1">Borç kredisi limiti: en fazla {MAX_CREDIT_DEBT} kontör</p>
             <p className="mt-1">Her teklif = 1 kontör</p>
           </div>

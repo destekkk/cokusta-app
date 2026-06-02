@@ -1,6 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import UstaCreditShopWrapper from "@/components/UstaCreditShopWrapper";
+import ProviderPanelHeader from "@/components/ProviderPanelHeader";
 import { getProviderById } from "@/lib/db";
 import { getProviderSessionId } from "@/lib/provider-auth";
 import { getIyzicoConfig } from "@/lib/iyzico/config";
@@ -22,17 +23,16 @@ export default async function UstaCreditPage() {
   const { configured } = getIyzicoConfig();
 
   return (
-    <div className="min-h-full bg-background">
+    <div className="min-h-full bg-muted/20">
       <Header />
-      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
-        <h1 className="text-2xl font-bold">Kontör Satın Al</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Kartınızla güvenli ödeme — iyzico altyapısı. Müşteriden kazandığınız kontörleri{" "}
-          <a href="/usta/odeme-talep" className="font-medium text-primary hover:underline">
-            aylık nakit talep
-          </a>{" "}
-          edebilir veya teklif vermek için kullanabilirsiniz.
-        </p>
+      <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
+        <ProviderPanelHeader
+          title="Kontör Satın Al"
+          subtitle="Kartınızla güvenli ödeme — iyzico altyapısı. Kontörleri teklif vermek veya aylık nakit talep etmek için kullanın."
+          creditBalance={provider.creditBalance ?? 0}
+          creditDebt={provider.creditDebt ?? 0}
+          showStats
+        />
         <div className="mt-8">
           <UstaCreditShopWrapper
             initialBalance={provider.creditBalance ?? 0}

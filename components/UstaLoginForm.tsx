@@ -39,7 +39,8 @@ export default function UstaLoginForm() {
         );
       }
       if (!res.ok) throw new Error(data.error ?? "Giriş başarısız");
-      router.push("/usta/teklifler");
+      const redirectTo = searchParams.get("redirect");
+      router.push(redirectTo?.startsWith("/usta/") ? redirectTo : "/usta/teklifler");
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Giriş başarısız");

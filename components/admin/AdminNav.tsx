@@ -4,13 +4,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Logo from "@/components/Logo";
+import { adminLogoutAction } from "@/app/admin/logout-action";
+import type { AdminNavBadges } from "@/components/admin/admin-nav-types";
 
-export type AdminNavBadges = {
-  awaitingReviewQuotes: number;
-  pendingProviders: number;
-  pendingInvoices: number;
-  pendingPayouts: number;
-};
+export type { AdminNavBadges } from "@/components/admin/admin-nav-types";
 
 const links: { href: string; label: string; badgeKey?: keyof AdminNavBadges }[] = [
   { href: "/admin", label: "Dashboard" },
@@ -110,15 +107,7 @@ export default function AdminNav({ badges }: { badges: AdminNavBadges }) {
           <Link href="/" className="hidden text-sm text-white/60 hover:text-white sm:inline">
             Siteye dön
           </Link>
-          <form
-            action={async () => {
-              "use server";
-              const { clearAdminSession } = await import("@/lib/admin-auth");
-              const { redirect } = await import("next/navigation");
-              await clearAdminSession();
-              redirect("/admin/login");
-            }}
-          >
+          <form action={adminLogoutAction}>
             <button
               type="submit"
               className="rounded-lg border border-red-400/50 bg-red-600/90 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-600"

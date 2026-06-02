@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
 import type { ProviderOffer } from "@/lib/types";
+import { readJsonResponse } from "@/lib/safe-fetch";
 import { getCurrentOfferPrice } from "@/lib/offer-utils";
 
 type OfferItem = {
@@ -91,7 +92,7 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
     setError("");
     try {
       const res = await fetch("/api/usta/tekliflerim");
-      const data = await res.json();
+      const data = await readJsonResponse<{ error?: string; offers?: OfferItem[] }>(res);
       if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
       setItems(data.offers ?? []);
     } catch (err) {
@@ -122,7 +123,44 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
   }
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-border bg-card">
+    <>
+      <div className="space-y-3 md:hidden">
+        {items.map((item) => (
+          <div key={item.offer.id} className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="font-semibold text-foreground">{item.quote.serviceName}</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {item.quote.city}
+                  {item.quote.district ? `, ${item.quote.district}` : ""}
+                </p>
+              </div>
+              <span className="font-semibold text-primary">
+                {getCurrentOfferPrice(item.offer).toLocaleString("tr-TR")} ₺
+              </span>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {statusBadge(item)}
+              <span className="text-xs text-muted-foreground">
+                {new Date(item.offer.createdAt).toLocaleDateString("tr-TR")}
+              </span>
+            </div>
+            {item.offer.status === "pending" && item.quote.status === "open" && (
+              <div className="mt-3">
+                <OfferNegotiationPanel
+                  offer={item.offer}
+                  role="provider"
+                  loading={submitting}
+                  onAgree={() => onNegotiate(item.offer, "agree")}
+                  onCounter={(p, m) => onNegotiate(item.offer, "counter", p, m)}
+                />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
       <table className="w-full min-w-[960px] text-sm">
         <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
@@ -167,5 +205,6 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
         </tbody>
       </table>
     </div>
+    </>
   );
 }

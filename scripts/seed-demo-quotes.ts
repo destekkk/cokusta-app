@@ -6,6 +6,7 @@
  *   npm run seed:quotes
  *   npm run seed:quotes -- --per-service=1000
  *   npm run seed:quotes:link
+ *   npm run seed:quotes:spread-dates   # Nisan–Haziran arasına yay
  */
 import { promises as fs } from "fs";
 import path from "path";
@@ -50,7 +51,8 @@ function hasFlag(flag: string): boolean {
 
 const QUOTES_PER_SERVICE = parsePerServiceArg();
 const LINK_ONLY = hasFlag("--link-only");
-const SKIP_SERVICE_SEED = hasFlag("--skip-service-seed") || LINK_ONLY;
+const SPREAD_DATES_ONLY = hasFlag("--spread-dates");
+const SKIP_SERVICE_SEED = hasFlag("--skip-service-seed") || LINK_ONLY || SPREAD_DATES_ONLY;
 const NORMALIZED_PHONE = normalizeProviderPhone(SEED_PHONE);
 
 async function loadEnvFile() {
@@ -97,16 +99,35 @@ function buildNotes(service: Service, index: number): string {
   return variants[index % variants.length];
 }
 
+/** Nisan 1 — bugün aralığına deterministik yayılım (4., 5., 6. ay). */
+function getDateSpreadWindow(): { start: Date; end: Date } {
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+  const start = new Date(end.getFullYear(), 3, 1, 0, 0, 0, 0);
+  return { start, end };
+}
+
+function buildCreatedAt(globalIndex: number, salt = 0): Date {
+  const { start, end } = getDateSpreadWindow();
+  const spanMs = end.getTime() - start.getTime();
+  const hash = globalIndex * 41 + salt * 19;
+  const ratio = spanMs > 0 ? (hash % 10007) / 10007 : 0;
+  const createdAt = new Date(start.getTime() + ratio * spanMs);
+  const hour = 8 + ((globalIndex + salt) % 12);
+  const minute = (globalIndex * 7 + salt * 11) % 60;
+  createdAt.setHours(hour, minute, 0, 0);
+  if (createdAt > end) return new Date(end);
+  if (createdAt < start) return new Date(start);
+  return createdAt;
+}
+
 function buildQuote(service: Service, indexInService: number, globalIndex: number): QuoteRequest {
   const city = cities[globalIndex % cities.length];
   const districtList = getDistricts(city);
   const district = districtList[indexInService % districtList.length];
   const name = `${firstNames[indexInService % firstNames.length]} ${lastNames[(globalIndex + indexInService) % lastNames.length]}`;
 
-  const daysAgo = indexInService % 21;
-  const createdAt = new Date();
-  createdAt.setDate(createdAt.getDate() - daysAgo);
-  createdAt.setHours(9 + (indexInService % 8), (indexInService * 7) % 60, 0, 0);
+  const createdAt = buildCreatedAt(globalIndex, indexInService);
 
   return {
     id: `${SEED_PREFIX}${service.slug}-${String(indexInService + 1).padStart(4, "0")}`,
@@ -163,10 +184,7 @@ function buildLegacyCityQuote(
   const district = districtList[indexInCity % districtList.length];
   const name = `${firstNames[indexInCity % firstNames.length]} ${lastNames[(indexInCity + globalIndex) % lastNames.length]}`;
 
-  const daysAgo = indexInCity % 14;
-  const createdAt = new Date();
-  createdAt.setDate(createdAt.getDate() - daysAgo);
-  createdAt.setHours(9 + (indexInCity % 8), (indexInCity * 7) % 60, 0, 0);
+  const createdAt = buildCreatedAt(globalIndex, indexInCity + 1000);
 
   return {
     id: `${LEGACY_PREFIX}${cityKey(city)}-${String(indexInCity + 1).padStart(2, "0")}`,
@@ -444,11 +462,101 @@ async function seedPrisma(serviceQuotes: QuoteRequest[], legacyQuotes: QuoteRequ
   await ensureCustomerPinPrisma();
 }
 
+async function spreadQuoteDatesPrisma() {
+  const prisma = new PrismaClient();
+
+  try {
+    const rows = await prisma.quoteRequest.findMany({
+      where: {
+        OR: [
+          { id: { startsWith: SEED_PREFIX } },
+          { id: { startsWith: LEGACY_PREFIX } },
+          { phone: NORMALIZED_PHONE },
+        ],
+      },
+      select: { id: true },
+      orderBy: { id: "asc" },
+    });
+
+    if (rows.length === 0) {
+      console.log("  Guncellenecek talep bulunamadi.");
+      return;
+    }
+
+    const batchSize = 2000;
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const values = batch
+        .map((row, j) => {
+          const idx = i + j;
+          const dt = buildCreatedAt(idx).toISOString();
+          return `('${row.id.replace(/'/g, "''")}', '${dt}'::timestamptz)`;
+        })
+        .join(",\n");
+
+      await prisma.$executeRawUnsafe(`
+        UPDATE quote_requests AS q
+        SET created_at = v.dt
+        FROM (VALUES ${values}) AS v(id, dt)
+        WHERE q.id = v.id
+      `);
+
+      console.log(`  ${Math.min(i + batchSize, rows.length)} / ${rows.length}`);
+    }
+
+    console.log(`  ${rows.length} talebin tarihi Nisan–Haziran arasina yayildi.`);
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+async function spreadQuoteDatesJson() {
+  const storePath = path.join(process.cwd(), "data", "store.json");
+  let store: Store;
+
+  try {
+    const raw = await fs.readFile(storePath, "utf-8");
+    store = JSON.parse(raw) as Store;
+  } catch {
+    console.log("  store.json bulunamadi.");
+    return;
+  }
+
+  const targets = store.quoteRequests.filter(
+    (q) =>
+      q.id.startsWith(SEED_PREFIX) ||
+      q.id.startsWith(LEGACY_PREFIX) ||
+      phonesEqual(q.phone, NORMALIZED_PHONE)
+  );
+
+  targets.forEach((quote, idx) => {
+    quote.createdAt = buildCreatedAt(idx).toISOString();
+  });
+
+  await fs.writeFile(storePath, JSON.stringify(store, null, 2), "utf-8");
+  console.log(`  ${targets.length} talebin tarihi Nisan–Haziran arasina yayildi.`);
+}
+
 async function main() {
   await loadEnvFile();
+  const usePrisma = Boolean(process.env.DATABASE_URL?.trim());
+
+  console.log(`Musteri hesabi: ${SEED_PHONE} — sifre: ${SEED_PIN}`);
+  console.log(usePrisma ? "Hedef: PostgreSQL (Prisma)" : "Hedef: data/store.json");
+
+  if (SPREAD_DATES_ONLY) {
+    console.log("Mod: mevcut talep tarihlerini Nisan–Haziran arasina yay");
+    if (usePrisma) {
+      await spreadQuoteDatesPrisma();
+    } else {
+      await spreadQuoteDatesJson();
+    }
+    console.log("Tamamlandi.");
+    return;
+  }
+
   const serviceQuotes = buildAllQuotes();
   const legacyQuotes = buildLegacyCityQuotes();
-  const usePrisma = Boolean(process.env.DATABASE_URL?.trim());
 
   console.log(`Musteri hesabi: ${SEED_PHONE} — sifre: ${SEED_PIN}`);
   console.log(usePrisma ? "Hedef: PostgreSQL (Prisma)" : "Hedef: data/store.json");

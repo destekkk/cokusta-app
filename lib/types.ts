@@ -171,6 +171,8 @@ export type ProviderRegistration = {
   creditBalance?: number;
   /** Borç kredisi ile kullanılan kontör (en fazla 5) */
   creditDebt?: number;
+  /** Borç kredi hattı aktifleştirildi (ödeme yapılana kadar tekrar açılamaz) */
+  borcKredisiAktif?: boolean;
   iban?: string;
   accountHolder?: string;
   /** Param Güvende'den ustaya aktarılan TL bakiyesi */
@@ -282,6 +284,9 @@ export type ProviderReferral = {
   id: string;
   referrerId: string;
   referredPhone: string;
+  referredName: string;
+  categorySlug: string;
+  serviceSlugs: string[];
   referredProviderId?: string;
   creditsAwarded: number;
   createdAt: string;

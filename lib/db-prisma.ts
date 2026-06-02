@@ -19,7 +19,7 @@ import type {
   CreditPurchaseOrder,
 } from "./types";
 import { PROVIDER_OF_MONTH_CREDIT_REWARD } from "./provider-of-month";
-import { REFERRAL_REWARD_CREDITS } from "./referrals";
+import { REFERRAL_REWARD_CREDITS, validateReferralInput, type ProviderReferralSubmitInput } from "./referrals";
 import { getCreditPackage } from "./credit-packages";
 import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
 import {
@@ -48,7 +48,12 @@ import {
   generateInvoiceNo,
   getVatRate,
 } from "./billing";
-import { LAUNCH_CAMPAIGN, buildLaunchCampaignStats } from "./campaigns";
+import {
+  LAUNCH_CAMPAIGN,
+  buildLaunchCampaignStats,
+  isProviderSignupBonusActive,
+  isProviderSignupBonusEligible,
+} from "./campaigns";
 import {
   invoiceReferenceType,
   providerStatus,
@@ -66,13 +71,16 @@ import {
   toQuoteRequest,
   toTaxDeclaration,
 } from "./db/mappers";
-import { generateId } from "./id";
+import { services } from "@/lib/data/services";
+import type { CustomerQuotesListFilter } from "./customer-quotes-filter";
 import { prisma } from "./prisma";
+import type { Prisma } from "@prisma/client";
 import { MAX_PORTFOLIO_ITEMS } from "./portfolio-upload";
 import { PROVIDER_PHONE_EXISTS } from "./provider-registration";
 import { normalizeProviderPhone, phonesEqual } from "./phone-utils";
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
 import { getCommissionRate } from "./admin-auth";
+import { generateId } from "./id";
 
 const providerInclude = {
   portfolio: { orderBy: { createdAt: "desc" as const } },
@@ -133,8 +141,8 @@ async function countCustomerLaunchSlots(): Promise<number> {
 }
 
 async function assignProviderLaunchSlot(providerId: string): Promise<number | undefined> {
+  if (!isProviderSignupBonusActive()) return undefined;
   const claimed = await countProviderLaunchSlots();
-  if (claimed >= LAUNCH_CAMPAIGN.provider.maxSlots) return undefined;
   const launchMemberNumber = claimed + 1;
   await prisma.provider.update({
     where: { id: providerId },
@@ -157,7 +165,12 @@ async function assignCustomerLaunchSlot(quoteId: string): Promise<void> {
 
 async function grantProviderLaunchBonus(providerId: string): Promise<void> {
   const provider = await prisma.provider.findUnique({ where: { id: providerId } });
-  if (!provider || provider.launchBonusGranted || provider.status !== "approved") {
+  if (
+    !provider ||
+    provider.launchBonusGranted ||
+    provider.status !== "approved" ||
+    !isProviderSignupBonusEligible(provider.createdAt)
+  ) {
     return;
   }
   await prisma.provider.update({
@@ -268,13 +281,83 @@ export async function countQuoteRequestsByPhone(phone: string): Promise<number> 
   return prisma.quoteRequest.count({ where: { phone: normalized } });
 }
 
+function buildCustomerQuotesWhere(
+  phone: string,
+  filter?: CustomerQuotesListFilter
+): Prisma.QuoteRequestWhereInput {
+  const normalized = normalizeProviderPhone(phone);
+  const search = filter?.search?.trim();
+
+  const tabClause: Prisma.QuoteRequestWhereInput | null =
+    filter?.tab === "waiting"
+      ? {
+          status: { in: ["open", "awaiting_review"] },
+          offers: { none: {} },
+        }
+      : filter?.tab === "offers"
+        ? {
+            OR: [
+              { offers: { some: {} } },
+              { status: { in: ["accepted", "completed", "cancelled"] } },
+            ],
+          }
+        : null;
+
+  if (search && tabClause) {
+    return {
+      phone: normalized,
+      serviceName: { contains: search, mode: "insensitive" as const },
+      AND: [tabClause],
+    };
+  }
+
+  if (search) {
+    return {
+      phone: normalized,
+      serviceName: { contains: search, mode: "insensitive" as const },
+    };
+  }
+
+  if (tabClause) {
+    return { phone: normalized, ...tabClause };
+  }
+
+  return { phone: normalized };
+}
+
+export async function countCustomerQuotesByPhone(
+  phone: string,
+  filter?: CustomerQuotesListFilter
+): Promise<number> {
+  return prisma.quoteRequest.count({ where: buildCustomerQuotesWhere(phone, filter) });
+}
+
+export async function getCustomerQuoteTabCounts(phone: string): Promise<{
+  waiting: number;
+  offers: number;
+  total: number;
+}> {
+  const normalized = normalizeProviderPhone(phone);
+  const [total, waiting] = await Promise.all([
+    prisma.quoteRequest.count({ where: { phone: normalized } }),
+    prisma.quoteRequest.count({
+      where: {
+        phone: normalized,
+        status: { in: ["open", "awaiting_review"] },
+        offers: { none: {} },
+      },
+    }),
+  ]);
+  return { total, waiting, offers: total - waiting };
+}
+
 export async function getQuoteRequestsByPhone(
   phone: string,
-  options?: { limit?: number; offset?: number }
+  options?: CustomerQuotesListFilter
 ): Promise<QuoteRequest[]> {
   const normalized = normalizeProviderPhone(phone);
   const rows = await prisma.quoteRequest.findMany({
-    where: { phone: normalized },
+    where: buildCustomerQuotesWhere(phone, options),
     orderBy: { createdAt: "desc" },
     ...(options?.limit !== undefined
       ? { take: options.limit, skip: options.offset ?? 0 }
@@ -1570,27 +1653,101 @@ export async function getOpenQuotesForProvider(
   const provider = await getProviderById(providerId);
   if (!provider || provider.status !== "approved") return [];
 
-  // Tüm talepleri okuyup quoteIsOpenForOffers ile filtrele — eski DB'de status=pending
-  // olarak kalan onaylı ilanlar da open sayılır (toQuoteRequest eşlemesi).
-  const quotes = (await prisma.quoteRequest.findMany({ orderBy: { createdAt: "desc" } }))
-    .map(toQuoteRequest)
-    .filter(quoteIsOpenForOffers);
-  const offers = await prisma.providerOffer.findMany({
-    where: { providerId },
-  });
-  const allOffers = await prisma.providerOffer.findMany({
-    where: { quoteRequestId: { in: quotes.map((q) => q.id) }, status: "pending" },
+  const categorySlugs = Array.isArray(provider.categorySlugs) ? provider.categorySlugs : [];
+  const allowedServiceSlugs = services
+    .filter((s) => categorySlugs.includes(s.categorySlug))
+    .map((s) => s.slug);
+  if (allowedServiceSlugs.length === 0) return [];
+
+  const where: {
+    status: "open";
+    serviceSlug: { in: string[] };
+    city?: string;
+    district?: string;
+  } = {
+    status: "open",
+    serviceSlug: { in: allowedServiceSlugs },
+  };
+
+  if (location.cityMode === "selected" && location.selectedCity) {
+    where.city = location.selectedCity;
+    if (location.selectedDistrict) where.district = location.selectedDistrict;
+  } else if (location.cityMode === "provider" && provider.city) {
+    where.city = provider.city;
+    if (location.selectedDistrict) where.district = location.selectedDistrict;
+  }
+
+  const take = location.cityMode === "all" ? 200 : 500;
+  const quoteRows = await prisma.quoteRequest.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    take,
   });
 
+  const quotes = quoteRows
+    .map(toQuoteRequest)
+    .filter((quote) => providerCanSeeQuote(provider, quote, location));
+
+  if (quotes.length === 0) return [];
+
+  const quoteIds = quotes.map((q) => q.id);
+  const [myOffers, pendingCounts] = await Promise.all([
+    prisma.providerOffer.findMany({ where: { providerId, quoteRequestId: { in: quoteIds } } }),
+    prisma.providerOffer.groupBy({
+      by: ["quoteRequestId"],
+      where: { quoteRequestId: { in: quoteIds }, status: "pending" },
+      _count: { id: true },
+    }),
+  ]);
+
+  const countByQuote = new Map(
+    pendingCounts.map((row) => [row.quoteRequestId, row._count.id])
+  );
+
   return quotes
-    .filter((quote) => providerCanSeeQuote(provider, quote, location))
     .map((quote) => {
-      const offerCount = allOffers.filter((o) => o.quoteRequestId === quote.id).length;
-      const myOfferRow = offers.find((o) => o.quoteRequestId === quote.id);
+      const offerCount = countByQuote.get(quote.id) ?? 0;
+      const myOfferRow = myOffers.find((o) => o.quoteRequestId === quote.id);
       const myOffer = myOfferRow ? mapOfferFromRow(myOfferRow, provider) : undefined;
       return { ...toPublicQuoteListItem(quote, offerCount, false), myOffer };
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+}
+
+export async function activateProviderBorcKredisi(
+  providerId: string
+): Promise<{ creditBalance?: number; creditDebt?: number; borcKredisiAktif?: boolean; error?: string }> {
+  const provider = await getProviderById(providerId);
+  if (!provider || provider.status !== "approved") {
+    return { error: "Usta hesabı onaylı değil." };
+  }
+  if (provider.borcKredisiAktif) {
+    return { error: "Borç kredisi zaten aktif." };
+  }
+  if ((provider.creditDebt ?? 0) > 0) {
+    return { error: "Önce mevcut borç kredinizi ödeyin." };
+  }
+  if ((provider.creditBalance ?? 0) >= 1) {
+    return { error: "Kontörünüz varken borç kredisi açılamaz." };
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.provider.update({
+      where: { id: providerId },
+      data: {
+        creditBalance: { increment: MAX_CREDIT_DEBT },
+        creditDebt: { increment: MAX_CREDIT_DEBT },
+        borcKredisiAktif: true,
+      },
+    });
+  });
+
+  const updated = await getProviderById(providerId);
+  return {
+    creditBalance: updated?.creditBalance ?? MAX_CREDIT_DEBT,
+    creditDebt: updated?.creditDebt ?? MAX_CREDIT_DEBT,
+    borcKredisiAktif: true,
+  };
 }
 
 export async function submitProviderOffer(
@@ -1616,8 +1773,9 @@ export async function submitProviderOffer(
 
   const balance = provider.creditBalance ?? 0;
   const debt = provider.creditDebt ?? 0;
+  const borcAktif = provider.borcKredisiAktif ?? false;
   const useBalance = balance >= 1;
-  const useDebt = !useBalance && debt < MAX_CREDIT_DEBT;
+  const useDebt = !useBalance && borcAktif && debt < MAX_CREDIT_DEBT;
 
   if (!useBalance && !useDebt) {
     return { error: "Yetersiz teklif kontörü.", code: "INSUFFICIENT_CREDITS" as const };
@@ -2283,6 +2441,7 @@ export async function fulfillCreditPurchaseOrder(
       data: {
         creditBalance: { increment: row.credits },
         creditDebt: 0,
+        borcKredisiAktif: false,
       },
     });
     await tx.providerPlatformPurchase.create({
@@ -2366,7 +2525,7 @@ async function linkReferralOnProviderRegistration(
 
 export async function submitProviderReferral(
   referrerId: string,
-  phone: string
+  input: ProviderReferralSubmitInput
 ): Promise<{
   referral?: import("./types").ProviderReferral;
   creditsAwarded?: number;
@@ -2374,10 +2533,19 @@ export async function submitProviderReferral(
   error?: string;
   code?: string;
 }> {
-  const normalized = normalizeProviderPhone(phone);
+  const validationError = validateReferralInput(input);
+  if (validationError) {
+    return { error: validationError, code: "INVALID_INPUT" };
+  }
+
+  const normalized = normalizeProviderPhone(input.phone);
   if (!/^05\d{9}$/.test(normalized)) {
     return { error: "Geçerli telefon numarası girin.", code: "INVALID_PHONE" };
   }
+
+  const referredName = input.name.trim();
+  const categorySlug = input.categorySlug;
+  const serviceSlugs = [...new Set(input.serviceSlugs.filter(Boolean))];
 
   const referrer = await getProviderById(referrerId);
   if (!referrer || referrer.status !== "approved") {
@@ -2409,6 +2577,9 @@ export async function submitProviderReferral(
         id,
         referrerId,
         referredPhone: normalized,
+        referredName,
+        categorySlug,
+        serviceSlugs,
         creditsAwarded: REFERRAL_REWARD_CREDITS,
         createdAt,
       },
@@ -2425,6 +2596,9 @@ export async function submitProviderReferral(
       id,
       referrerId,
       referredPhone: normalized,
+      referredName,
+      categorySlug,
+      serviceSlugs,
       creditsAwarded: REFERRAL_REWARD_CREDITS,
       createdAt: createdAt.toISOString(),
     },
@@ -2444,6 +2618,11 @@ export async function getProviderReferrals(
     id: row.id,
     referrerId: row.referrerId,
     referredPhone: row.referredPhone,
+    referredName: row.referredName,
+    categorySlug: row.categorySlug,
+    serviceSlugs: Array.isArray(row.serviceSlugs)
+      ? row.serviceSlugs.filter((s): s is string => typeof s === "string")
+      : [],
     referredProviderId: row.referredProviderId ?? undefined,
     creditsAwarded: row.creditsAwarded,
     createdAt: row.createdAt.toISOString(),

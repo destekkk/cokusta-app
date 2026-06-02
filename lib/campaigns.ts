@@ -1,19 +1,21 @@
-/** Lansman kampanyası — merkezi sabitler */
+/** Lansman / reklam kampanyaları — merkezi sabitler */
 
 export const LAUNCH_CAMPAIGN = {
   provider: {
-    maxSlots: 500,
+    /** Kampanya başlangıcı (kayıt tarihi bu aralıkta ise hediye geçerli) */
+    startsAt: "2026-06-02T00:00:00+03:00",
+    /** 3 ay — kampanya bitişi */
+    endsAt: "2026-09-02T23:59:59+03:00",
     /** Onay sonrası verilen ücretsiz teklif kontörü */
     freeCredits: 5,
-    /** Sitede gösterilen başlangıç doluluk: 230 kayıtlı → 270 kontenjan kaldı */
-    displayClaimedOffset: 230,
-    title: "Her yeni ustaya 5 ücretsiz kontör",
+    title: "3 ay boyunca kayıt olan her ustaya 5 kontör hediye",
     description:
-      "Onaylanan her usta hesabına 5 teklif kontörü hediye. Kontör bitince uygun fiyatlı paketlerle devam edin.",
+      "Kampanya süresince usta olarak kayıt olan ve hesabı onaylanan tüm ustalar 5 teklif kontörü kazanır. Kontör bitince uygun fiyatlı paketlerle devam edin.",
+    /** Eski slot sayacı — artık sınırsız; istatistik için sayım devam eder */
+    displayClaimedOffset: 0,
   },
   customer: {
     maxSlots: 1000,
-    /** Sitede gösterilen başlangıç: 670 ilan → 330 kontenjan kaldı */
     displayClaimedOffset: 670,
     title: "Bu ay ilk 1.000 ilana öncelikli eşleştirme",
     description:
@@ -23,15 +25,12 @@ export const LAUNCH_CAMPAIGN = {
 
 export type LaunchCampaignStats = {
   provider: {
-    /** Sitede gösterilen kayıt sayısı (offset dahil) */
     claimed: number;
-    /** Sitede gösterilen kalan kontenjan */
-    remaining: number;
-    /** Gerçek kayıt sayısı (admin / arka plan) */
     actualClaimed: number;
-    maxSlots: number;
     freeCredits: number;
     active: boolean;
+    endsAtLabel: string;
+    daysRemaining: number;
   };
   customer: {
     claimed: number;
@@ -42,17 +41,43 @@ export type LaunchCampaignStats = {
   };
 };
 
+function parseCampaignDate(iso: string): number {
+  return new Date(iso).getTime();
+}
+
+export function isProviderSignupBonusActive(at = new Date()): boolean {
+  const t = at.getTime();
+  const { startsAt, endsAt } = LAUNCH_CAMPAIGN.provider;
+  return t >= parseCampaignDate(startsAt) && t <= parseCampaignDate(endsAt);
+}
+
+/** Kayıt tarihi kampanya döneminde mi? */
+export function isProviderSignupBonusEligible(createdAt: Date | string): boolean {
+  const t = new Date(createdAt).getTime();
+  const { startsAt, endsAt } = LAUNCH_CAMPAIGN.provider;
+  return t >= parseCampaignDate(startsAt) && t <= parseCampaignDate(endsAt);
+}
+
+export function getProviderCampaignEndLabel(): string {
+  return new Date(LAUNCH_CAMPAIGN.provider.endsAt).toLocaleDateString("tr-TR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function getProviderCampaignDaysRemaining(at = new Date()): number {
+  if (!isProviderSignupBonusActive(at)) return 0;
+  const end = parseCampaignDate(LAUNCH_CAMPAIGN.provider.endsAt);
+  const diff = end - at.getTime();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+}
+
 export function buildLaunchCampaignStats(
   providerClaimed: number,
   customerClaimed: number
 ): LaunchCampaignStats {
   const { provider, customer } = LAUNCH_CAMPAIGN;
-
-  const displayClaimed = Math.min(
-    provider.maxSlots,
-    provider.displayClaimedOffset + providerClaimed
-  );
-  const displayRemaining = Math.max(0, provider.maxSlots - displayClaimed);
 
   const customerDisplayClaimed = Math.min(
     customer.maxSlots,
@@ -62,12 +87,12 @@ export function buildLaunchCampaignStats(
 
   return {
     provider: {
-      claimed: displayClaimed,
-      remaining: displayRemaining,
+      claimed: providerClaimed + provider.displayClaimedOffset,
       actualClaimed: providerClaimed,
-      maxSlots: provider.maxSlots,
       freeCredits: provider.freeCredits,
-      active: providerClaimed < provider.maxSlots,
+      active: isProviderSignupBonusActive(),
+      endsAtLabel: getProviderCampaignEndLabel(),
+      daysRemaining: getProviderCampaignDaysRemaining(),
     },
     customer: {
       claimed: customerDisplayClaimed,

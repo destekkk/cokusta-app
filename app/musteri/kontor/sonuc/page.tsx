@@ -27,16 +27,10 @@ export default async function CustomerCreditResultPage({ searchParams }: Props) 
         )}
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Link
-            href="/musteri/kontor"
+            href="/musteri/teklifler"
             className="rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-white"
           >
-            Kontör sayfası
-          </Link>
-          <Link
-            href="/musteri/teklifler"
-            className="rounded-xl border border-border px-6 py-3 text-sm font-semibold"
-          >
-            Tekliflerim
+            Taleplerime dön
           </Link>
         </div>
       </div>

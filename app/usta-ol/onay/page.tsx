@@ -1,7 +1,11 @@
 import Link from "next/link";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
-import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
+import {
+  LAUNCH_CAMPAIGN,
+  getProviderCampaignEndLabel,
+  isProviderSignupBonusActive,
+} from "@/lib/campaigns";
 import { getProviderById } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +17,7 @@ type Props = {
 export default async function ProviderConfirmationPage({ searchParams }: Props) {
   const { id } = await searchParams;
   const provider = id ? await getProviderById(id) : undefined;
-  const inLaunchCampaign = Boolean(provider?.launchMemberNumber);
+  const campaignActive = isProviderSignupBonusActive();
 
   return (
     <div className="min-h-full bg-background">
@@ -29,19 +33,20 @@ export default async function ProviderConfirmationPage({ searchParams }: Props) 
             Ekibimiz başvurunuzu inceleyecek ve en kısa sürede sizinle iletişime geçecek.
           </p>
 
-          <div className="mt-6 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
-            <p className="text-sm font-bold text-primary">🎁 Hoş geldin hediyesi</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Onay sonrası hesabınıza{" "}
-              <strong>{LAUNCH_CAMPAIGN.provider.freeCredits} ücretsiz teklif kontörü</strong>{" "}
-              yüklenecek. Kontörler bitince uygun fiyatlı paketlerle teklif vermeye devam edebilirsiniz.
-            </p>
-          </div>
+          {campaignActive && (
+            <div className="mt-6 rounded-xl border border-primary/30 bg-primary/5 p-4 text-left">
+              <p className="text-sm font-bold text-primary">🎁 Hoş geldin hediyesi</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Onay sonrası hesabınıza{" "}
+                <strong>{LAUNCH_CAMPAIGN.provider.freeCredits} ücretsiz teklif kontörü</strong>{" "}
+                yüklenecek. Kampanya {getProviderCampaignEndLabel()} tarihine kadar geçerlidir.
+              </p>
+            </div>
+          )}
 
-          {inLaunchCampaign && provider && (
+          {provider?.launchMemberNumber && campaignActive && (
             <div className="mt-4 rounded-xl border border-border bg-muted/40 p-4 text-left text-sm text-muted-foreground">
-              Lansman sırası: <strong>#{provider.launchMemberNumber}</strong>. ilk{" "}
-              {LAUNCH_CAMPAIGN.provider.maxSlots} ustadan biri olarak kaydoldunuz.
+              Kampanya kayıt sırası: <strong>#{provider.launchMemberNumber}</strong>
             </div>
           )}
 
