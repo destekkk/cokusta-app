@@ -108,7 +108,7 @@ function TabBar({
   );
 }
 
-function TabCards({
+export function SheetTabCards({
   tabs,
   activeId,
   onChange,
@@ -179,7 +179,7 @@ export default function SheetTabs({
   const tabsOnTop = tabPosition === "top" || useCards;
 
   const tabNav = useCards ? (
-    <TabCards tabs={tabs} activeId={activeId} onChange={onChange} />
+    <SheetTabCards tabs={tabs} activeId={activeId} onChange={onChange} />
   ) : (
     <TabBar tabs={tabs} activeId={activeId} onChange={onChange} edge={tabsOnTop ? "top" : "bottom"} />
   );

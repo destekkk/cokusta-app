@@ -16,7 +16,7 @@ const links: { href: string; label: string; badgeKey?: keyof AdminNavBadges }[] 
   { href: "/sltn/usta-listesi", label: "Usta Listesi" },
   { href: "/sltn/musteriler", label: "Müşteriler" },
   { href: "/sltn/muhasebe", label: "Muhasebe", badgeKey: "pendingInvoices" },
-  { href: "/sltn/oduller", label: "Ayın Ustası" },
+  { href: "/sltn/hediye-kontor", label: "Hediye Kontör" },
 ];
 
 function badgeCount(badges: AdminNavBadges, key?: keyof AdminNavBadges): number {

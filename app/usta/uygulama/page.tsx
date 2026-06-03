@@ -1,7 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import UstaApkDownloadSection from "@/components/UstaApkDownloadSection";
-import { getUstaApkDownloadUrl } from "@/lib/usta-app-download";
+import { getUstaApkDownloadUrl, isUstaApkPublished } from "@/lib/usta-app-download";
 
 export const metadata = {
   title: "Usta Mobil Uygulama (APK) | Çokusta",
@@ -11,6 +11,7 @@ export const metadata = {
 
 export default function UstaAppDownloadPage() {
   const apkUrl = getUstaApkDownloadUrl();
+  const apkAvailable = isUstaApkPublished();
 
   return (
     <div className="min-h-full bg-background">
@@ -24,7 +25,7 @@ export default function UstaAppDownloadPage() {
           telefon ve PIN ile giriş yapın.
         </p>
 
-        <UstaApkDownloadSection apkUrl={apkUrl} />
+        <UstaApkDownloadSection apkUrl={apkUrl} apkAvailable={apkAvailable} />
       </div>
 
       <Footer />

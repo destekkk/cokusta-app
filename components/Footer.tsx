@@ -49,7 +49,11 @@ export default function Footer() {
               {showUstaGuestLinks && (
                 <>
                   <li><Link href="/usta-ol" className="transition-colors hover:text-white">Usta Ol</Link></li>
-                  <li><Link href="/usta/uygulama" className="transition-colors hover:text-white">Usta Uygulaması (APK)</Link></li>
+                  <li>
+                    <Link href="/usta/giris" className="transition-colors hover:text-white">
+                      Usta Paneli
+                    </Link>
+                  </li>
                 </>
               )}
               <li><Link href="/lokasyon" className="transition-colors hover:text-white">Lokasyon Rehberi</Link></li>

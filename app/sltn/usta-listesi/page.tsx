@@ -1,5 +1,5 @@
+import Link from "next/link";
 import { getProviderSummaries } from "@/lib/db";
-import AdminProviderGiftCredits from "@/components/admin/AdminProviderGiftCredits";
 import ProviderManager from "@/components/admin/ProviderManager";
 
 export default async function AdminProviderListPage() {
@@ -24,11 +24,11 @@ export default async function AdminProviderListPage() {
       </p>
 
       <div className="mt-4 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        Usta ekleyebilir, bilgilerini düzenleyebilir veya silebilirsiniz.
-      </div>
-
-      <div className="mt-6">
-        <AdminProviderGiftCredits providers={providers} />
+        Usta ekleyebilir, bilgilerini düzenleyebilir veya silebilirsiniz. Hediye kontör için{" "}
+        <Link href="/sltn/hediye-kontor" className="font-semibold text-primary hover:underline">
+          Hediye Kontör
+        </Link>{" "}
+        menüsünü kullanın.
       </div>
 
       <div className="mt-6">

@@ -1,4 +1,4 @@
-export const ADMIN_GIFT_CREDIT_AMOUNTS = [10, 30, 50, 100] as const;
+export const ADMIN_GIFT_CREDIT_AMOUNTS = [10, 30, 50] as const;
 
 export type AdminGiftCreditAmount = (typeof ADMIN_GIFT_CREDIT_AMOUNTS)[number];
 

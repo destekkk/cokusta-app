@@ -91,8 +91,7 @@ export default function AdminProviderGiftCredits({ providers }: Props) {
     <section className="rounded-xl border border-primary/25 bg-primary/5 p-5">
       <h2 className="text-lg font-bold text-foreground">Hediye kontör ver</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Onaylı ustalara 10, 30, 50 veya 100 kontör hediye edebilirsiniz. İşlem muhasebe kaydına
-        yazılır.
+        Onaylı ustalara 10, 30 veya 50 kontör hediye edebilirsiniz. İşlem muhasebe kaydına yazılır.
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2">

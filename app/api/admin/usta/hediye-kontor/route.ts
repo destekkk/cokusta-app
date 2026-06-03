@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     if (!isValidAdminGiftCreditAmount(credits)) {
       return NextResponse.json(
-        { error: "Kontör miktarı 10, 30, 50 veya 100 olmalı." },
+        { error: "Kontör miktarı 10, 30 veya 50 olmalı." },
         { status: 400 }
       );
     }

@@ -12,6 +12,8 @@ type Props = {
   kontorHref?: string;
   backHref?: string;
   backLabel?: string;
+  /** Usta paneli kartının altında (ör. sekme menüsü) */
+  belowPanel?: React.ReactNode;
 };
 
 export default function UstaPanelIntro({
@@ -24,6 +26,7 @@ export default function UstaPanelIntro({
   kontorHref,
   backHref,
   backLabel = "Tekliflere dön",
+  belowPanel,
 }: Props) {
   const showStats = creditBalance !== undefined;
 
@@ -71,6 +74,8 @@ export default function UstaPanelIntro({
         ) : null}
       </div>
       </div>
+
+      {belowPanel ? <div className="min-w-0">{belowPanel}</div> : null}
     </div>
   );
 }

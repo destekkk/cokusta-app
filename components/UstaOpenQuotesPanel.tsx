@@ -8,7 +8,8 @@ import { MAX_CREDIT_DEBT, canActivateBorcKredisi, canSubmitOffer } from "@/lib/c
 import UstaMyOffersPanel from "@/components/UstaMyOffersPanel";
 import BorcKredisiActivateCard from "@/components/BorcKredisiActivateCard";
 import UstaPanelIntro from "@/components/UstaPanelIntro";
-import SheetTabs, { type SheetTabItem } from "@/components/panel/SheetTabs";
+import type { SheetTabItem } from "@/components/panel/SheetTabs";
+import UstaPanelTabBar from "@/components/usta/UstaPanelTabBar";
 import type { ProviderOffer } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
 import { resolveCanonicalCityName, type ProviderQuoteLocationFilter } from "@/lib/offer-utils";
@@ -370,35 +371,32 @@ export default function UstaOpenQuotesPanel() {
     }
   };
 
+  const onTabChange = (id: string) => setTab(id as ProviderOfferSheetTab);
+
+  const tabNav = (
+    <UstaPanelTabBar tabs={offerNavTabs} activeId={tab} onChange={onTabChange} />
+  );
+
   const panelIntro = (
     <UstaPanelIntro
       creditBalance={creditBalance}
       creditDebt={creditDebt}
       escrowBalanceTl={escrowBalanceTl}
       kontorHref={KONTOR_URL}
+      belowPanel={tabNav}
     />
   );
 
-  const offerNav = (
-    <SheetTabs
-      variant="cards"
-      tabPosition="top"
-      activeId={tab}
-      onChange={(id) => setTab(id as ProviderOfferSheetTab)}
-      tabs={offerNavTabs}
-      className="min-w-0"
-    >
-      {loading && tab === "open" ? (
-        <p className="text-muted-foreground">Talepler yükleniyor…</p>
-      ) : null}
-    </SheetTabs>
-  );
+  const panelContentClass =
+    "min-h-[200px] min-w-0 rounded-xl border border-primary/15 bg-card p-4 sm:p-5";
 
   if (loading && tab === "open") {
     return (
       <div className="space-y-6">
         {panelIntro}
-        {offerNav}
+        <div className={panelContentClass}>
+          <p className="text-muted-foreground">Talepler yükleniyor…</p>
+        </div>
       </div>
     );
   }
@@ -446,14 +444,7 @@ export default function UstaOpenQuotesPanel() {
         </div>
       )}
 
-      <SheetTabs
-        variant="cards"
-        tabPosition="top"
-        activeId={tab}
-        onChange={(id) => setTab(id as ProviderOfferSheetTab)}
-        tabs={offerNavTabs}
-        className="min-w-0"
-      >
+      <div className={panelContentClass}>
         <div className="space-y-4">
           {pendingCustomerAgreement && (
             <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -823,7 +814,7 @@ export default function UstaOpenQuotesPanel() {
               </>
             )}
         </div>
-      </SheetTabs>
+      </div>
     </div>
   );
 }
