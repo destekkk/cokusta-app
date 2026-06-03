@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import PanelStatCard from "@/components/panel/PanelStatCard";
 import SheetTabs from "@/components/panel/SheetTabs";
+import { cities, getDistricts } from "@/lib/data/cities";
 import type { CustomerQuoteTab } from "@/lib/customer-quotes-filter";
 
 type QuoteItem = {
@@ -115,9 +116,12 @@ export default function CustomerQuotesList() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [locationReady, setLocationReady] = useState(false);
   const pageSize = 50;
 
   const searchQuery = searchParams.get("q")?.trim() ?? "";
+  const filterCity = searchParams.get("city")?.trim() ?? "";
+  const filterDistrict = searchParams.get("district")?.trim() ?? "";
 
   const setTab = (next: CustomerQuoteTab) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -133,6 +137,55 @@ export default function CustomerQuotesList() {
     router.replace(`/musteri/teklifler?${params.toString()}`);
   };
 
+  const setLocationFilter = (city: string, district: string) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (city && city !== "__all__") params.set("city", city);
+    else params.delete("city");
+    if (district && city !== "__all__") params.set("district", district);
+    else params.delete("district");
+    router.replace(`/musteri/teklifler?${params.toString()}`);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (searchParams.get("city")) {
+        setLocationReady(true);
+        return;
+      }
+      try {
+        const res = await fetch("/api/musteri/profil");
+        if (cancelled) return;
+        if (res.status === 401) {
+          router.replace("/musteri/giris");
+          return;
+        }
+        const data = await res.json();
+        const profileCity = data.profile?.city?.trim() ?? "";
+        const profileDistrict = data.profile?.district?.trim() ?? "";
+        const params = new URLSearchParams(searchParams.toString());
+        if (profileCity) {
+          params.set("city", profileCity);
+          if (profileDistrict) params.set("district", profileDistrict);
+          router.replace(`/musteri/teklifler?${params.toString()}`);
+        } else {
+          setLocationReady(true);
+        }
+      } catch {
+        if (!cancelled) setLocationReady(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (searchParams.get("city") || locationReady) {
+      setLocationReady(true);
+    }
+  }, [searchParams, locationReady]);
+
   const loadQuotes = useCallback(
     async (nextOffset: number, append: boolean) => {
       const params = new URLSearchParams({
@@ -141,6 +194,8 @@ export default function CustomerQuotesList() {
         tab,
       });
       if (searchQuery) params.set("q", searchQuery);
+      if (filterCity) params.set("city", filterCity);
+      if (filterDistrict) params.set("district", filterDistrict);
 
       const res = await fetch(`/api/musteri/talepler?${params.toString()}`, {
         credentials: "same-origin",
@@ -157,15 +212,16 @@ export default function CustomerQuotesList() {
       setQuotes((prev) => (append ? [...prev, ...(data.quotes ?? [])] : (data.quotes ?? [])));
       return data;
     },
-    [router, searchQuery, tab]
+    [router, searchQuery, tab, filterCity, filterDistrict]
   );
 
   useEffect(() => {
+    if (!locationReady) return;
     setLoading(true);
     loadQuotes(0, false)
       .catch((err) => setError(err instanceof Error ? err.message : "Yüklenemedi"))
       .finally(() => setLoading(false));
-  }, [loadQuotes]);
+  }, [loadQuotes, locationReady]);
 
   useEffect(() => {
     setSearchInput(searchQuery);
@@ -180,7 +236,7 @@ export default function CustomerQuotesList() {
     return "Henüz teklif gelmemiş veya onay bekleyen talepler";
   }, [tab]);
 
-  if (loading && quotes.length === 0) {
+  if (!locationReady || (loading && quotes.length === 0)) {
     return (
       <div className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
@@ -197,28 +253,82 @@ export default function CustomerQuotesList() {
 
   return (
     <div className="space-y-5">
+      <Link
+        href="/hizmetler"
+        className="inline-flex rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+      >
+        + Yeni Talep
+      </Link>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <PanelStatCard label="Toplam talep" value={tabCounts.total.toLocaleString("tr-TR")} />
         <PanelStatCard
           label="Gelen teklif"
           value={tabCounts.offers.toLocaleString("tr-TR")}
           tone="primary"
+          active={tab === "offers"}
+          onClick={() => setTab("offers")}
         />
         <PanelStatCard
           label="Pazarlık"
           value={tabCounts.negotiating.toLocaleString("tr-TR")}
           tone="primary"
+          active={tab === "negotiating"}
+          onClick={() => setTab("negotiating")}
         />
         <PanelStatCard
           label="Teklif bekleyen"
           value={tabCounts.waiting.toLocaleString("tr-TR")}
           tone="amber"
+          active={tab === "waiting"}
+          onClick={() => setTab("waiting")}
         />
         <PanelStatCard
           label="Bitmiş işler"
           value={tabCounts.finished.toLocaleString("tr-TR")}
           tone="emerald"
+          active={tab === "finished"}
+          onClick={() => setTab("finished")}
         />
+      </div>
+
+      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
+        <label className="flex min-w-[160px] flex-col gap-1 text-xs text-muted-foreground">
+          İl
+          <select
+            value={filterCity || "__all__"}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "__all__") setLocationFilter("", "");
+              else setLocationFilter(v, "");
+            }}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+          >
+            <option value="__all__">Tüm iller</option>
+            {cities.map((city) => (
+              <option key={city} value={city}>
+                {city}
+              </option>
+            ))}
+          </select>
+        </label>
+        {filterCity ? (
+          <label className="flex min-w-[160px] flex-col gap-1 text-xs text-muted-foreground">
+            İlçe
+            <select
+              value={filterDistrict}
+              onChange={(e) => setLocationFilter(filterCity, e.target.value)}
+              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+            >
+              <option value="">Tüm ilçeler</option>
+              {getDistricts(filterCity).map((district) => (
+                <option key={district} value={district}>
+                  {district}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
       </div>
 
       <form
@@ -255,6 +365,12 @@ export default function CustomerQuotesList() {
       >
         <p className="mb-4 text-sm text-muted-foreground">
           {summaryHint}
+          {filterCity && (
+            <span className="ml-1">
+              · {filterCity}
+              {filterDistrict ? `, ${filterDistrict}` : ""}
+            </span>
+          )}
           {total > 0 && (
             <span className="ml-1">
               · {quotes.length.toLocaleString("tr-TR")}/{total.toLocaleString("tr-TR")} gösteriliyor

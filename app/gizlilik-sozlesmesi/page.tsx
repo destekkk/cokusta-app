@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         <ul className="list-disc space-y-2 pl-5">
           <li>Kimlik ve iletişim bilgileri (ad, soyad, telefon, e-posta, adres)</li>
           <li>Hizmet talebi ve teklif geçmişi</li>
-          <li>Ödeme işlem bilgileri (kart bilgileri {companyInfo.paymentProvider} tarafından işlenir, tarafımızca saklanmaz)</li>
+          <li>Ödeme ve fatura bilgileri (kart bilgileri tarafımızca saklanmaz; online ödeme duyurulduğunda lisanslı kuruluş üzerinden işlenir)</li>
           <li>IP adresi, çerez ve oturum verileri</li>
           <li>Değerlendirme ve yorum içerikleri</li>
         </ul>
@@ -45,8 +45,8 @@ export default function PrivacyPage() {
       <section className="space-y-4">
         <h2 className="text-lg font-bold text-foreground">4. Verilerin Aktarımı</h2>
         <p>
-          Kişisel verileriniz; hizmet sağlayıcı ustalar, ödeme kuruluşu {companyInfo.paymentProvider},
-          barındırma ve altyapı hizmet sağlayıcıları ile yalnızca hizmetin ifası için gerekli
+          Kişisel verileriniz; hizmet sağlayıcı ustalar, ödeme ve muhasebe süreçlerinde yer alan
+          iş ortakları, barındırma ve altyapı hizmet sağlayıcıları ile yalnızca hizmetin ifası için gerekli
           ölçüde paylaşılabilir. Yurt dışına aktarım, KVKK&apos;nın 9. maddesi kapsamında
           gerekli güvenlik önlemleri alınarak yapılır.
         </p>
@@ -73,8 +73,8 @@ export default function PrivacyPage() {
       <section className="space-y-4">
         <h2 className="text-lg font-bold text-foreground">7. Güvenlik</h2>
         <p>
-          Verileriniz SSL/TLS şifreleme ile korunur. Ödeme bilgileri PCI DSS uyumlu {companyInfo.paymentProvider}
-          altyapısı üzerinden işlenir.
+          Verileriniz SSL/TLS şifreleme ile korunur. Online ödeme açıldığında kart işlemleri
+          lisanslı ve uyumlu ödeme altyapısı üzerinden yürütülür.
         </p>
       </section>
     </LegalPageLayout>

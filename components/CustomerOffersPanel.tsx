@@ -6,12 +6,11 @@ import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
 import CustomerProviderCallButton from "@/components/CustomerProviderCallButton";
 import CustomerOfferReviewForm from "@/components/CustomerOfferReviewForm";
 import JobEscrowCheckoutModal from "@/components/JobEscrowCheckoutModal";
-import QuoteLocationEditor from "@/components/QuoteLocationEditor";
 import ParamGuvendePaymentOption from "@/components/ParamGuvendePaymentOption";
 import ParamGuvendePitch from "@/components/ParamGuvendePitch";
 import SheetTabs from "@/components/panel/SheetTabs";
 import type { CustomerJobEscrowOrder, ProviderOffer, QuoteRequest } from "@/lib/types";
-import { getCurrentOfferPrice, getOfferLastActivityAt, sortOffersByLatestActivity } from "@/lib/offer-utils";
+import { getCurrentOfferPrice, sortOffersByLatestActivity } from "@/lib/offer-utils";
 import { computeParamGuvendeBreakdown } from "@/lib/param-guvende";
 
 type DetailTab = "teklifler" | "param-guvende";
@@ -28,8 +27,6 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
   const [offers, setOffers] = useState<ProviderOffer[]>([]);
   const [quoteStatus, setQuoteStatus] = useState("");
   const [escrow, setEscrow] = useState<CustomerJobEscrowOrder | null>(null);
-  const [quoteCity, setQuoteCity] = useState("");
-  const [quoteDistrict, setQuoteDistrict] = useState("");
   const [selectedPayOfferId, setSelectedPayOfferId] = useState<string | null>(null);
   const [checkoutOfferId, setCheckoutOfferId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
@@ -45,8 +42,6 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
     if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
     setOffers(data.offers ?? []);
     setQuoteStatus(data.quote?.status ?? "");
-    setQuoteCity(data.quote?.city ?? "");
-    setQuoteDistrict(data.quote?.district ?? "");
     setEscrow(data.escrow ?? null);
     setReady(true);
   };
@@ -134,20 +129,6 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
 
   const offersContent = (
     <>
-      {(quoteStatus === "open" || quoteStatus === "awaiting_review") && (
-        <QuoteLocationEditor
-          key={`${quoteCity}-${quoteDistrict}`}
-          quoteId={quoteId}
-          city={quoteCity}
-          district={quoteDistrict}
-          editable
-          onUpdated={(city, district) => {
-            setQuoteCity(city);
-            setQuoteDistrict(district);
-          }}
-        />
-      )}
-
       {quoteStatus === "awaiting_review" && (
         <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           Talebiniz admin onayı bekliyor. Onaylandıktan sonra ustalar teklif verebilecek.
@@ -161,91 +142,73 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
       )}
 
       {offers.length > 0 && (
-        <div className="space-y-4">
+        <div className="mx-auto flex max-w-md flex-col gap-3">
           {sortedOffers.map((offer) => {
             const isLatest = offer.id === latestOfferId && sortedOffers.length > 1;
             return (
               <article
                 key={offer.id}
-                className={`rounded-xl border bg-background p-4 sm:p-5 ${
+                className={`rounded-lg border bg-card p-3 shadow-sm ${
                   isLatest ? "border-primary/40 ring-1 ring-primary/15" : "border-border"
                 }`}
               >
-                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-base font-semibold text-foreground">
-                        {offer.providerName ?? "Usta"}
-                      </p>
-                      {isLatest && (
-                        <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                          En güncel usta teklifi
-                        </span>
-                      )}
-                    </div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-foreground">
+                      {offer.providerName ?? "Usta"}
+                    </p>
                     {offer.providerCity && (
-                      <p className="mt-1 text-sm text-muted-foreground">{offer.providerCity}</p>
+                      <p className="text-xs text-muted-foreground">{offer.providerCity}</p>
                     )}
                   </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Güncel fiyat</p>
-                    <p className="text-xl font-bold text-primary">
-                      {getCurrentOfferPrice(offer).toLocaleString("tr-TR")} ₺
-                    </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      Son güncelleme:{" "}
-                      {new Date(getOfferLastActivityAt(offer)).toLocaleString("tr-TR", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </p>
-                  </div>
+                  {isLatest && (
+                    <span className="shrink-0 rounded bg-primary/10 px-1.5 py-0.5 text-[9px] font-bold uppercase text-primary">
+                      Güncel
+                    </span>
+                  )}
                 </div>
 
-                <div className="mt-4">
-                  <OfferNegotiationPanel
-                    offer={offer}
-                    role="customer"
-                    loading={loading}
-                    paymentLocked={escrowPaid && escrow?.offerId === offer.id}
-                    onAgree={() => negotiate(offer.id, "agree")}
-                    onCounter={(price, message) => negotiate(offer.id, "counter", price, message)}
-                    onWithdraw={() => {
-                      if (
-                        confirm(
-                          "Bu ustayla anlaşmaktan vazgeçmek istediğinize emin misiniz? Ödeme seçiminiz de iptal olur."
-                        )
-                      ) {
-                        negotiate(offer.id, "withdraw");
-                      }
-                    }}
-                  />
-                  <CustomerProviderCallButton
-                    quoteId={quoteId}
-                    quoteStatus={quoteStatus as QuoteRequest["status"]}
-                    offer={offer}
-                    onContactRecorded={(updated) => {
-                      setOffers((prev) =>
-                        prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o))
-                      );
-                    }}
-                  />
-                  <CustomerOfferReviewForm
-                    quoteId={quoteId}
-                    offer={offer}
-                    onSubmitted={(review) => {
-                      setOffers((prev) =>
-                        prev.map((o) =>
-                          o.id === offer.id
-                            ? { ...o, customerReview: review, canReview: false }
-                            : o
-                        )
-                      );
-                    }}
-                  />
-                </div>
+                <OfferNegotiationPanel
+                  offer={offer}
+                  role="customer"
+                  variant="compact"
+                  loading={loading}
+                  paymentLocked={escrowPaid && escrow?.offerId === offer.id}
+                  onAgree={() => negotiate(offer.id, "agree")}
+                  onCounter={(price, message) => negotiate(offer.id, "counter", price, message)}
+                  onWithdraw={() => {
+                    if (
+                      confirm(
+                        "Bu ustayla anlaşmaktan vazgeçmek istediğinize emin misiniz? Ödeme seçiminiz de iptal olur."
+                      )
+                    ) {
+                      negotiate(offer.id, "withdraw");
+                    }
+                  }}
+                />
+                <CustomerProviderCallButton
+                  compact
+                  quoteId={quoteId}
+                  quoteStatus={quoteStatus as QuoteRequest["status"]}
+                  offer={offer}
+                  onContactRecorded={(updated) => {
+                    setOffers((prev) =>
+                      prev.map((o) => (o.id === updated.id ? { ...o, ...updated } : o))
+                    );
+                  }}
+                />
+                <CustomerOfferReviewForm
+                  compact
+                  quoteId={quoteId}
+                  offer={offer}
+                  onSubmitted={(review) => {
+                    setOffers((prev) =>
+                      prev.map((o) =>
+                        o.id === offer.id ? { ...o, customerReview: review, canReview: false } : o
+                      )
+                    );
+                  }}
+                />
               </article>
             );
           })}
@@ -292,7 +255,8 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
       {!escrowPaid && payableOffers.length > 0 && (
         <>
           <p className="text-sm text-muted-foreground">
-            Anlaştığınız ustanın teklifini seçin ve ödeme ekranına geçin.
+            Anlaştığınız usta ve tahmini tutar aşağıda. Kart ile online ödeme geçici olarak kapalı;
+            ödeme koşulları için destek ekibimizle iletişime geçin.
           </p>
           <div className="space-y-2">
             {payableOffers.map((offer) => (
@@ -302,7 +266,7 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
                 providerName={offer.providerName ?? "Usta"}
                 breakdown={computeParamGuvendeBreakdown(getCurrentOfferPrice(offer))}
                 selected={selectedPayOfferId === offer.id}
-                disabled={loading}
+                disabled
                 onSelect={setSelectedPayOfferId}
               />
             ))}
@@ -311,9 +275,9 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
             type="button"
             disabled={loading || !selectedPayOfferId}
             onClick={() => selectedPayOfferId && setCheckoutOfferId(selectedPayOfferId)}
-            className="w-full rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-50 sm:w-auto"
+            className="w-full rounded-lg border border-primary bg-primary/5 px-5 py-2.5 text-sm font-semibold text-primary hover:bg-primary/10 disabled:opacity-50 sm:w-auto"
           >
-            Ödeme ekranına geç
+            Tutar özeti ve iletişim
           </button>
         </>
       )}
@@ -329,13 +293,13 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        <strong>{serviceName}</strong> — usta teklifleri, pazarlık ve güvenli ödeme için alttaki
-        sekmeleri kullanın.
+      <p className="mx-auto max-w-md text-center text-xs text-muted-foreground">
+        Pazarlık ve güvenli ödeme için sekmeleri kullanın.
       </p>
 
       {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
+      <div className="mx-auto max-w-md">
       <SheetTabs
         activeId={detailTab}
         onChange={(id) => setDetailTab(id as DetailTab)}
@@ -344,17 +308,13 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
       >
         {detailTab === "param-guvende" ? paramContent : offersContent}
       </SheetTabs>
+      </div>
 
-      {checkoutOfferId && checkoutOffer && checkoutBreakdown && (
+      {checkoutOfferId && checkoutBreakdown && (
         <JobEscrowCheckoutModal
-          quoteId={quoteId}
-          offerId={checkoutOfferId}
           serviceName={serviceName}
           breakdown={checkoutBreakdown}
-          onClose={() => {
-            setCheckoutOfferId(null);
-            loadOffers().catch(() => {});
-          }}
+          onClose={() => setCheckoutOfferId(null)}
         />
       )}
     </div>

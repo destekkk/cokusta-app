@@ -1,6 +1,5 @@
 import Link from "next/link";
 import LegalPageLayout from "@/components/LegalPageLayout";
-import PaymentBadges from "@/components/PaymentBadges";
 import { companyInfo } from "@/lib/data/company";
 
 export const metadata = {
@@ -24,7 +23,7 @@ const principles = [
   },
   {
     title: "Güvenli ödeme altyapısı",
-    text: "Online ödemeler lisanslı ödeme kuruluşu iyzico üzerinden alınır. Kart bilgileriniz platformda saklanmaz.",
+    text: "Online kart ödemesi geçici olarak kapalıdır; kontör ve güvenli ödeme işlemleri için destek ekibimizle iletişime geçilir.",
   },
   {
     title: "Müşteri odaklı deneyim",
@@ -112,10 +111,10 @@ export default function AboutPage() {
           <div>
             <h3 className="font-semibold text-foreground">Ödemeler güvende mi?</h3>
             <p className="mt-1">
-              Evet. Tüm kartlı ödemeler {companyInfo.paymentProvider} güvenli ödeme altyapısı
-              üzerinden işlenir; kart bilgileriniz {companyInfo.brand} tarafından saklanmaz.
+              Online kart ödemesi şu an kapalıdır. Kontör ve güvenli ödeme işlemleri için{" "}
+              {companyInfo.email} veya WhatsApp destek hattımız üzerinden yönlendirme yapılır;
+              kart bilgileriniz {companyInfo.brand} sunucularında saklanmaz.
             </p>
-            <PaymentBadges variant="light" className="mt-3" />
           </div>
         </div>
       </section>

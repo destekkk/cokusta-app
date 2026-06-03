@@ -19,12 +19,11 @@ export default async function CustomerOffersPage({ params }: Props) {
   return (
     <div className="min-h-full bg-background">
       <Header />
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
         <CustomerPanelHeader
           title="Tekliflerim"
           subtitle={`${quote.serviceName} · ${location} · Talep No: ${quote.id}`}
           backHref="/musteri/teklifler"
-          showNewRequest={false}
         />
         <div className="mt-8">
           <CustomerOffersPanel quoteId={quote.id} serviceName={quote.serviceName} />

@@ -189,15 +189,17 @@ export default function UstaMyOffersPanel({
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-xl border border-border bg-background md:block">
-        <table className="w-full min-w-[960px] text-sm">
+      <div className="hidden min-w-0 w-full overflow-x-auto rounded-xl border border-border bg-background md:block">
+        <table className="w-full min-w-[720px] text-sm">
           <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
               <th className="px-4 py-3">Hizmet</th>
-              <th className="px-4 py-3">Konum</th>
-              <th className="px-4 py-3">Teklif</th>
+              <th className="whitespace-nowrap px-4 py-3">Konum</th>
+              <th className="whitespace-nowrap px-4 py-3">Teklif</th>
               <th className="px-4 py-3">Durum</th>
-              <th className="px-4 py-3">İşlem</th>
+              <th className="sticky right-0 z-[1] whitespace-nowrap bg-muted/40 px-4 py-3 text-right shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.12)]">
+                İşlem
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -218,7 +220,7 @@ export default function UstaMyOffersPanel({
                 <td className="px-4 py-3">
                   {statusBadge(item)}
                 </td>
-                <td className="px-4 py-3">
+                <td className="sticky right-0 z-[1] bg-background px-4 py-3 text-right shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.08)]">
                   {mode !== "done" &&
                   mode !== "escrow" &&
                   item.offer.status === "pending" &&

@@ -13,6 +13,5 @@ if (res.status === 200 && cookie) {
     headers: { cookie: cookie.split(";")[0] },
     redirect: "manual",
   });
-  console.log("admin status:", adminRes.status);
-  console.log("admin location:", adminRes.headers.get("location"));
+  console.log("/admin status (expect 404):", adminRes.status);
 }

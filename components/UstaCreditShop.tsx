@@ -7,7 +7,6 @@ import {
   creditPackages,
   formatCreditPrice,
   getBadgeLabel,
-  getShopPackage,
   platformShopPackages,
 } from "@/lib/credit-packages";
 import { COKUSTA_CREDIT_PRICE } from "@/lib/pricing";
@@ -17,49 +16,39 @@ import {
   computeDebtSettlementAmount,
   MAX_CREDIT_DEBT,
 } from "@/lib/credit-debt";
-import IyzicoCheckoutModal from "@/components/IyzicoCheckoutModal";
-import PaymentBadges from "@/components/PaymentBadges";
+import BorcKredisiAlert from "@/components/BorcKredisiAlert";
+import OnlinePaymentsNotice from "@/components/OnlinePaymentsNotice";
 
 type Props = {
   initialBalance: number;
   initialCreditDebt: number;
-  iyzicoConfigured: boolean;
 };
 
-export default function UstaCreditShop({
-  initialBalance,
-  initialCreditDebt,
-  iyzicoConfigured,
-}: Props) {
+export default function UstaCreditShop({ initialBalance, initialCreditDebt }: Props) {
   const searchParams = useSearchParams();
   const noCredit = searchParams.get("reason") === "no-credit";
-  const [balance, setBalance] = useState(initialBalance);
-  const [creditDebt, setCreditDebt] = useState(initialCreditDebt);
-  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const selected = selectedSlug ? getShopPackage(selectedSlug) : undefined;
+  const [balance] = useState(initialBalance);
+  const [creditDebt] = useState(initialCreditDebt);
 
   const bulkPackages = creditPackages.filter((p) => p.credits > 1);
   const singlePackage = creditPackages.find((p) => p.slug === "kontor-tek");
+  const singleCheckout = singlePackage
+    ? computeCheckoutTotal(singlePackage.price, creditDebt)
+    : null;
   const platformPackages = platformShopPackages;
-
-  const refreshBalance = () => {
-    fetch("/api/usta/talepler")
-      .then((r) => r.json())
-      .then((d) => {
-        setBalance(d.creditBalance ?? balance);
-        setCreditDebt(d.creditDebt ?? creditDebt);
-      })
-      .catch(() => {});
-  };
 
   return (
     <div className="space-y-6">
       {noCredit && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <strong>Kontörünüz bitti.</strong> Borç kredisi limitiniz dolduysa paket satın alın; ödeme
-          sırasında borç krediniz de tahsil edilir.
+          <strong>Kontörünüz bitti.</strong> Yeni kontör için aşağıdaki iletişim kanallarından bize
+          ulaşın; admin panelinden hesabınıza yüklenebilir.
         </div>
       )}
+
+      <BorcKredisiAlert creditDebt={creditDebt} />
+
+      <OnlinePaymentsNotice variant="usta-kontor" />
 
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -83,29 +72,13 @@ export default function UstaCreditShop({
         </div>
       </div>
 
-      {creditDebt > 0 && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <strong>Borç krediniz var.</strong> Paket satın alırken{" "}
-          {formatCreditPrice(computeDebtSettlementAmount(creditDebt))} tutarındaki borç kredisi
-          paket fiyatına eklenerek tahsil edilecektir.
-        </div>
-      )}
-
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
-        <p className="font-semibold text-primary">Uygun kontör fiyatları</p>
+        <p className="font-semibold text-primary">Güncel fiyat listesi</p>
         <p className="mt-1 text-muted-foreground">
-          Tek kontör {COKUSTA_CREDIT_PRICE} ₺. Toplu paketlerde kontör başı maliyet düşer.
+          Tek kontör {COKUSTA_CREDIT_PRICE} ₺. Toplu paketlerde kontör başı maliyet düşer. Satın alma
+          işlemi destek ekibi üzerinden yapılır.
         </p>
-        <div className="mt-3">
-          <PaymentBadges variant="light" />
-        </div>
       </div>
-
-      {!iyzicoConfigured && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Ödeme sistemi yapılandırılmamış. <code className="text-xs">IYZICO_API_KEY</code> tanımlayın.
-        </div>
-      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {bulkPackages.map((pkg) => {
@@ -114,10 +87,10 @@ export default function UstaCreditShop({
           return (
             <article
               key={pkg.slug}
-              className={`relative rounded-xl border p-5 transition ${
+              className={`relative rounded-xl border p-5 ${
                 pkg.badge === "popular"
-                  ? "border-primary bg-primary/5 shadow-md ring-1 ring-primary/20"
-                  : "border-border bg-card hover:border-primary/40"
+                  ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                  : "border-border bg-card"
               }`}
             >
               {badge && (
@@ -154,14 +127,6 @@ export default function UstaCreditShop({
                   </span>
                 )}
               </p>
-              <button
-                type="button"
-                disabled={!iyzicoConfigured}
-                onClick={() => setSelectedSlug(pkg.slug)}
-                className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-50"
-              >
-                Satın Al
-              </button>
             </article>
           );
         })}
@@ -172,60 +137,39 @@ export default function UstaCreditShop({
           <div>
             <h2 className="text-lg font-bold text-foreground">Platform hizmetleri</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Profil öne çıkarma ve doğrulanmış rozet — kart ile güvenli ödeme.
+              Profil öne çıkarma ve doğrulanmış rozet — satın alma için iletişime geçin.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             {platformPackages.map((pkg) => (
-              <article
-                key={pkg.slug}
-                className="rounded-xl border border-border bg-card p-5 transition hover:border-primary/40"
-              >
+              <article key={pkg.slug} className="rounded-xl border border-border bg-card p-5">
                 <h3 className="text-lg font-bold">{pkg.name}</h3>
                 <p className="mt-1 min-h-[40px] text-sm text-muted-foreground">{pkg.description}</p>
                 <p className="mt-4 text-2xl font-bold">{formatCreditPrice(pkg.price)}</p>
                 {pkg.unitLabel && (
                   <p className="mt-1 text-xs text-muted-foreground">{pkg.unitLabel} abonelik</p>
                 )}
-                <button
-                  type="button"
-                  disabled={!iyzicoConfigured}
-                  onClick={() => setSelectedSlug(pkg.slug)}
-                  className="mt-4 w-full rounded-xl border border-primary bg-primary/5 py-3 text-sm font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
-                >
-                  Satın Al
-                </button>
               </article>
             ))}
           </div>
         </section>
       )}
 
-      {singlePackage && (
+      {singlePackage && singleCheckout && (
         <article className="rounded-xl border border-dashed border-border bg-muted/30 p-5">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <h2 className="font-bold">{singlePackage.name}</h2>
-              <p className="text-sm text-muted-foreground">{singlePackage.description}</p>
-            </div>
-            <div className="text-right">
-              <p className="text-xl font-bold">
-                {creditDebt > 0
-                  ? formatCreditPrice(
-                      computeCheckoutTotal(singlePackage.price, creditDebt).totalAmount
-                    )
-                  : formatCreditPrice(singlePackage.price)}
-              </p>
-            </div>
-            <button
-              type="button"
-              disabled={!iyzicoConfigured}
-              onClick={() => setSelectedSlug(singlePackage.slug)}
-              className="rounded-xl border border-primary px-5 py-2.5 text-sm font-semibold text-primary hover:bg-primary/5 disabled:opacity-50"
-            >
-              Tek Kontör Al
-            </button>
-          </div>
+          <h2 className="text-lg font-bold">{singlePackage.name}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{singlePackage.description}</p>
+          <p className="mt-4 text-2xl font-bold">
+            {creditDebt > 0
+              ? formatCreditPrice(singleCheckout.totalAmount)
+              : formatCreditPrice(singlePackage.price)}
+          </p>
+          {creditDebt > 0 && (
+            <p className="mt-1 text-xs text-amber-700">
+              {formatCreditPrice(singlePackage.price)} kontör +{" "}
+              {formatCreditPrice(singleCheckout.debtAmount)} borç bakiyesi
+            </p>
+          )}
         </article>
       )}
 
@@ -237,20 +181,6 @@ export default function UstaCreditShop({
           ← Açık Taleplere Dön
         </Link>
       </div>
-
-      {selected && (
-        <IyzicoCheckoutModal
-          packageSlug={selected.slug}
-          packageName={selected.name}
-          price={selected.price}
-          credits={selected.credits}
-          creditDebt={creditDebt}
-          onClose={() => {
-            setSelectedSlug(null);
-            refreshBalance();
-          }}
-        />
-      )}
     </div>
   );
 }

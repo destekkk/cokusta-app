@@ -58,7 +58,10 @@ import {
 import { MAX_PORTFOLIO_ITEMS } from "./portfolio-upload";
 import { PROVIDER_PHONE_EXISTS } from "./provider-registration";
 import { normalizeProviderPhone, phonesEqual } from "./phone-utils";
-import type { CustomerQuotesListFilter } from "./customer-quotes-filter";
+import {
+  quoteMatchesLocationFilter,
+  type CustomerQuotesListFilter,
+} from "./customer-quotes-filter";
 import { classifyCustomerQuoteTab } from "./negotiation-tabs";
 
 type StoredProvider = ProviderRegistration & { pinHash?: string | null };
@@ -258,12 +261,12 @@ export async function countQuoteRequestsByPhone(phone: string): Promise<number> 
 
 async function filterCustomerQuotes(phone: string, filter?: CustomerQuotesListFilter) {
   const store = await ensureStore();
-  const offerCounts: Record<string, number> = {};
-  for (const offer of store.providerOffers ?? []) {
-    offerCounts[offer.quoteRequestId] = (offerCounts[offer.quoteRequestId] ?? 0) + 1;
-  }
 
   let list = store.quoteRequests.filter((quote) => phonesEqual(quote.phone, phone));
+
+  if (filter?.city?.trim()) {
+    list = list.filter((q) => quoteMatchesLocationFilter(q, filter));
+  }
 
   const search = filter?.search?.trim().toLocaleLowerCase("tr-TR");
   if (search) {
@@ -291,7 +294,10 @@ export async function countCustomerQuotesByPhone(
   return list.length;
 }
 
-export async function getCustomerQuoteTabCounts(phone: string): Promise<{
+export async function getCustomerQuoteTabCounts(
+  phone: string,
+  filter?: Pick<CustomerQuotesListFilter, "city" | "district" | "search">
+): Promise<{
   waiting: number;
   offers: number;
   negotiating: number;
@@ -299,18 +305,17 @@ export async function getCustomerQuoteTabCounts(phone: string): Promise<{
   total: number;
 }> {
   const store = await ensureStore();
-  const offerCounts: Record<string, number> = {};
-  for (const offer of store.providerOffers ?? []) {
-    offerCounts[offer.quoteRequestId] = (offerCounts[offer.quoteRequestId] ?? 0) + 1;
-  }
 
   let waiting = 0;
   let offers = 0;
   let negotiating = 0;
   let finished = 0;
   let total = 0;
+  const search = filter?.search?.trim().toLocaleLowerCase("tr-TR");
   for (const quote of store.quoteRequests) {
     if (!phonesEqual(quote.phone, phone)) continue;
+    if (filter?.city?.trim() && !quoteMatchesLocationFilter(quote, filter)) continue;
+    if (search && !quote.serviceName.toLocaleLowerCase("tr-TR").includes(search)) continue;
     total++;
     const offersForQuote = (store.providerOffers ?? []).filter(
       (o) => o.quoteRequestId === quote.id && o.status !== "withdrawn"

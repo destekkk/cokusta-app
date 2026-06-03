@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/sltn/", "/api/admin/", "/teklif-al/onay", "/usta-ol/onay"],
+      disallow: ["/admin", "/admin/", "/sltn/", "/api/admin/", "/teklif-al/onay", "/usta-ol/onay"],
     },
     sitemap: `${base}/sitemap.xml`,
   };

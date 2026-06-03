@@ -7,11 +7,6 @@ import { CUSTOMER_COOKIE, getCustomerSessionFromToken } from "@/lib/customer-ses
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
-    const target = pathname.replace(/^\/admin/, "/sltn") || "/sltn";
-    return NextResponse.redirect(new URL(target, request.url), 308);
-  }
-
   if (pathname.startsWith("/usta/kontor/sonuc")) return NextResponse.next();
   if (pathname.startsWith("/musteri/kontor/sonuc")) return NextResponse.next();
 
@@ -57,8 +52,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/admin",
-    "/admin/:path*",
     "/sltn",
     "/sltn/:path*",
     "/usta/teklifler",

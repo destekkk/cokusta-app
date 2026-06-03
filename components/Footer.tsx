@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Logo from "./Logo";
-import PaymentBadges from "./PaymentBadges";
 import { companyInfo } from "@/lib/data/company";
 import { TOP_CITIES, toSlug } from "@/lib/seo/slugs";
 
@@ -21,9 +20,8 @@ export default function Footer() {
           <div>
             <Logo variant="dark" size="sm" />
             <p className="mt-3 text-sm leading-relaxed text-white/65">
-              Profesyonel hizmet pazaryeri. Doğrulanmış ustalar, şeffaf süreç, güvenli ödeme.
+              Profesyonel hizmet pazaryeri. Doğrulanmış ustalar, şeffaf süreç.
             </p>
-            <PaymentBadges className="mt-5" />
           </div>
           <div>
             <h4 className="text-xs font-semibold uppercase tracking-wider text-white/90">
@@ -158,9 +156,9 @@ export default function Footer() {
             <Link href="/hakkimizda" className="text-white/60 transition hover:text-white">
               Hakkımızda
             </Link>
-            <span className="text-xs text-white/40">
-              Ödemeler iyzico güvenli ödeme altyapısı ile alınmaktadır.
-            </span>
+            <Link href="/iletisim" className="text-xs text-white/40 transition hover:text-white/70">
+              Ödeme ve kontör: {companyInfo.email}
+            </Link>
           </div>
         </div>
       </div>

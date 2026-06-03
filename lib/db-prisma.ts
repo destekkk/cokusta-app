@@ -305,12 +305,35 @@ export async function countQuoteRequestsByPhone(phone: string): Promise<number> 
   return prisma.quoteRequest.count({ where: { phone: normalized } });
 }
 
+function customerLocationWhere(
+  filter?: Pick<CustomerQuotesListFilter, "city" | "district">
+): Prisma.QuoteRequestWhereInput {
+  const clause: Prisma.QuoteRequestWhereInput = {};
+  if (filter?.city?.trim()) {
+    clause.city = { equals: filter.city.trim(), mode: "insensitive" };
+  }
+  if (filter?.district?.trim()) {
+    clause.district = { equals: filter.district.trim(), mode: "insensitive" };
+  }
+  return clause;
+}
+
+function mergeCustomerWhere(
+  base: Prisma.QuoteRequestWhereInput,
+  extra: Prisma.QuoteRequestWhereInput
+): Prisma.QuoteRequestWhereInput {
+  const keys = Object.keys(extra);
+  if (keys.length === 0) return base;
+  return { AND: [base, extra] };
+}
+
 function buildCustomerQuotesWhere(
   phone: string,
   filter?: CustomerQuotesListFilter
 ): Prisma.QuoteRequestWhereInput {
   const normalized = normalizeProviderPhone(phone);
   const search = filter?.search?.trim();
+  const location = customerLocationWhere(filter);
 
   const tabClause: Prisma.QuoteRequestWhereInput | null =
     filter?.tab === "waiting"
@@ -330,33 +353,43 @@ function buildCustomerQuotesWhere(
           : null;
 
   if (search && tabClause) {
-    return {
-      phone: normalized,
-      serviceName: { contains: search, mode: "insensitive" as const },
-      AND: [tabClause],
-    };
+    return mergeCustomerWhere(
+      {
+        phone: normalized,
+        serviceName: { contains: search, mode: "insensitive" as const },
+        ...tabClause,
+      },
+      location
+    );
   }
 
   if (search) {
-    return {
-      phone: normalized,
-      serviceName: { contains: search, mode: "insensitive" as const },
-    };
+    return mergeCustomerWhere(
+      {
+        phone: normalized,
+        serviceName: { contains: search, mode: "insensitive" as const },
+      },
+      location
+    );
   }
 
   if (tabClause) {
-    return { phone: normalized, ...tabClause };
+    return mergeCustomerWhere({ phone: normalized, ...tabClause }, location);
   }
 
-  return { phone: normalized };
+  return mergeCustomerWhere({ phone: normalized }, location);
 }
 
-async function listCustomerQuoteItemsForTabs(phone: string, search?: string) {
+async function listCustomerQuoteItemsForTabs(
+  phone: string,
+  filter?: Pick<CustomerQuotesListFilter, "search" | "city" | "district">
+) {
   const normalized = normalizeProviderPhone(phone);
-  const where: Prisma.QuoteRequestWhereInput = { phone: normalized };
-  if (search) {
-    where.serviceName = { contains: search, mode: "insensitive" };
+  let where: Prisma.QuoteRequestWhereInput = { phone: normalized };
+  if (filter?.search) {
+    where.serviceName = { contains: filter.search, mode: "insensitive" };
   }
+  where = mergeCustomerWhere(where, customerLocationWhere(filter));
   const rows = await prisma.quoteRequest.findMany({
     where,
     orderBy: { createdAt: "desc" },
@@ -395,7 +428,7 @@ export async function countCustomerQuotesByPhone(
 ): Promise<number> {
   if (filter?.tab === "offers" || filter?.tab === "negotiating") {
     const items = filterCustomerItemsByTab(
-      await listCustomerQuoteItemsForTabs(phone, filter.search),
+      await listCustomerQuoteItemsForTabs(phone, filter),
       filter.tab
     );
     return items.length;
@@ -403,14 +436,17 @@ export async function countCustomerQuotesByPhone(
   return prisma.quoteRequest.count({ where: buildCustomerQuotesWhere(phone, filter) });
 }
 
-export async function getCustomerQuoteTabCounts(phone: string): Promise<{
+export async function getCustomerQuoteTabCounts(
+  phone: string,
+  filter?: Pick<CustomerQuotesListFilter, "city" | "district" | "search">
+): Promise<{
   waiting: number;
   offers: number;
   negotiating: number;
   finished: number;
   total: number;
 }> {
-  const items = await listCustomerQuoteItemsForTabs(phone);
+  const items = await listCustomerQuoteItemsForTabs(phone, filter);
   let waiting = 0;
   let offers = 0;
   let negotiating = 0;
@@ -430,7 +466,7 @@ export async function getQuoteRequestsByPhone(
 ): Promise<QuoteRequest[]> {
   if (options?.tab === "offers" || options?.tab === "negotiating") {
     const items = filterCustomerItemsByTab(
-      await listCustomerQuoteItemsForTabs(phone, options.search),
+      await listCustomerQuoteItemsForTabs(phone, options),
       options.tab
     );
     const offset = options.offset ?? 0;

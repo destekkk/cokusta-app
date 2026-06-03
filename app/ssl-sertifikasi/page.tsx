@@ -1,6 +1,5 @@
 import { Lock, ShieldCheck } from "lucide-react";
 import LegalPageLayout from "@/components/LegalPageLayout";
-import PaymentBadges from "@/components/PaymentBadges";
 import { companyInfo } from "@/lib/data/company";
 
 export const metadata = {
@@ -38,7 +37,7 @@ export default function SslPage() {
         <ul className="list-disc space-y-2 pl-5">
           <li>Kişisel bilgileriniz ve ödeme verileriniz üçüncü taraflarca okunamaz.</li>
           <li>Form gönderimleri ve oturum bilgileri güvenli kanal üzerinden iletilir.</li>
-          <li>Ödeme işlemleri {companyInfo.paymentProvider} altyapısı ile ek güvenlik katmanına sahiptir.</li>
+          <li>Ödeme talepleri destek ekibimiz üzerinden yönlendirilir; site trafiği SSL ile korunur.</li>
         </ul>
       </section>
 
@@ -48,10 +47,9 @@ export default function SslPage() {
           Ödeme Güvenliği
         </h2>
         <p>
-          Kredi kartı ödemeleriniz {companyInfo.brand} sunucularında saklanmaz. Kart bilgileriniz
-          doğrudan lisanslı ödeme kuruluşu {companyInfo.paymentProvider} tarafından işlenir.
+          Online kart ödemesi geçici olarak kapalıdır. {companyInfo.brand} sunucularında kart
+          bilgisi saklanmaz. Ödeme süreçleri için {companyInfo.email} adresine başvurunuz.
         </p>
-        <PaymentBadges variant="light" />
       </section>
 
       <section className="space-y-4">

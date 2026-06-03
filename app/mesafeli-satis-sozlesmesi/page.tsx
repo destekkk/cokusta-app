@@ -1,5 +1,4 @@
 import LegalPageLayout from "@/components/LegalPageLayout";
-import PaymentBadges from "@/components/PaymentBadges";
 import { companyInfo } from "@/lib/data/company";
 
 export const metadata = {
@@ -51,11 +50,10 @@ export default function DistanceSalesPage() {
       <section className="space-y-4">
         <h2 className="text-lg font-bold text-foreground">Madde 4 — Ödeme</h2>
         <p>
-          Ödemeler {companyInfo.paymentProvider} güvenli ödeme altyapısı aracılığıyla kredi kartı
-          (Visa, Mastercard) veya platformun sunduğu diğer yöntemlerle tahsil edilir. Kart
-          bilgileri Satıcı tarafından saklanmaz.
+          Ödemeler; havale/EFT, kurumsal süreç veya ileride duyurulacak online yöntemlerle
+          tahsil edilir. Kart bilgileri {companyInfo.brand} tarafından saklanmaz. Güncel ödeme
+          seçenekleri için {companyInfo.email} adresine başvurunuz.
         </p>
-        <PaymentBadges variant="light" />
       </section>
 
       <section className="space-y-4">

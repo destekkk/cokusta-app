@@ -14,6 +14,7 @@ import {
 type Props = {
   offer: ProviderOffer;
   role: "customer" | "provider";
+  variant?: "default" | "compact";
   loading?: boolean;
   paymentLocked?: boolean;
   onCounter: (price: number, message: string) => void;
@@ -38,12 +39,14 @@ function roleLabel(from: "customer" | "provider"): string {
 export default function OfferNegotiationPanel({
   offer,
   role,
+  variant = "default",
   loading = false,
   paymentLocked = false,
   onCounter,
   onAgree,
   onWithdraw,
 }: Props) {
+  const compact = variant === "compact";
   const [price, setPrice] = useState("");
   const [message, setMessage] = useState("");
   const [showCounter, setShowCounter] = useState(false);
@@ -69,55 +72,102 @@ export default function OfferNegotiationPanel({
     !!onWithdraw;
 
   return (
-    <div className="space-y-3">
+    <div className={compact ? "mt-2 space-y-2" : "space-y-3"}>
       {latestEntry ? (
-        <div className="rounded-xl border-2 border-primary/25 bg-primary/5 p-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
-              En son teklif
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {roleLabel(latestEntry.from)} · {formatOfferTime(latestEntry.createdAt)}
-            </span>
+        <div
+          className={
+            compact
+              ? "rounded-md border border-primary/20 bg-primary/5 px-2.5 py-2"
+              : "rounded-xl border-2 border-primary/25 bg-primary/5 p-4"
+          }
+        >
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span
+                className={
+                  compact
+                    ? "rounded bg-primary px-1.5 py-0.5 text-[9px] font-bold uppercase text-white"
+                    : "rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white"
+                }
+              >
+                En son teklif
+              </span>
+              <span className="text-[10px] text-muted-foreground sm:text-xs">
+                {roleLabel(latestEntry.from)} ·{" "}
+                {compact
+                  ? new Date(latestEntry.createdAt).toLocaleString("tr-TR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : formatOfferTime(latestEntry.createdAt)}
+              </span>
+            </div>
+            <p className={compact ? "text-lg font-bold text-primary" : "mt-3 text-2xl font-bold text-foreground"}>
+              {latestEntry.price.toLocaleString("tr-TR")} ₺
+            </p>
           </div>
-          <p className="mt-3 text-2xl font-bold text-foreground">
-            {latestEntry.price.toLocaleString("tr-TR")} ₺
-          </p>
-          <p className="mt-2 text-sm font-semibold leading-relaxed text-foreground">
+          <p
+            className={
+              compact
+                ? "mt-1 line-clamp-2 text-xs text-foreground"
+                : "mt-2 text-sm font-semibold leading-relaxed text-foreground"
+            }
+          >
             {latestEntry.message}
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-muted/30 p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">En son teklif</p>
-          <p className="mt-2 text-2xl font-bold text-foreground">
+        <div
+          className={
+            compact
+              ? "rounded-md border border-border bg-muted/30 px-2.5 py-2"
+              : "rounded-xl border border-border bg-muted/30 p-4"
+          }
+        >
+          <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+            En son teklif
+          </p>
+          <p className={compact ? "text-lg font-bold text-primary" : "mt-2 text-2xl font-bold text-foreground"}>
             {currentPrice.toLocaleString("tr-TR")} ₺
           </p>
         </div>
       )}
 
       {previousEntries.length > 0 && (
-        <div className="rounded-xl border border-border bg-card">
+        <div className={compact ? "" : "rounded-xl border border-border bg-card"}>
           <button
             type="button"
             onClick={() => setShowPrevious((value) => !value)}
-            className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-muted-foreground hover:text-foreground"
+            className={
+              compact
+                ? "text-xs font-medium text-primary hover:underline"
+                : "flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-muted-foreground hover:text-foreground"
+            }
           >
-            <span>Önceki teklifler ({previousEntries.length})</span>
-            <span className="text-xs">{showPrevious ? "Gizle" : "Göster"}</span>
+            <span>
+              Önceki teklifler ({previousEntries.length}) — {showPrevious ? "gizle" : "göster"}
+            </span>
+            {!compact && <span className="text-xs">{showPrevious ? "Gizle" : "Göster"}</span>}
           </button>
           {showPrevious && (
-            <div className="space-y-0 border-t border-border px-4 pb-4">
+            <div
+              className={
+                compact ? "mt-1 space-y-1.5 border-t border-border/60 pt-1.5" : "space-y-0 border-t border-border px-4 pb-4"
+              }
+            >
               {previousEntries.map((entry, index) => (
                 <div
                   key={`${entry.createdAt}-${index}`}
-                  className="border-t border-border/70 pt-3 first:border-t-0 first:pt-3"
+                  className={compact ? "text-[11px] text-muted-foreground" : "border-t border-border/70 pt-3 first:border-t-0 first:pt-3"}
                 >
-                  <p className="text-xs text-muted-foreground">
+                  <p className={compact ? "" : "text-xs text-muted-foreground"}>
                     {roleLabel(entry.from)} · {entry.price.toLocaleString("tr-TR")} ₺ ·{" "}
                     {formatOfferTime(entry.createdAt)}
                   </p>
-                  <p className="mt-1 text-sm text-muted-foreground">{entry.message}</p>
+                  {!compact && <p className="mt-1 text-sm text-muted-foreground">{entry.message}</p>}
+                  {compact && <span className="line-clamp-1"> · {entry.message}</span>}
                 </div>
               ))}
             </div>
@@ -160,25 +210,29 @@ export default function OfferNegotiationPanel({
       )}
 
       {role === "customer" && customerAgreed && !providerAgreed && (
-        <p className="text-xs text-amber-800">
-          Siz anlaştınız. Usta da onayladığında &quot;Ustayı ara&quot; ile telefonuna ulaşabilirsiniz.
+        <p className={compact ? "text-[10px] text-amber-800" : "text-xs text-amber-800"}>
+          Siz anlaştınız. Usta onaylayınca &quot;Ustayı ara&quot; açılır.
         </p>
       )}
 
       {role === "customer" && customerAgreed && providerAgreed && (
-        <p className="text-xs text-amber-800">
-          Karşılıklı anlaşma tamam. Usta telefonu için &quot;Ustayı ara&quot; butonunu kullanın.
+        <p className={compact ? "text-[10px] text-amber-800" : "text-xs text-amber-800"}>
+          Anlaşma tamam — &quot;Ustayı ara&quot; ile ulaşın.
         </p>
       )}
 
       {offer.status === "pending" && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {(role === "customer" ? canCustomerAgree : canProviderAgree) && (
             <button
               type="button"
               disabled={loading}
               onClick={onAgree}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              className={
+                compact
+                  ? "rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+                  : "rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              }
             >
               Anlaştık
             </button>
@@ -188,7 +242,11 @@ export default function OfferNegotiationPanel({
               type="button"
               disabled={loading}
               onClick={() => setShowCounter((v) => !v)}
-              className="rounded-lg border border-border px-4 py-2 text-sm font-semibold"
+              className={
+                compact
+                  ? "rounded-md border border-border px-3 py-1.5 text-xs font-semibold"
+                  : "rounded-lg border border-border px-4 py-2 text-sm font-semibold"
+              }
             >
               Karşı Teklif Ver
             </button>
@@ -198,9 +256,13 @@ export default function OfferNegotiationPanel({
               type="button"
               disabled={loading}
               onClick={onWithdraw}
-              className="rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+              className={
+                compact
+                  ? "rounded-md border border-red-300 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50"
+                  : "rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50"
+              }
             >
-              Anlaşmaktan vazgeç
+              Vazgeç
             </button>
           )}
         </div>

@@ -7,6 +7,7 @@ import { REVIEW_COMMENT_MIN } from "@/lib/provider-offer-reviews";
 type Props = {
   quoteId: string;
   offer: ProviderOffer;
+  compact?: boolean;
   onSubmitted: (review: ProviderOfferReviewSummary) => void;
 };
 
@@ -39,9 +40,17 @@ function StarPicker({
   );
 }
 
-function ReviewDisplay({ review }: { review: ProviderOfferReviewSummary }) {
+function ReviewDisplay({
+  review,
+  compact,
+}: {
+  review: ProviderOfferReviewSummary;
+  compact?: boolean;
+}) {
   return (
-    <div className="mt-3 rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+    <div
+      className={`${compact ? "mt-2 rounded-md px-2.5 py-2 text-xs" : "mt-3 rounded-lg px-4 py-3 text-sm"} border border-border bg-muted/30`}
+    >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-foreground">Değerlendirmeniz</span>
         <span className="text-amber-600" aria-hidden>
@@ -57,7 +66,12 @@ function ReviewDisplay({ review }: { review: ProviderOfferReviewSummary }) {
   );
 }
 
-export default function CustomerOfferReviewForm({ quoteId, offer, onSubmitted }: Props) {
+export default function CustomerOfferReviewForm({
+  quoteId,
+  offer,
+  compact = false,
+  onSubmitted,
+}: Props) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [loading, setLoading] = useState(false);
@@ -65,7 +79,7 @@ export default function CustomerOfferReviewForm({ quoteId, offer, onSubmitted }:
   const [open, setOpen] = useState(false);
 
   if (offer.customerReview) {
-    return <ReviewDisplay review={offer.customerReview} />;
+    return <ReviewDisplay review={offer.customerReview} compact={compact} />;
   }
 
   if (!offer.canReview) {
@@ -95,11 +109,15 @@ export default function CustomerOfferReviewForm({ quoteId, offer, onSubmitted }:
 
   if (!open) {
     return (
-      <div className="mt-3">
+      <div className={compact ? "mt-2" : "mt-3"}>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/50"
+          className={
+            compact
+              ? "text-xs font-semibold text-primary hover:underline"
+              : "rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/50"
+          }
         >
           Bu ustayı değerlendir
         </button>
@@ -108,7 +126,7 @@ export default function CustomerOfferReviewForm({ quoteId, offer, onSubmitted }:
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-border bg-card p-4">
+    <div className={`${compact ? "mt-2 rounded-md p-2.5" : "mt-3 rounded-lg p-4"} border border-border bg-card`}>
       <p className="text-sm font-semibold text-foreground">
         {offer.providerName ?? "Usta"} — değerlendirme
       </p>

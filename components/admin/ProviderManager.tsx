@@ -218,7 +218,7 @@ export default function ProviderManager({
                   <td className="px-4 py-4">
                     <div className="flex gap-2">
                       <Link
-                        href={`/usta/${provider.id}`}
+                        href={`/sltn/ustalar/${provider.id}`}
                         className="rounded border border-border px-2.5 py-1 text-xs hover:bg-accent"
                       >
                         Profil

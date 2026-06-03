@@ -1,14 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getCategoryName } from "@/lib/data/categories";
 import { MAX_CREDIT_DEBT, canActivateBorcKredisi, canSubmitOffer } from "@/lib/credit-debt";
 import UstaReferralCampaign from "@/components/UstaReferralCampaign";
 import UstaMyOffersPanel from "@/components/UstaMyOffersPanel";
-import UstaProfileLocationCard from "@/components/UstaProfileLocationCard";
-import UstaInboxPanel from "@/components/UstaInboxPanel";
+import BorcKredisiAlert from "@/components/BorcKredisiAlert";
 import ProviderPanelHeader from "@/components/ProviderPanelHeader";
 import SheetTabs from "@/components/panel/SheetTabs";
 import type { ProviderOffer } from "@/lib/types";
@@ -22,11 +21,19 @@ import {
 } from "@/lib/provider-offer-tabs";
 import {
   readProviderLocationFilter,
-  resetProviderLocationFilter,
   writeProviderLocationFilter,
 } from "@/lib/provider-location-storage";
 
 const KONTOR_URL = "/usta/kontor?reason=no-credit";
+const OPEN_QUOTES_PAGE_SIZE = 10;
+
+function getOpenQuotesPageNumbers(current: number, total: number): number[] {
+  if (total <= 12) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const set = new Set<number>([1, total, current, current - 1, current + 1, current - 2, current + 2]);
+  return [...set].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+}
 
 type OpenQuote = PublicQuoteRequest;
 
@@ -102,6 +109,7 @@ export default function UstaOpenQuotesPanel() {
   const [pendingCustomerAgreement, setPendingCustomerAgreement] = useState(false);
   const [locationReady, setLocationReady] = useState(true);
   const [savedFilterApplied, setSavedFilterApplied] = useState(false);
+  const [openQuotesPage, setOpenQuotesPage] = useState(1);
 
   useEffect(() => {
     if (!locationReady || !providerCity || savedFilterApplied) return;
@@ -163,6 +171,27 @@ export default function UstaOpenQuotesPanel() {
     if (!locationReady) return;
     load(location);
   }, [location, locationReady]);
+
+  useEffect(() => {
+    setOpenQuotesPage(1);
+  }, [location]);
+
+  const openQuotesPageCount = Math.max(1, Math.ceil(quotes.length / OPEN_QUOTES_PAGE_SIZE));
+  const safeOpenQuotesPage = Math.min(openQuotesPage, openQuotesPageCount);
+  const paginatedQuotes = useMemo(
+    () =>
+      quotes.slice(
+        (safeOpenQuotesPage - 1) * OPEN_QUOTES_PAGE_SIZE,
+        safeOpenQuotesPage * OPEN_QUOTES_PAGE_SIZE
+      ),
+    [quotes, safeOpenQuotesPage]
+  );
+
+  useEffect(() => {
+    if (openQuotesPage > openQuotesPageCount) {
+      setOpenQuotesPage(openQuotesPageCount);
+    }
+  }, [openQuotesPage, openQuotesPageCount]);
 
   const refreshOfferMeta = async () => {
     try {
@@ -349,6 +378,8 @@ export default function UstaOpenQuotesPanel() {
         escrowBalanceTl={escrowBalanceTl}
       />
 
+      {creditDebt > 0 && <BorcKredisiAlert creditDebt={creditDebt} />}
+
       {debtNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-card p-6 shadow-xl">
@@ -437,16 +468,12 @@ export default function UstaOpenQuotesPanel() {
         </p>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-start">
-        <div className="space-y-4">
-          {tab === "open" && borcKredisiPending && !canActivateDebt && (
+      <div className="min-w-0 space-y-4">
+          {tab === "open" && borcKredisiPending && creditDebt === 0 && !canActivateDebt && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-              <p className="font-semibold">
-                Borç krediniz aktif
-                {creditDebt > 0 ? ` (${creditDebt}/${MAX_CREDIT_DEBT} kontör)` : ""}
-              </p>
+              <p className="font-semibold">Borç krediniz aktif</p>
               <p className="mt-1 text-xs text-amber-900/90">
-                Kontör satın alırken borç krediniz de tahsil edilir.
+                Teklif verirken borç kredisi kullanabilirsiniz (en fazla {MAX_CREDIT_DEBT} kontör).
               </p>
             </div>
           )}
@@ -566,7 +593,7 @@ export default function UstaOpenQuotesPanel() {
       ) : (
         <>
           <div className="space-y-3 md:hidden">
-            {quotes.map((quote) => (
+            {paginatedQuotes.map((quote) => (
               <div key={quote.id} className="rounded-xl border border-border bg-card p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div>
@@ -639,18 +666,20 @@ export default function UstaOpenQuotesPanel() {
             ))}
           </div>
 
-          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
-            <table className="w-full min-w-[960px] text-sm">
+          <div className="hidden min-w-0 w-full overflow-x-auto rounded-xl border border-border bg-card md:block">
+            <table className="w-full min-w-[720px] text-sm">
             <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-4 py-3">Hizmet</th>
-                <th className="px-4 py-3">Konum</th>
-                <th className="px-4 py-3">Not</th>
-                <th className="px-4 py-3">İşlem</th>
+                <th className="whitespace-nowrap px-4 py-3">Konum</th>
+                <th className="min-w-[12rem] max-w-md px-4 py-3">Not</th>
+                <th className="sticky right-0 z-[1] whitespace-nowrap bg-muted/40 px-4 py-3 text-right shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.12)]">
+                  İşlem
+                </th>
               </tr>
             </thead>
             <tbody>
-              {quotes.map((quote) => (
+              {paginatedQuotes.map((quote) => (
                 <tr key={quote.id} className="border-t border-border align-top hover:bg-accent/10">
                   <td className="px-4 py-3 font-medium">
                     {quote.serviceName}
@@ -666,10 +695,10 @@ export default function UstaOpenQuotesPanel() {
                     <br />
                     <span className="text-xs">{quote.offerCount ?? 0} teklif</span>
                   </td>
-                  <td className="max-w-xs px-4 py-3 text-muted-foreground">
+                  <td className="max-w-md px-4 py-3 text-muted-foreground">
                     <p className="line-clamp-2">{quote.notes || "—"}</p>
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="sticky right-0 z-[1] whitespace-nowrap bg-card px-4 py-3 text-right shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.08)]">
                     {activeId === quote.id ? (
                       <div className="space-y-2 min-w-[280px]">
                         <input
@@ -722,6 +751,55 @@ export default function UstaOpenQuotesPanel() {
             </tbody>
           </table>
         </div>
+
+        {openQuotesPageCount > 1 && (
+          <nav
+            className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-4"
+            aria-label="Açık talepler sayfaları"
+          >
+            <button
+              type="button"
+              disabled={safeOpenQuotesPage <= 1}
+              onClick={() => setOpenQuotesPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm disabled:opacity-40"
+            >
+              ← Önceki
+            </button>
+            {getOpenQuotesPageNumbers(safeOpenQuotesPage, openQuotesPageCount).map((pageNum, idx, arr) => {
+              const prev = arr[idx - 1];
+              const showEllipsis = prev !== undefined && pageNum - prev > 1;
+              return (
+                <span key={pageNum} className="flex items-center gap-2">
+                  {showEllipsis && <span className="px-1 text-muted-foreground">…</span>}
+                  <button
+                    type="button"
+                    onClick={() => setOpenQuotesPage(pageNum)}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                      pageNum === safeOpenQuotesPage
+                        ? "border-primary bg-primary text-white"
+                        : "border-border hover:bg-accent"
+                    }`}
+                  >
+                    {pageNum}. sayfa
+                  </button>
+                </span>
+              );
+            })}
+            <button
+              type="button"
+              disabled={safeOpenQuotesPage >= openQuotesPageCount}
+              onClick={() => setOpenQuotesPage((p) => Math.min(openQuotesPageCount, p + 1))}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm disabled:opacity-40"
+            >
+              Sonraki →
+            </button>
+            <p className="w-full text-center text-xs text-muted-foreground">
+              {(safeOpenQuotesPage - 1) * OPEN_QUOTES_PAGE_SIZE + 1}–
+              {Math.min(safeOpenQuotesPage * OPEN_QUOTES_PAGE_SIZE, quotes.length)} / {quotes.length}{" "}
+              talep · {OPEN_QUOTES_PAGE_SIZE} kayıt / sayfa
+            </p>
+          </nav>
+        )}
         </>
       )}
 
@@ -729,20 +807,6 @@ export default function UstaOpenQuotesPanel() {
               </>
             )}
           </SheetTabs>
-        </div>
-        <aside className="space-y-4 lg:sticky lg:top-24">
-          <UstaProfileLocationCard
-            onUpdated={(city) => {
-              const canonical = resolveCanonicalCityName(city);
-              setProviderCity(canonical);
-              setSavedFilterApplied(true);
-              const nextLocation = resetProviderLocationFilter(canonical);
-              setLocation(nextLocation);
-              void load(nextLocation);
-            }}
-          />
-          <UstaInboxPanel />
-        </aside>
       </div>
     </div>
   );

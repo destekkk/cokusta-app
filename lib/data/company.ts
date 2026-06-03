@@ -1,4 +1,4 @@
-/** Şirket bilgileri — iyzico, yasal sayfalar ve footer için */
+/** Şirket bilgileri — yasal sayfalar ve footer için */
 export const companyInfo = {
   brand: "Çokusta",
   legalName: "Çokusta Teknoloji",
@@ -13,5 +13,4 @@ export const companyInfo = {
   taxNo: "9330231496",
   tradeRegistry: "Sakarya Ticaret Sicil Müdürlüğü",
   website: "https://cokusta.com",
-  paymentProvider: "iyzico",
 } as const;

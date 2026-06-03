@@ -4,12 +4,6 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
-  async redirects() {
-    return [
-      { source: "/admin", destination: "/sltn", permanent: true },
-      { source: "/admin/:path*", destination: "/sltn/:path*", permanent: true },
-    ];
-  },
   async rewrites() {
     return [
       {

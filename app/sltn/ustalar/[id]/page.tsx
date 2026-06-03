@@ -31,12 +31,24 @@ export default async function ProviderApplicationDetailPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
-      <Link
-        href="/sltn/ustalar"
-        className="text-sm font-medium text-primary hover:underline"
-      >
-        ← Başvuru listesine dön
-      </Link>
+      <div className="flex flex-wrap gap-4 text-sm font-medium">
+        <Link href="/sltn/usta-listesi" className="text-primary hover:underline">
+          ← Usta listesine dön
+        </Link>
+        <Link href="/sltn/ustalar" className="text-muted-foreground hover:text-primary hover:underline">
+          Başvurular
+        </Link>
+        {provider.status === "approved" && (
+          <Link
+            href={`/usta/${provider.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-muted-foreground hover:text-primary hover:underline"
+          >
+            Herkese açık profil ↗
+          </Link>
+        )}
+      </div>
 
       <div className="mt-4 flex flex-wrap items-start justify-between gap-4">
         <div>

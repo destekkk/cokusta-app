@@ -105,7 +105,7 @@ export default function HowItWorksPage() {
               <ParamGuvendePitch />
               <p className="text-sm text-muted-foreground">
                 Hizmet bedeli: {feeThreshold} ₺&apos;ye kadar %{feeStandardPct}, üzeri kısım için
-                %{feeAbovePct}. Ödemeler iyzico güvenli ödeme altyapısı ile alınır.
+                %{feeAbovePct}. Kart ile online ödeme geçici olarak kapalıdır; detay için iletişime geçin.
               </p>
             </div>
           </div>

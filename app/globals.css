@@ -75,7 +75,44 @@ h1, h2, h3, h4 {
   filter: brightness(1.06);
 }
 
+@keyframes debt-alert-blink {
+  0%,
+  100% {
+    background-color: hsl(48 100% 96%);
+    border-color: hsl(38 92% 50%);
+    box-shadow: 0 0 0 0 hsl(38 92% 50% / 0);
+  }
+  50% {
+    background-color: hsl(38 100% 88%);
+    border-color: hsl(25 95% 42%);
+    box-shadow: 0 0 0 4px hsl(38 92% 50% / 0.35);
+  }
+}
+
+@keyframes debt-alert-text-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.debt-alert-blink {
+  animation: debt-alert-blink 1.4s ease-in-out infinite;
+}
+
+.debt-alert-blink-text {
+  animation: debt-alert-text-blink 1.4s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .debt-alert-blink,
+  .debt-alert-blink-text {
+    animation: none;
+  }
+
   .cta-pulse {
     animation: none;
   }

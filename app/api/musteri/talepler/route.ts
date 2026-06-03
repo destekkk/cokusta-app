@@ -34,13 +34,17 @@ export async function GET(request: Request) {
   const offset = Math.max(0, parseInt(searchParams.get("offset") ?? "0", 10) || 0);
   const tab = parseTab(searchParams.get("tab"));
   const search = searchParams.get("q")?.trim() || undefined;
+  const city = searchParams.get("city")?.trim() || undefined;
+  const district = searchParams.get("district")?.trim() || undefined;
 
-  const listFilter = { limit, offset, tab, search };
+  const listFilter = { limit, offset, tab, search, city, district };
+  const countFilter = { tab, search, city, district };
+  const locationFilter = { city, district, search };
 
   const [quotes, total, tabCounts, offerCounts] = await Promise.all([
     getQuoteRequestsByPhone(phone, listFilter),
-    countCustomerQuotesByPhone(phone, { tab, search }),
-    getCustomerQuoteTabCounts(phone),
+    countCustomerQuotesByPhone(phone, countFilter),
+    getCustomerQuoteTabCounts(phone, locationFilter),
     getQuoteOfferCounts(),
   ]);
 

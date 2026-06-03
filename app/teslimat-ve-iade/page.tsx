@@ -48,7 +48,7 @@ export default function DeliveryReturnPage() {
           <li>Hizmet henüz başlamamışsa ödemeniz 14 iş günü içinde iade edilir.</li>
           <li>Hizmete başlandıktan sonra iade, usta ile yaşanan uyuşmazlıklarda platform arabuluculuğu ile değerlendirilir.</li>
           <li>Eksik veya hatalı ifa durumunda {companyInfo.email} adresine yazılı başvuru yapılmalıdır.</li>
-          <li>İade işlemleri, ödeme yapılan yönteme ({companyInfo.paymentProvider} / kredi kartı) uygun şekilde gerçekleştirilir.</li>
+          <li>İade işlemleri, ödeme yapılan yönteme (havale/EFT veya duyurulan diğer yöntemler) uygun şekilde gerçekleştirilir.</li>
         </ul>
       </section>
 

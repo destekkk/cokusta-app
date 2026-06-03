@@ -11,6 +11,7 @@ type Props = {
   quoteId: string;
   quoteStatus: QuoteRequest["status"];
   offer: ProviderOffer;
+  compact?: boolean;
   onContactRecorded: (offer: ProviderOffer) => void;
 };
 
@@ -18,8 +19,13 @@ export default function CustomerProviderCallButton({
   quoteId,
   quoteStatus,
   offer,
+  compact = false,
   onContactRecorded,
 }: Props) {
+  const wrap = compact ? "mt-2 rounded-md border px-2.5 py-2 text-xs" : "mt-3 rounded-lg border px-4 py-3 text-sm";
+  const btn = compact
+    ? "mt-2 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
+    : "mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50";
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -60,41 +66,28 @@ export default function CustomerProviderCallButton({
 
   if (revealed && phone) {
     return (
-      <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900">
-        <p className="font-semibold">Usta iletişim</p>
-        <p className="mt-1">
-          {offer.providerName ?? "Usta"} ·{" "}
-          <a href={`tel:${phone.replace(/\s/g, "")}`} className="underline font-medium">
-            {phone}
-          </a>
-        </p>
-        <button
-          type="button"
-          disabled={loading}
-          onClick={initiate}
-          className="mt-3 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-        >
+      <div className={`${wrap} border-green-200 bg-green-50 text-green-900`}>
+        <p className="font-semibold">{offer.providerName ?? "Usta"}</p>
+        <a href={`tel:${phone.replace(/\s/g, "")}`} className="font-medium underline">
+          {phone}
+        </a>
+        <button type="button" disabled={loading} onClick={initiate} className={`${btn} bg-emerald-600`}>
           Tekrar ara
         </button>
-        {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
+        {error && <p className="mt-1 text-[10px] text-red-700">{error}</p>}
       </div>
     );
   }
 
   return (
-    <div className="mt-3 rounded-lg border border-primary/25 bg-primary/5 px-4 py-3 text-sm">
-      <p className="text-foreground">
-        Anlaşma sağlandı. Usta telefonunu görmek ve aramak için aşağıdaki butona basın.
-      </p>
-      <button
-        type="button"
-        disabled={loading}
-        onClick={initiate}
-        className="mt-3 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-      >
+    <div className={`${wrap} border-primary/25 bg-primary/5 text-foreground`}>
+      {!compact && (
+        <p>Anlaşma sağlandı. Usta telefonunu görmek için butona basın.</p>
+      )}
+      <button type="button" disabled={loading} onClick={initiate} className={btn}>
         {loading ? "Hazırlanıyor…" : "Ustayı ara"}
       </button>
-      {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
+      {error && <p className="mt-1 text-[10px] text-red-700">{error}</p>}
     </div>
   );
 }
