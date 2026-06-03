@@ -6,6 +6,11 @@ import type { Service, ServiceQuestion } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
 import { getJobDescriptionExample } from "@/lib/data/job-description-examples";
 import { isValidProviderPhone, phonesEqual } from "@/lib/phone-utils";
+import {
+  isLoginPinFormat,
+  NEW_PIN_LENGTH,
+  sanitizePinDigits,
+} from "@/lib/provider-pin";
 
 type Props = {
   service: Service;
@@ -70,7 +75,7 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
   const validateStep3 = () => {
     if (name.trim().length < 2 || !isValidProviderPhone(phone)) return false;
     if (!needsPinOnSubmit) return true;
-    if (!/^\d{4}$/.test(pin)) return false;
+    if (!isLoginPinFormat(pin)) return false;
     if (pin !== pinConfirm) return false;
     return true;
   };
@@ -93,8 +98,10 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
     if (!validateStep3()) {
       if (needsPinOnSubmit && pin !== pinConfirm) {
         setError("Giriş şifreleri eşleşmiyor.");
-      } else if (needsPinOnSubmit && !/^\d{4}$/.test(pin)) {
-        setError("Tekliflerim paneline giriş için 4 haneli şifre belirleyin.");
+      } else if (needsPinOnSubmit && !isLoginPinFormat(pin)) {
+        setError(
+          `Tekliflerim şifreniz 4 veya 6 rakam olmalıdır. Yeni kayıtta ${NEW_PIN_LENGTH} hane zorunludur.`
+        );
       } else if (!isValidProviderPhone(phone)) {
         setError("Geçerli bir cep telefonu girin (05XX XXX XX XX).");
       } else {
@@ -282,7 +289,7 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
           <p className="mt-1 text-sm text-muted-foreground">
             Ustalar tekliflerini bu bilgilerle size ulaşsın.
             {needsPinOnSubmit
-              ? " Tekliflerim paneline girmek için 4 haneli bir şifre belirleyin."
+              ? ` Tekliflerim paneline girmek için ${NEW_PIN_LENGTH} haneli bir şifre belirleyin.`
               : null}
           </p>
           <div className="mt-6 space-y-4">
@@ -328,18 +335,16 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-foreground">
-                      Tekliflerim şifresi (4 hane) *
+                      Tekliflerim şifresi ({NEW_PIN_LENGTH} hane) *
                     </label>
                     <input
                       type="password"
                       inputMode="numeric"
                       autoComplete="new-password"
-                      maxLength={4}
+                      maxLength={NEW_PIN_LENGTH}
                       value={pin}
-                      onChange={(e) =>
-                        setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
-                      }
-                      placeholder="••••"
+                      onChange={(e) => setPin(sanitizePinDigits(e.target.value))}
+                      placeholder="••••••"
                       className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
@@ -351,18 +356,17 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
                       type="password"
                       inputMode="numeric"
                       autoComplete="new-password"
-                      maxLength={4}
+                      maxLength={NEW_PIN_LENGTH}
                       value={pinConfirm}
-                      onChange={(e) =>
-                        setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))
-                      }
-                      placeholder="••••"
+                      onChange={(e) => setPinConfirm(sanitizePinDigits(e.target.value))}
+                      placeholder="••••••"
                       className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Tekliflerim paneline giriş için kullanılacak. 1234 ve 0000 kullanılamaz.
+                  Yeni şifre 6 haneli olmalıdır. 111111, 123456, 000000 gibi kolay şifreler kullanılamaz.
+                  Daha önce 4 haneli şifre belirlediyseniz girişte aynı şifreyi kullanabilirsiniz.
                 </p>
               </>
             )}

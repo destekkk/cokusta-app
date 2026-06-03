@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import { findProviderByPhone } from "@/lib/db";
 import { attachCustomerSessionCookie } from "@/lib/customer-auth";
 import { getCustomerAuthByPhone } from "@/lib/customer-pin";
-import { isValidProviderPhone, normalizeProviderPhone, verifyProviderPin } from "@/lib/provider-pin";
+import {
+  isLoginPinFormat,
+  isValidProviderPhone,
+  loginPinFormatError,
+  normalizeProviderPhone,
+  verifyProviderPin,
+} from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   try {
@@ -12,8 +18,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Geçerli telefon numarası girin." }, { status: 400 });
     }
 
-    if (!pin || !/^\d{4}$/.test(String(pin))) {
-      return NextResponse.json({ error: "4 haneli giriş şifrenizi girin." }, { status: 400 });
+    if (!pin || !isLoginPinFormat(String(pin))) {
+      return NextResponse.json({ error: loginPinFormatError() }, { status: 400 });
     }
 
     const normalized = normalizeProviderPhone(String(phone));

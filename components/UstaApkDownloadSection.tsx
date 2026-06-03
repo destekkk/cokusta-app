@@ -59,7 +59,7 @@ export default function UstaApkDownloadSection({ apkUrl, apkAvailable }: Props) 
               <Link href="/usta/giris" className="text-primary hover:underline">
                 usta girişi
               </Link>{" "}
-              ile 4 haneli şifrenizi belirleyin.
+              ile 6 haneli şifrenizi belirleyin.
             </li>
             <li>Uygulamayı açın; ilçe seçin ve bildirim iznini verin.</li>
           </ol>

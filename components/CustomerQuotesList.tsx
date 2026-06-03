@@ -19,6 +19,7 @@ type QuoteItem = {
   offerCount: number;
   matchedProviderName?: string;
   urgent?: boolean;
+  reviewStatus?: "none" | "pending" | "approved";
 };
 
 type TabCounts = {
@@ -47,17 +48,33 @@ function statusClass(status: string) {
   return "bg-muted text-muted-foreground";
 }
 
+function quoteActionLabel(quote: QuoteItem, tab: CustomerQuoteTab): string {
+  if (tab === "finished" && quote.status === "completed") {
+    if (quote.reviewStatus === "none") return "Puanla & yorum";
+    if (quote.reviewStatus === "pending") return "Yorum inceleniyor";
+    return "Değerlendirme";
+  }
+  if (tab === "offers" || tab === "negotiating") {
+    return quote.offerCount > 0 ? "Teklifleri gör" : "Detay";
+  }
+  return "Detay";
+}
+
 function QuoteRowActions({ quote, tab }: { quote: QuoteItem; tab: CustomerQuoteTab }) {
+  const label = quoteActionLabel(quote, tab);
+  const highlight =
+    tab === "finished" && quote.status === "completed" && quote.reviewStatus === "none";
+
   return (
     <Link
       href={`/tekliflerim/${quote.id}`}
-      className="inline-flex rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/15"
+      className={`inline-flex rounded-lg px-3 py-1.5 text-xs font-semibold ${
+        highlight
+          ? "bg-primary text-white hover:bg-primary-dark"
+          : "bg-primary/10 text-primary hover:bg-primary/15"
+      }`}
     >
-      {tab === "offers" || tab === "negotiating"
-        ? quote.offerCount > 0
-          ? "Teklifleri gör"
-          : "Detay"
-        : "Detay"}
+      {label}
     </Link>
   );
 }

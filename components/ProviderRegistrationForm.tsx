@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { NEW_PIN_LENGTH, sanitizePinDigits, validateNewPin } from "@/lib/provider-pin";
 import { categories } from "@/lib/data/categories";
 import { cities } from "@/lib/data/cities";
 import { CategoryIconBadge } from "@/components/icons/CategoryIcon";
@@ -39,8 +40,9 @@ export default function ProviderRegistrationForm() {
       return;
     }
 
-    if (!/^\d{4}$/.test(pin)) {
-      setError("4 haneli giriş şifresi girin.");
+    const pinCheck = validateNewPin(pin);
+    if (!pinCheck.ok) {
+      setError(pinCheck.error);
       return;
     }
 
@@ -145,16 +147,16 @@ export default function ProviderRegistrationForm() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label className="mb-1.5 block text-sm font-medium text-foreground">
-            Giriş şifresi (4 hane) *
+            Giriş şifresi ({NEW_PIN_LENGTH} hane) *
           </label>
           <input
             type="password"
             inputMode="numeric"
             autoComplete="new-password"
-            maxLength={4}
+            maxLength={NEW_PIN_LENGTH}
             value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="••••"
+            onChange={(e) => setPin(sanitizePinDigits(e.target.value))}
+            placeholder="••••••"
             className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
@@ -164,16 +166,16 @@ export default function ProviderRegistrationForm() {
             type="password"
             inputMode="numeric"
             autoComplete="new-password"
-            maxLength={4}
+            maxLength={NEW_PIN_LENGTH}
             value={pinConfirm}
-            onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="••••"
+            onChange={(e) => setPinConfirm(sanitizePinDigits(e.target.value))}
+            placeholder="••••••"
             className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
       </div>
       <p className="-mt-2 text-xs text-muted-foreground">
-        Onay sonrası giriş için kullanılacak. 1234 ve 0000 kullanılamaz.
+        {NEW_PIN_LENGTH} haneli şifre. 111111, 123456, 000000 gibi kolay şifreler kullanılamaz.
       </p>
 
       <div>

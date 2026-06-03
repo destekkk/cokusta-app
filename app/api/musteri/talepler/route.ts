@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getCustomerSessionPhone } from "@/lib/customer-auth";
 import {
   countCustomerQuotesByPhone,
+  getCustomerQuoteReviewFlags,
   getCustomerQuoteTabCounts,
   getQuoteOfferCounts,
   getQuoteRequestsByPhone,
@@ -48,6 +49,12 @@ export async function GET(request: Request) {
     getQuoteOfferCounts(),
   ]);
 
+  const completedIds = quotes.filter((q) => q.status === "completed").map((q) => q.id);
+  const reviewFlags =
+    tab === "finished" && completedIds.length > 0
+      ? await getCustomerQuoteReviewFlags(completedIds, phone)
+      : {};
+
   return NextResponse.json({
     phone,
     total,
@@ -66,6 +73,10 @@ export async function GET(request: Request) {
       offerCount: offerCounts[quote.id] ?? 0,
       matchedProviderName: quote.matchedProviderName,
       urgent: quote.urgent ?? false,
+      reviewStatus:
+        quote.status === "completed"
+          ? (reviewFlags[quote.id] ?? "none")
+          : undefined,
     })),
   });
 }

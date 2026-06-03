@@ -1537,10 +1537,13 @@ export async function getAdminStats() {
     .filter((q) => q.completedAt && new Date(q.completedAt) >= thisMonth)
     .reduce((sum, q) => sum + (q.commissionAmount ?? 0), 0);
 
+  const pendingOfferReviews = await countPendingOfferReviews();
+
   return {
     commissionRate,
     openQuotes: openQuotes.length,
     awaitingReviewQuotes: awaitingReviewQuotes.length,
+    pendingOfferReviews,
     matchedQuotes: matchedQuotes.length,
     pendingQuotes: openQuotes.length,
     completedQuotes: completedQuotes.length,
@@ -3015,6 +3018,7 @@ function toProviderOfferReviewSummary(row: {
   rating: number;
   comment: string;
   reviewerLabel: string;
+  status: "pending" | "approved" | "rejected";
   createdAt: Date;
 }): ProviderOfferReviewSummary {
   return {
@@ -3022,6 +3026,7 @@ function toProviderOfferReviewSummary(row: {
     rating: row.rating,
     comment: row.comment,
     reviewerLabel: row.reviewerLabel,
+    status: row.status,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -3107,6 +3112,7 @@ export async function submitProviderOfferReview(
       comment: input.comment.trim(),
       reviewerLabel: reviewerLabelFromCustomerName(quote.name),
       serviceName: quote.serviceName,
+      status: "pending",
       createdAt: new Date(),
     },
   });
@@ -3114,12 +3120,103 @@ export async function submitProviderOfferReview(
   return { review: toProviderOfferReviewSummary(created) };
 }
 
+export async function countPendingOfferReviews(): Promise<number> {
+  return prisma.providerOfferReview.count({ where: { status: "pending" } });
+}
+
+export async function listAdminOfferReviews(options?: {
+  status?: "pending" | "approved" | "all";
+  limit?: number;
+}): Promise<import("@/lib/types").AdminOfferReviewRow[]> {
+  const limit = Math.min(200, Math.max(1, options?.limit ?? 100));
+  const statusFilter =
+    options?.status === "pending"
+      ? { status: "pending" as const }
+      : options?.status === "approved"
+        ? { status: "approved" as const }
+        : {};
+
+  const rows = await prisma.providerOfferReview.findMany({
+    where: statusFilter,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: {
+      provider: true,
+      quoteRequest: true,
+    },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    quoteRequestId: row.quoteRequestId,
+    offerId: row.offerId,
+    rating: row.rating,
+    comment: row.comment,
+    reviewerLabel: row.reviewerLabel,
+    serviceName: row.serviceName,
+    status: row.status,
+    createdAt: row.createdAt.toISOString(),
+    moderatedAt: row.moderatedAt?.toISOString(),
+    customerPhone: row.customerPhone,
+    customerName: row.quoteRequest.name,
+    quoteCity: row.quoteRequest.city,
+    quoteDistrict: row.quoteRequest.district || undefined,
+    providerId: row.providerId,
+    providerName: row.provider.name,
+    providerPhone: row.provider.phone,
+    providerEmail: row.provider.email,
+    providerCity: row.provider.city,
+  }));
+}
+
+export async function approveAdminOfferReview(
+  reviewId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const row = await prisma.providerOfferReview.findUnique({ where: { id: reviewId } });
+  if (!row) return { ok: false, error: "Değerlendirme bulunamadı." };
+  if (row.status === "approved") return { ok: true };
+  await prisma.providerOfferReview.update({
+    where: { id: reviewId },
+    data: { status: "approved", moderatedAt: new Date() },
+  });
+  return { ok: true };
+}
+
+export async function deleteAdminOfferReview(
+  reviewId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const row = await prisma.providerOfferReview.findUnique({ where: { id: reviewId } });
+  if (!row) return { ok: false, error: "Değerlendirme bulunamadı." };
+  await prisma.providerOfferReview.delete({ where: { id: reviewId } });
+  return { ok: true };
+}
+
+export async function getCustomerQuoteReviewFlags(
+  quoteIds: string[],
+  customerPhone: string
+): Promise<Record<string, "none" | "pending" | "approved">> {
+  if (quoteIds.length === 0) return {};
+  const rows = await prisma.providerOfferReview.findMany({
+    where: {
+      quoteRequestId: { in: quoteIds },
+      customerPhone: normalizeProviderPhone(customerPhone),
+    },
+    select: { quoteRequestId: true, status: true },
+  });
+  const out: Record<string, "none" | "pending" | "approved"> = {};
+  for (const id of quoteIds) out[id] = "none";
+  for (const row of rows) {
+    out[row.quoteRequestId] = row.status === "approved" ? "approved" : "pending";
+  }
+  return out;
+}
+
 export async function getPublicProviderReviews(
   providerId: string,
   limit = 20
 ): Promise<PublicProviderReview[]> {
   const rows = await prisma.providerOfferReview.findMany({
-    where: { providerId },
+    where: { providerId, status: "approved" },
     orderBy: { createdAt: "desc" },
     take: limit,
   });
@@ -3130,7 +3227,7 @@ export async function getProviderReviewStats(
   providerId: string
 ): Promise<ProviderReviewStats> {
   const agg = await prisma.providerOfferReview.aggregate({
-    where: { providerId },
+    where: { providerId, status: "approved" },
     _avg: { rating: true },
     _count: { id: true },
   });

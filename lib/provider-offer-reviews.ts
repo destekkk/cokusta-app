@@ -36,15 +36,16 @@ export function validateProviderOfferReviewInput(
   return null;
 }
 
-/** Müşteri, teklif veren ustayı değerlendirebilir (geri çekilen teklif hariç). */
+/** Müşteri, tamamlanan işte anlaştığı ustayı değerlendirebilir. */
 export function canCustomerReviewOffer(
-  quote: Pick<QuoteRequest, "status">,
-  offer: Pick<ProviderOffer, "status">
+  quote: Pick<QuoteRequest, "status" | "matchedProviderId">,
+  offer: Pick<ProviderOffer, "status" | "providerId">
 ): boolean {
-  if (quote.status === "cancelled" || quote.status === "awaiting_review") {
+  if (quote.status !== "completed") return false;
+  if (!quote.matchedProviderId || offer.providerId !== quote.matchedProviderId) {
     return false;
   }
-  return offer.status !== "withdrawn";
+  return offer.status === "accepted";
 }
 
 export function attachReviewsToCustomerOffers(

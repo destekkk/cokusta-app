@@ -6,6 +6,8 @@ import { formatDateTime } from "@/lib/admin-labels";
 import { formatUrgentRemaining } from "@/lib/urgent";
 import { getQuoteAnswers } from "@/lib/quote-answers";
 import InvoiceButton from "@/components/admin/InvoiceButton";
+import CurrencyInput from "@/components/CurrencyInput";
+import { parseTlDigits } from "@/lib/currency-input";
 import { quotePhoneForAdmin } from "@/lib/quote-privacy";
 import type { ProviderOffer, QuoteRequest } from "@/lib/types";
 
@@ -273,19 +275,18 @@ export default function QuoteRow({
             ) : (
               <div className="max-w-sm space-y-3">
                 <label className="block text-sm font-medium text-foreground">
-                  Tamamlanan iş tutarı (₺)
+                  Tamamlanan iş tutarı
                 </label>
-                <input
-                  type="number"
-                  placeholder="Örn: 5000"
-                  value={jobValue}
-                  onChange={(e) => setJobValue(e.target.value)}
-                  className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                <CurrencyInput
+                  digits={jobValue}
+                  onDigitsChange={setJobValue}
+                  className="w-full max-w-xs"
+                  disabled={loading}
                 />
                 <p className="text-sm text-muted-foreground">
                   Komisyon (%{(commissionRate * 100).toFixed(0)}):{" "}
                   {jobValue
-                    ? `${Math.round(parseFloat(jobValue) * commissionRate).toLocaleString("tr-TR")} ₺`
+                    ? `${Math.round(parseTlDigits(jobValue) * commissionRate).toLocaleString("tr-TR")} ₺`
                     : "—"}
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -293,7 +294,7 @@ export default function QuoteRow({
                     type="button"
                     disabled={loading || !jobValue}
                     onClick={() =>
-                      updateStatus("completed", { jobValue: parseFloat(jobValue) })
+                      updateStatus("completed", { jobValue: parseTlDigits(jobValue) })
                     }
                     className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >

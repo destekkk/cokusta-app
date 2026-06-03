@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { NEW_PIN_LENGTH, sanitizePinDigits } from "@/lib/provider-pin";
 
 type Mode = "login" | "set-pin";
 
@@ -83,7 +84,8 @@ export default function UstaLoginForm() {
         <div>
           <h2 className="font-semibold">Giriş şifresi belirle</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Onaylı hesabınız için 4 haneli bir giriş şifresi oluşturun. 1234 ve 0000 kullanılamaz.
+            Onaylı hesabınız için {NEW_PIN_LENGTH} haneli giriş şifresi oluşturun. Kolay şifreler
+            (111111, 123456, 000000 vb.) kullanılamaz.
           </p>
         </div>
         <div>
@@ -97,15 +99,15 @@ export default function UstaLoginForm() {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium">4 haneli şifre</label>
+          <label className="mb-1.5 block text-sm font-medium">{NEW_PIN_LENGTH} haneli şifre</label>
           <input
             type="password"
             inputMode="numeric"
             autoComplete="new-password"
-            maxLength={4}
+            maxLength={NEW_PIN_LENGTH}
             value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="••••"
+            onChange={(e) => setPin(sanitizePinDigits(e.target.value))}
+            placeholder="••••••"
             className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest"
           />
         </div>
@@ -115,10 +117,10 @@ export default function UstaLoginForm() {
             type="password"
             inputMode="numeric"
             autoComplete="new-password"
-            maxLength={4}
+            maxLength={NEW_PIN_LENGTH}
             value={pinConfirm}
-            onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            placeholder="••••"
+            onChange={(e) => setPinConfirm(sanitizePinDigits(e.target.value))}
+            placeholder="••••••"
             className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest"
           />
         </div>
@@ -169,15 +171,15 @@ export default function UstaLoginForm() {
         <p className="mt-1 text-xs text-muted-foreground">Başına 0 yazmadan da girebilirsiniz.</p>
       </div>
       <div>
-        <label className="mb-1.5 block text-sm font-medium">4 haneli giriş şifresi</label>
+        <label className="mb-1.5 block text-sm font-medium">Giriş şifresi (4 veya 6 hane)</label>
         <input
           type="password"
           inputMode="numeric"
           autoComplete="current-password"
-          maxLength={4}
+          maxLength={NEW_PIN_LENGTH}
           value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
-          placeholder="••••"
+          onChange={(e) => setPin(sanitizePinDigits(e.target.value))}
+          placeholder="••••••"
           className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest"
         />
       </div>

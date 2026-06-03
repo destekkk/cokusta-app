@@ -20,7 +20,7 @@ export default async function CustomerLoginPage() {
       <div className="mx-auto max-w-md px-4 py-12 sm:px-6">
         <h1 className="text-2xl font-bold">Tekliflerim</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Telefon numaranız ve 4 haneli şifrenizle müşteri panelinize girin.
+          Telefon numaranız ve giriş şifrenizle (4 veya 6 hane) müşteri panelinize girin.
         </p>
         <div className="mt-6">
           <DbDownNotice />

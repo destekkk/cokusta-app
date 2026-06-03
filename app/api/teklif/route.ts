@@ -7,7 +7,12 @@ import { attachCustomerSessionCookie } from "@/lib/customer-auth";
 import { getCustomerAuthByPhone, setCustomerPinIfUnset } from "@/lib/customer-pin";
 import { CUSTOMER_COOKIE, parseCustomerSessionToken } from "@/lib/customer-session";
 import { isValidProviderPhone, normalizeProviderPhone, phonesEqual } from "@/lib/phone-utils";
-import { validateProviderPin, verifyProviderPin } from "@/lib/provider-pin";
+import {
+  isLoginPinFormat,
+  loginPinFormatError,
+  validateNewPin,
+  verifyProviderPin,
+} from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   try {
@@ -59,21 +64,25 @@ export async function POST(request: Request) {
       Boolean(sessionPhone) && phonesEqual(sessionPhone!, normalizedPhone);
 
     if (!sessionMatchesPhone) {
-      const pinCheck = validateProviderPin(String(pin ?? ""));
-      if (!pinCheck.ok) {
-        return NextResponse.json({ error: pinCheck.error }, { status: 400 });
-      }
-
       const auth = await getCustomerAuthByPhone(normalizedPhone);
       if (auth.pinHash) {
+        if (!isLoginPinFormat(String(pin ?? ""))) {
+          return NextResponse.json({ error: loginPinFormatError() }, { status: 400 });
+        }
         if (!verifyProviderPin(String(pin), auth.pinHash)) {
           return NextResponse.json(
             { error: "Giriş şifreniz hatalı. Tekliflerim paneline girdiğiniz şifreyi kullanın." },
             { status: 401 }
           );
         }
-      } else if (String(pin) !== String(pinConfirm ?? "")) {
-        return NextResponse.json({ error: "Giriş şifreleri eşleşmiyor." }, { status: 400 });
+      } else {
+        const pinCheck = validateNewPin(String(pin ?? ""));
+        if (!pinCheck.ok) {
+          return NextResponse.json({ error: pinCheck.error }, { status: 400 });
+        }
+        if (String(pin) !== String(pinConfirm ?? "")) {
+          return NextResponse.json({ error: "Giriş şifreleri eşleşmiyor." }, { status: 400 });
+        }
       }
     }
 

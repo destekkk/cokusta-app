@@ -1,15 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getCategoryName } from "@/lib/data/categories";
 import { MAX_CREDIT_DEBT, canActivateBorcKredisi, canSubmitOffer } from "@/lib/credit-debt";
 import UstaMyOffersPanel from "@/components/UstaMyOffersPanel";
 import BorcKredisiActivateCard from "@/components/BorcKredisiActivateCard";
-import UstaPanelIntro from "@/components/UstaPanelIntro";
+import CurrencyInput from "@/components/CurrencyInput";
+import { parseTlDigits } from "@/lib/currency-input";
+import PanelStatCard from "@/components/panel/PanelStatCard";
+import SheetTabs from "@/components/panel/SheetTabs";
 import type { SheetTabItem } from "@/components/panel/SheetTabs";
-import UstaPanelTabBar from "@/components/usta/UstaPanelTabBar";
 import type { ProviderOffer } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
 import { resolveCanonicalCityName, type ProviderQuoteLocationFilter } from "@/lib/offer-utils";
@@ -132,7 +135,6 @@ export default function UstaOpenQuotesPanel() {
       {
         id: "mine",
         label: "Benim Tekliflerim",
-        lines: ["Benim", "Tekliflerim"],
         redBorder: true,
         count: offerTabCounts.mine,
         accent: "red",
@@ -313,7 +315,7 @@ export default function UstaOpenQuotesPanel() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           quoteRequestId,
-          price: Number(price),
+          price: parseTlDigits(price),
           message,
         }),
       });
@@ -373,38 +375,150 @@ export default function UstaOpenQuotesPanel() {
 
   const onTabChange = (id: string) => setTab(id as ProviderOfferSheetTab);
 
-  const tabNav = (
-    <UstaPanelTabBar tabs={offerNavTabs} activeId={tab} onChange={onTabChange} />
-  );
+  const tabSummary = useMemo(() => {
+    if (tab === "mine") return "Verdiğiniz teklifler ve müşteri yanıtları";
+    if (tab === "negotiating") return "Karşılıklı pazarlık süren işler";
+    if (tab === "escrow") return "Param Güvende ödemeli işler";
+    if (tab === "done") return "Tamamlanan veya kapanan işler";
+    return "Onaylı ve size uygun açık talepler; il filtresiyle arayın";
+  }, [tab]);
 
-  const panelIntro = (
-    <UstaPanelIntro
-      creditBalance={creditBalance}
-      creditDebt={creditDebt}
-      escrowBalanceTl={escrowBalanceTl}
-      kontorHref={KONTOR_URL}
-    />
-  );
-
-  const listPanel = (body: ReactNode) => (
-    <div className="min-w-0 overflow-hidden rounded-xl border border-primary/15 bg-card shadow-sm">
-      <div className="border-b border-primary/10 p-2 sm:p-3">{tabNav}</div>
-      <div className="min-h-[200px] p-4 sm:p-5">{body}</div>
-    </div>
-  );
-
-  if (loading && tab === "open") {
+  if (loading && quotes.length === 0) {
     return (
-      <div className="space-y-6">
-        {panelIntro}
-        {listPanel(<p className="text-muted-foreground">Talepler yükleniyor…</p>)}
+      <div className="space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-xl bg-muted/50" />
+          ))}
+        </div>
+        <p className="text-muted-foreground">Panel yükleniyor…</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {panelIntro}
+    <div className="space-y-5">
+      <Link
+        href={KONTOR_URL}
+        className="inline-flex rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark"
+      >
+        Kontör Yükle
+      </Link>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <PanelStatCard
+          label="Kontör"
+          value={creditBalance}
+          tone="primary"
+          hint={
+            creditDebt > 0
+              ? `Borç kredisi: ${creditDebt}`
+              : escrowBalanceTl > 0
+                ? `Güvence: ${escrowBalanceTl.toLocaleString("tr-TR")} ₺`
+                : undefined
+          }
+          onClick={goBuyCredits}
+        />
+        <PanelStatCard
+          label="Açık talepler"
+          value={quotes.length}
+          tone="amber"
+          active={tab === "open"}
+          onClick={() => setTab("open")}
+        />
+        <PanelStatCard
+          label="Benim tekliflerim"
+          value={offerTabCounts.mine}
+          tone="primary"
+          active={tab === "mine"}
+          onClick={() => setTab("mine")}
+        />
+        <PanelStatCard
+          label="Pazarlık"
+          value={offerTabCounts.negotiating}
+          tone="primary"
+          active={tab === "negotiating"}
+          onClick={() => setTab("negotiating")}
+        />
+        <PanelStatCard
+          label="Param güvende"
+          value={offerTabCounts.escrow}
+          tone="emerald"
+          active={tab === "escrow"}
+          onClick={() => setTab("escrow")}
+        />
+        <PanelStatCard
+          label="Bitmiş işler"
+          value={offerTabCounts.done}
+          tone="emerald"
+          active={tab === "done"}
+          onClick={() => setTab("done")}
+        />
+      </div>
+
+      {tab === "open" && (
+        <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card p-3 sm:gap-3 sm:p-4">
+          <label className="flex w-[130px] shrink-0 flex-col gap-1 text-xs text-muted-foreground sm:w-[150px]">
+            İl
+            <select
+              value={citySelectValue(location)}
+              onChange={(e) => onCityChange(e.target.value)}
+              className="rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground"
+            >
+              <option value="__provider__">
+                {providerCity ? `Kendi ilim (${providerCity})` : "Kendi ilim"}
+              </option>
+              <option value="__all__">Tüm iller</option>
+              <optgroup label="İl seç">
+                {cities.map((city) => (
+                  <option key={city} value={city}>
+                    {city}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </label>
+          {location.cityMode !== "all" && filterCity ? (
+            <label className="flex w-[130px] shrink-0 flex-col gap-1 text-xs text-muted-foreground sm:w-[150px]">
+              İlçe
+              <select
+                value={location.selectedDistrict ?? ""}
+                onChange={(e) => onDistrictChange(e.target.value)}
+                className="rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground"
+              >
+                <option value="">Tüm ilçeler</option>
+                {districtOptions.map((district) => (
+                  <option key={district} value={district}>
+                    {district}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          {location.cityMode !== "provider" && providerCity ? (
+            <button
+              type="button"
+              onClick={() => setLocation({ cityMode: "provider" })}
+              className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10"
+            >
+              Profil ilime dön
+            </button>
+          ) : null}
+        </div>
+      )}
+
+      <SheetTabs activeId={tab} onChange={onTabChange} tabs={offerNavTabs}>
+        <p className="mb-4 text-sm text-muted-foreground">
+          {tabSummary}
+          {tab === "open" && !refreshing && locationSummary(location, providerCity) ? (
+            <span className="ml-1">· {locationSummary(location, providerCity)}</span>
+          ) : null}
+          {tab === "open" && refreshing ? (
+            <span className="ml-1">· Güncelleniyor…</span>
+          ) : null}
+        </p>
+
+        <div className="space-y-4">
 
       {debtNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -453,10 +567,9 @@ export default function UstaOpenQuotesPanel() {
               <button
                 type="button"
                 onClick={() => setTab("mine")}
-                className="inline-flex flex-col font-semibold leading-tight underline"
+                className="font-semibold underline"
               >
-                <span>Benim</span>
-                <span>Tekliflerim</span>
+                Benim Tekliflerim
               </button>{" "}
               kartından onaylayın.
             </p>
@@ -523,74 +636,8 @@ export default function UstaOpenQuotesPanel() {
               />
             ) : (
               <>
-      <p className="text-xs text-muted-foreground">
-        Kategori uygun olduğu sürece farklı illerdeki taleplere de teklif verebilirsiniz. İl filtresinden
-        &quot;Tüm iller&quot; veya başka bir il seçin.
-      </p>
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          {refreshing ? "Güncelleniyor…" : `${quotes.length} açık talep`}
-          {!refreshing && locationSummary(location, providerCity)
-            ? ` · ${locationSummary(location, providerCity)}`
-            : ""}
-        </p>
-        <div className="flex flex-wrap items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            İl
-            <select
-              value={citySelectValue(location)}
-              onChange={(e) => onCityChange(e.target.value)}
-              className="min-w-[180px] rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-            >
-              <option value="__provider__">
-                {providerCity ? `Kendi ilim (${providerCity})` : "Kendi ilim"}
-              </option>
-              <option value="__all__">Tüm iller</option>
-              <optgroup label="İl seç">
-                {cities.map((city) => (
-                  <option key={city} value={city}>
-                    {city}
-                  </option>
-                ))}
-              </optgroup>
-            </select>
-          </label>
-          {location.cityMode !== "all" && filterCity && (
-            <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-              İlçe
-              <select
-                value={location.selectedDistrict ?? ""}
-                onChange={(e) => onDistrictChange(e.target.value)}
-                className="min-w-[160px] rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground"
-              >
-                <option value="">Tüm ilçeler</option>
-                {districtOptions.map((district) => (
-                  <option key={district} value={district}>
-                    {district}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-          {location.cityMode !== "provider" && providerCity && (
-            <button
-              type="button"
-              onClick={() => setLocation({ cityMode: "provider" })}
-              className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/10"
-            >
-              Profil ilime dön ({providerCity})
-            </button>
-          )}
-        </div>
-      </div>
-      {location.cityMode === "provider" && providerCity && (
-        <p className="text-xs text-muted-foreground">
-          Varsayılan filtre: <strong>{providerCity}</strong> (profil adresiniz)
-        </p>
-      )}
-
       {quotes.length === 0 ? (
-        <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
+        <div className="rounded-xl border border-dashed border-border bg-muted/20 p-8 text-center text-muted-foreground">
           <p>Şu an size uygun açık talep yok.</p>
           <p className="mt-3 text-sm">
             Talepler yalnızca <strong>onaylı</strong> ve admin tarafından <strong>yayına alınmış</strong>{" "}
@@ -632,12 +679,11 @@ export default function UstaOpenQuotesPanel() {
                 <div className="mt-3">
                   {activeId === quote.id ? (
                     <div className="space-y-2">
-                      <input
-                        type="number"
-                        placeholder="Tutar (₺)"
-                        value={price}
-                        onChange={(e) => setPrice(e.target.value)}
-                        className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+                      <CurrencyInput
+                        digits={price}
+                        onDigitsChange={setPrice}
+                        className="w-full"
+                        disabled={submitting}
                       />
                       <textarea
                         placeholder="Açıklama (min. 5 karakter)"
@@ -681,87 +727,104 @@ export default function UstaOpenQuotesPanel() {
             ))}
           </div>
 
-          <div className="hidden min-w-0 w-full overflow-x-auto rounded-xl border border-border bg-card md:block">
-            <table className="w-full min-w-[720px] text-sm">
+          <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+            <table className="w-full text-sm">
             <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-4 py-3">Hizmet</th>
-                <th className="whitespace-nowrap px-4 py-3">Konum</th>
-                <th className="min-w-[12rem] max-w-md px-4 py-3">Not</th>
-                <th className="sticky right-0 z-[1] whitespace-nowrap bg-muted/40 px-4 py-3 text-right shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.12)]">
-                  İşlem
-                </th>
+                <th className="w-[18%] px-4 py-3">Hizmet</th>
+                <th className="w-[14%] whitespace-nowrap px-4 py-3">Konum</th>
+                <th className="px-4 py-3">Talep notu</th>
+                <th className="w-[9rem] whitespace-nowrap px-4 py-3 text-right">İşlem</th>
               </tr>
             </thead>
             <tbody>
               {paginatedQuotes.map((quote) => (
-                <tr key={quote.id} className="border-t border-border align-top hover:bg-accent/10">
-                  <td className="px-4 py-3 font-medium">
-                    {quote.serviceName}
-                    {quote.urgent && (
-                      <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
-                        Acil
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {quote.city}
-                    {quote.district ? `, ${quote.district}` : ""}
-                    <br />
-                    <span className="text-xs">{quote.offerCount ?? 0} teklif</span>
-                  </td>
-                  <td className="max-w-md px-4 py-3 text-muted-foreground">
-                    <p className="line-clamp-2">{quote.notes || "—"}</p>
-                  </td>
-                  <td className="sticky right-0 z-[1] whitespace-nowrap bg-card px-4 py-3 text-right shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.08)]">
-                    {activeId === quote.id ? (
-                      <div className="space-y-2 min-w-[280px]">
-                        <input
-                          type="number"
-                          placeholder="Tutar (₺)"
-                          value={price}
-                          onChange={(e) => setPrice(e.target.value)}
-                          className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-                        />
-                        <textarea
-                          placeholder="Açıklama (min. 5 karakter)"
-                          value={message}
-                          onChange={(e) => setMessage(e.target.value)}
-                          rows={2}
-                          className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={submitting}
-                            onClick={() => submitOffer(quote.id)}
-                            className="rounded-lg bg-primary px-3 py-2 text-xs font-semibold text-white"
-                          >
-                            Gönder
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setActiveId(null)}
-                            className="rounded-lg border border-border px-3 py-2 text-xs"
-                          >
-                            Vazgeç
-                          </button>
+                <Fragment key={quote.id}>
+                  <tr className="border-t border-border align-top hover:bg-accent/10">
+                    <td className="px-4 py-3 font-medium">
+                      {quote.serviceName}
+                      {quote.urgent && (
+                        <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          Acil
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {quote.city}
+                      {quote.district ? `, ${quote.district}` : ""}
+                      <br />
+                      <span className="text-xs">{quote.offerCount ?? 0} teklif</span>
+                    </td>
+                    <td className="min-w-0 px-4 py-3 text-muted-foreground">
+                      <p className="break-words whitespace-pre-wrap text-sm leading-relaxed">
+                        {quote.notes || "—"}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {activeId !== quote.id && (
+                        <button
+                          type="button"
+                          onClick={() => startOffer(quote.id)}
+                          disabled={pendingCustomerAgreement}
+                          className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${
+                            !canOffer
+                              ? "bg-amber-600 hover:bg-amber-700"
+                              : "bg-primary hover:bg-primary-dark"
+                          }`}
+                        >
+                          {!canOffer ? "Kontör Al" : "Hemen Teklif Ver"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                  {activeId === quote.id && (
+                    <tr className="border-t border-primary/15 bg-primary/5">
+                      <td colSpan={4} className="px-4 py-4">
+                        <div className="mx-auto max-w-xl space-y-3">
+                          <p className="text-sm font-semibold text-foreground">
+                            Teklifiniz — {quote.serviceName}
+                          </p>
+                          {quote.notes && (
+                            <p className="rounded-lg border border-border bg-card px-3 py-2 text-sm text-muted-foreground">
+                              <span className="font-medium text-foreground">Talep notu: </span>
+                              <span className="break-words whitespace-pre-wrap">{quote.notes}</span>
+                            </p>
+                          )}
+                      <CurrencyInput
+                        digits={price}
+                        onDigitsChange={setPrice}
+                        className="w-full bg-card"
+                        disabled={submitting}
+                      />
+                          <textarea
+                            placeholder="Teklif açıklamanız (min. 5 karakter)"
+                            value={message}
+                            onChange={(e) => setMessage(e.target.value)}
+                            rows={3}
+                            className="w-full rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                          />
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              disabled={submitting}
+                              onClick={() => submitOffer(quote.id)}
+                              className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                            >
+                              Gönder
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveId(null)}
+                              className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-semibold"
+                            >
+                              Vazgeç
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => startOffer(quote.id)}
-                        disabled={pendingCustomerAgreement}
-                        className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50 ${
-                          !canOffer ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary-dark"
-                        }`}
-                      >
-                        {!canOffer ? "Kontör Al" : "Hemen Teklif Ver"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>
@@ -817,10 +880,9 @@ export default function UstaOpenQuotesPanel() {
         )}
         </>
       )}
-              </>
             )}
         </div>
-      )}
+      </SheetTabs>
     </div>
   );
 }

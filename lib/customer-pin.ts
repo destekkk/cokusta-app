@@ -1,6 +1,6 @@
 import { countQuoteRequestsByPhone } from "@/lib/db";
 import { getOrCreateCustomerWallet } from "@/lib/db-credits";
-import { hashProviderPin, validateProviderPin } from "@/lib/provider-pin";
+import { hashProviderPin, validateNewPin } from "@/lib/provider-pin";
 import { normalizeProviderPhone } from "@/lib/phone-utils";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseEnabled } from "@/lib/db/config";
@@ -63,7 +63,7 @@ export async function getCustomerAuthByPhone(phone: string): Promise<{
 }
 
 export async function setCustomerPinIfUnset(phone: string, pin: string): Promise<boolean> {
-  const check = validateProviderPin(pin);
+  const check = validateNewPin(pin);
   if (!check.ok) throw new Error(check.error);
 
   const normalized = normalizeProviderPhone(phone);

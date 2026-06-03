@@ -158,7 +158,7 @@ function AppContent() {
           />
           <TextInput
             style={styles.input}
-            placeholder="4 haneli şifre"
+            placeholder="4 veya 6 haneli şifre"
             keyboardType="number-pad"
             secureTextEntry
             maxLength={4}

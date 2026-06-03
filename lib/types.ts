@@ -86,6 +86,8 @@ export type ProviderOffer = {
   canReview?: boolean;
 };
 
+export type OfferReviewStatus = "pending" | "approved" | "rejected";
+
 export type ProviderOfferReview = {
   id: string;
   quoteRequestId: string;
@@ -96,13 +98,37 @@ export type ProviderOfferReview = {
   comment: string;
   reviewerLabel: string;
   serviceName: string;
+  status: OfferReviewStatus;
   createdAt: string;
+  moderatedAt?: string;
 };
 
 export type ProviderOfferReviewSummary = Pick<
   ProviderOfferReview,
-  "id" | "rating" | "comment" | "reviewerLabel" | "createdAt"
+  "id" | "rating" | "comment" | "reviewerLabel" | "status" | "createdAt"
 >;
+
+export type AdminOfferReviewRow = {
+  id: string;
+  quoteRequestId: string;
+  offerId: string;
+  rating: number;
+  comment: string;
+  reviewerLabel: string;
+  serviceName: string;
+  status: OfferReviewStatus;
+  createdAt: string;
+  moderatedAt?: string;
+  customerPhone: string;
+  customerName: string;
+  quoteCity: string;
+  quoteDistrict?: string;
+  providerId: string;
+  providerName: string;
+  providerPhone: string;
+  providerEmail: string;
+  providerCity: string;
+};
 
 export type PublicProviderReview = Pick<
   ProviderOfferReview,

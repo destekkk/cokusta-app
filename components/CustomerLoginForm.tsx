@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import { NEW_PIN_LENGTH, sanitizePinDigits } from "@/lib/provider-pin";
 
 type Mode = "login" | "set-pin";
 
@@ -83,7 +84,8 @@ export default function CustomerLoginForm() {
         <div>
           <h2 className="font-semibold">Müşteri giriş şifresi belirle</h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Tekliflerinizi güvenle görüntülemek için 4 haneli bir şifre oluşturun.
+            Tekliflerinizi güvenle görüntülemek için {NEW_PIN_LENGTH} haneli bir şifre oluşturun.
+            (111111, 123456, 000000 kullanılamaz.)
           </p>
         </div>
         <div>
@@ -97,13 +99,13 @@ export default function CustomerLoginForm() {
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-medium">4 haneli şifre</label>
+          <label className="mb-1.5 block text-sm font-medium">{NEW_PIN_LENGTH} haneli şifre</label>
           <input
             type="password"
             inputMode="numeric"
-            maxLength={4}
+            maxLength={NEW_PIN_LENGTH}
             value={pin}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            onChange={(e) => setPin(sanitizePinDigits(e.target.value))}
             className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest"
           />
         </div>
@@ -112,9 +114,9 @@ export default function CustomerLoginForm() {
           <input
             type="password"
             inputMode="numeric"
-            maxLength={4}
+            maxLength={NEW_PIN_LENGTH}
             value={pinConfirm}
-            onChange={(e) => setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            onChange={(e) => setPinConfirm(sanitizePinDigits(e.target.value))}
             className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest"
           />
         </div>
@@ -143,7 +145,7 @@ export default function CustomerLoginForm() {
   return (
     <form onSubmit={handleLogin} className="space-y-4 rounded-2xl border border-border bg-card p-6 shadow-sm">
       <p className="text-sm text-muted-foreground">
-        Teklif alırken kullandığınız telefon numarası ve 4 haneli şifrenizle müşteri panelinize girin.
+        Teklif alırken kullandığınız telefon ve giriş şifrenizle (4 veya 6 hane) müşteri panelinize girin.
       </p>
       <div>
         <label className="mb-1.5 block text-sm font-medium">Telefon</label>
@@ -156,13 +158,13 @@ export default function CustomerLoginForm() {
         />
       </div>
       <div>
-        <label className="mb-1.5 block text-sm font-medium">4 haneli şifre</label>
+        <label className="mb-1.5 block text-sm font-medium">Giriş şifresi (4 veya 6 hane)</label>
         <input
           type="password"
           inputMode="numeric"
-          maxLength={4}
+          maxLength={NEW_PIN_LENGTH}
           value={pin}
-          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          onChange={(e) => setPin(sanitizePinDigits(e.target.value))}
           className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest"
         />
       </div>

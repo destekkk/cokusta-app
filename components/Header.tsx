@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import Logo from "./Logo";
-import PanelTabLinesLabel from "@/components/panel/PanelTabLinesLabel";
 import PanelLogoutButton from "@/components/panel/PanelLogoutButton";
 import {
   isAppPanelPath,
@@ -13,44 +12,21 @@ import {
   normalizePathname,
   shouldShowUstaGuestLinks,
 } from "@/lib/panel-paths";
-import {
-  panelTabBarRowClassName,
-  panelTabBarTrackClassName,
-  panelTabButtonClassName,
-} from "@/lib/panel-tab-button";
 
-type NavLink = {
-  href: string;
-  label: string;
-  lines?: [string, string];
-  redBorder?: boolean;
-};
+const ctaClassName =
+  "cta-pulse rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark sm:px-5";
 
-const navLinks: NavLink[] = [
+const navLinks = [
   { href: "/hizmetler", label: "Hizmetler" },
   { href: "/nasil-calisir", label: "Nasıl Çalışır?" },
-  { href: "/cok-acil", label: "Çok Acil" },
+  { href: "/cok-acil", label: "Çok Acil", className: "text-red-700 hover:text-red-800" },
   {
     href: "/musteri/teklifler",
     label: "Benim Tekliflerim",
-    lines: ["Benim", "Tekliflerim"],
-    redBorder: true,
+    className:
+      "inline-flex rounded-lg border-2 border-red-400 px-2.5 py-1 text-sm font-semibold text-red-800 hover:bg-red-50",
   },
 ];
-
-function isNavLinkActive(pathname: string, href: string) {
-  if (href === "/musteri/teklifler") {
-    return pathname === href || pathname.startsWith("/musteri/teklif") || pathname.startsWith("/tekliflerim");
-  }
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
-
-function NavLinkContent({ link, active }: { link: NavLink; active?: boolean }) {
-  if (link.lines) {
-    return <PanelTabLinesLabel lines={link.lines} active={active} />;
-  }
-  return <span>{link.label}</span>;
-}
 
 export default function Header() {
   const [open, setOpen] = useState(false);
@@ -77,38 +53,25 @@ export default function Header() {
     }
   };
 
+  const linkClass = (extra?: string) =>
+    `text-sm font-medium text-muted-foreground transition-colors hover:text-foreground ${extra ?? ""}`;
+
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-2 px-3 sm:gap-4 sm:px-6">
         <Logo />
 
-        <nav className="hidden min-w-0 flex-1 items-center justify-center md:flex">
+        <nav className="hidden min-w-0 flex-1 items-center justify-center gap-5 md:flex lg:gap-7">
+          {!appPanelOpen &&
+            navLinks.map((link) => (
+              <Link key={link.href} href={link.href} className={linkClass(link.className)}>
+                {link.label}
+              </Link>
+            ))}
           {!appPanelOpen && (
-            <div className={`${panelTabBarTrackClassName} max-w-full`}>
-              <div className={`${panelTabBarRowClassName} items-center`}>
-                {navLinks.map((link) => {
-                  const active = isNavLinkActive(pathname, link.href);
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      className={[
-                        panelTabButtonClassName({ active, redBorder: link.redBorder }, "header"),
-                        link.lines ? "flex-col gap-0.5" : "",
-                      ].join(" ")}
-                    >
-                      <NavLinkContent link={link} active={active} />
-                    </Link>
-                  );
-                })}
-                <Link
-                  href="/hizmetler"
-                  className={`cta-pulse ${panelTabButtonClassName({ active: true }, "header")}`}
-                >
-                  Hemen Teklif Al
-                </Link>
-              </div>
-            </div>
+            <Link href="/hizmetler" className={`${ctaClassName} ml-1 lg:ml-3`}>
+              Hemen Teklif Al
+            </Link>
           )}
         </nav>
 
@@ -156,39 +119,18 @@ export default function Header() {
 
       {open && (!appPanelOpen || ustaPanelOpen) && !customerPanelOpen && (
         <nav className="border-t border-border px-4 py-4 md:hidden">
-          <div className="mx-auto flex max-w-7xl flex-col gap-3">
-            {!appPanelOpen && (
-              <div className={panelTabBarTrackClassName}>
-                <div className={`${panelTabBarRowClassName} flex-wrap`}>
-                  {navLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setOpen(false)}
-                      className={[
-                        panelTabButtonClassName(
-                          { active: isNavLinkActive(pathname, link.href), redBorder: link.redBorder },
-                          "header"
-                        ),
-                        link.lines ? "flex-col gap-0.5" : "",
-                      ].join(" ")}
-                    >
-                      <NavLinkContent
-                        link={link}
-                        active={isNavLinkActive(pathname, link.href)}
-                      />
-                    </Link>
-                  ))}
-                  <Link
-                    href="/hizmetler"
-                    onClick={() => setOpen(false)}
-                    className={`cta-pulse ${panelTabButtonClassName({ active: true }, "header")}`}
-                  >
-                    Hemen Teklif Al
-                  </Link>
-                </div>
-              </div>
-            )}
+          <div className="mx-auto flex max-w-7xl flex-col gap-1">
+            {!appPanelOpen &&
+              navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className={`rounded-lg px-3 py-2.5 ${linkClass(link.className)} hover:bg-muted`}
+                >
+                  {link.label}
+                </Link>
+              ))}
             {ustaPanelOpen && (
               <div className="mt-2 px-3">
                 <PanelLogoutButton
@@ -204,6 +146,13 @@ export default function Header() {
             )}
             {showUstaGuestLinks && (
               <>
+                <Link
+                  href="/hizmetler"
+                  onClick={() => setOpen(false)}
+                  className={`${ctaClassName} mt-2 text-center`}
+                >
+                  Hemen Teklif Al
+                </Link>
                 <Link
                   href="/usta/giris"
                   onClick={() => setOpen(false)}

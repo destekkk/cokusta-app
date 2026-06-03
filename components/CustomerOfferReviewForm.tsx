@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ProviderOffer, ProviderOfferReviewSummary } from "@/lib/types";
 import { REVIEW_COMMENT_MIN } from "@/lib/provider-offer-reviews";
+import { OFFER_REVIEW_STATUS_LABELS } from "@/lib/offer-review-moderation";
 
 type Props = {
   quoteId: string;
@@ -47,9 +48,16 @@ function ReviewDisplay({
   review: ProviderOfferReviewSummary;
   compact?: boolean;
 }) {
+  const pending = review.status === "pending";
+  const boxClass = compact
+    ? "mt-2 rounded-md px-2.5 py-2 text-xs"
+    : "mt-3 rounded-lg px-4 py-3 text-sm";
+
   return (
     <div
-      className={`${compact ? "mt-2 rounded-md px-2.5 py-2 text-xs" : "mt-3 rounded-lg px-4 py-3 text-sm"} border border-border bg-muted/30`}
+      className={`${boxClass} border ${
+        pending ? "border-amber-200 bg-amber-50" : "border-border bg-muted/30"
+      }`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold text-foreground">Değerlendirmeniz</span>
@@ -57,10 +65,22 @@ function ReviewDisplay({
           {"★".repeat(review.rating)}
           {"☆".repeat(5 - review.rating)}
         </span>
+        <span
+          className={`text-xs font-medium ${
+            pending ? "text-amber-800" : "text-muted-foreground"
+          }`}
+        >
+          {OFFER_REVIEW_STATUS_LABELS[review.status]}
+        </span>
         <span className="text-xs text-muted-foreground">
           {new Date(review.createdAt).toLocaleDateString("tr-TR")}
         </span>
       </div>
+      {pending && (
+        <p className="mt-2 text-xs text-amber-900">
+          Yorumunuz inceleniyor. Onaylandıktan sonra usta profilinde yayınlanır.
+        </p>
+      )}
       <p className="mt-2 leading-relaxed text-muted-foreground">{review.comment}</p>
     </div>
   );
@@ -119,19 +139,22 @@ export default function CustomerOfferReviewForm({
               : "rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground hover:bg-muted/50"
           }
         >
-          Bu ustayı değerlendir
+          Bu ustayı puanla ve yorum yaz
         </button>
       </div>
     );
   }
 
   return (
-    <div className={`${compact ? "mt-2 rounded-md p-2.5" : "mt-3 rounded-lg p-4"} border border-border bg-card`}>
+    <div
+      className={`${compact ? "mt-2 rounded-md p-2.5" : "mt-3 rounded-lg p-4"} border border-border bg-card`}
+    >
       <p className="text-sm font-semibold text-foreground">
         {offer.providerName ?? "Usta"} — değerlendirme
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
-        Puan ve yorumunuz usta profilinde görünebilir (adınız kısaltılarak).
+        Puan ve yorumunuz yönetim onayından sonra usta profilinde yayınlanır (adınız
+        kısaltılarak).
       </p>
       <div className="mt-3">
         <StarPicker value={rating} onChange={setRating} disabled={loading} />
@@ -141,7 +164,7 @@ export default function CustomerOfferReviewForm({
         onChange={(e) => setComment(e.target.value)}
         disabled={loading}
         rows={3}
-        placeholder={`Deneyiminizi kısaca yazın (en az ${REVIEW_COMMENT_MIN} karakter)`}
+        placeholder={`Deneyiminizi yazın (en az ${REVIEW_COMMENT_MIN} karakter)`}
         className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-sm"
       />
       {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
@@ -152,7 +175,7 @@ export default function CustomerOfferReviewForm({
           onClick={submit}
           className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {loading ? "Gönderiliyor…" : "Değerlendirmeyi gönder"}
+          {loading ? "Gönderiliyor…" : "Onaya gönder"}
         </button>
         <button
           type="button"

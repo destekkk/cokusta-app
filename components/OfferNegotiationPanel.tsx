@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import CurrencyInput from "@/components/CurrencyInput";
+import { parseTlDigits } from "@/lib/currency-input";
 import type { ProviderOffer } from "@/lib/types";
 import { getCurrentOfferPrice, sortNegotiationEntries } from "@/lib/offer-utils";
 import {
@@ -269,13 +271,11 @@ export default function OfferNegotiationPanel({
       )}
 
       {showCounter && canCounter && (
-        <div className="grid gap-2 sm:grid-cols-[140px_1fr_auto]">
-          <input
-            type="number"
-            placeholder="Tutar (₺)"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="rounded-lg border border-border px-3 py-2 text-sm"
+        <div className="grid gap-2 sm:grid-cols-[minmax(9rem,140px)_1fr_auto]">
+          <CurrencyInput
+            digits={price}
+            onDigitsChange={setPrice}
+            disabled={loading}
           />
           <input
             type="text"
@@ -288,7 +288,7 @@ export default function OfferNegotiationPanel({
             type="button"
             disabled={loading}
             onClick={() => {
-              onCounter(Number(price), message);
+              onCounter(parseTlDigits(price), message);
               setShowCounter(false);
               setPrice("");
               setMessage("");

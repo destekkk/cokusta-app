@@ -1,4 +1,4 @@
-import { getAdminStats, getAllProviders, getBillingOverview } from "@/lib/db";
+import { countPendingOfferReviews, getAdminStats, getBillingOverview } from "@/lib/db";
 import { getPendingProviderPayouts } from "@/lib/db-credits";
 import { isDatabaseEnabled } from "@/lib/db/config";
 import AdminNav from "@/components/admin/AdminNav";
@@ -7,15 +7,18 @@ import type { AdminNavBadges } from "@/components/admin/admin-nav-types";
 export const dynamic = "force-dynamic";
 
 async function getNavBadges(): Promise<AdminNavBadges> {
-  const [stats, billing, payouts] = await Promise.all([
+  const [stats, billing, payouts, pendingOfferReviews] = await Promise.all([
     getAdminStats(),
     getBillingOverview(),
     isDatabaseEnabled() ? getPendingProviderPayouts() : Promise.resolve([]),
+    countPendingOfferReviews(),
   ]);
 
   return {
     awaitingReviewQuotes: stats.awaitingReviewQuotes,
     pendingProviders: stats.pendingProviders,
+    pendingOfferReviews:
+      pendingOfferReviews > 0 ? pendingOfferReviews : (stats.pendingOfferReviews ?? 0),
     pendingInvoices: billing.pendingCount,
     pendingPayouts: payouts.length,
   };

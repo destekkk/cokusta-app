@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCustomerAuthByPhone, setCustomerPinIfUnset } from "@/lib/customer-pin";
-import { isValidProviderPhone, normalizeProviderPhone, validateProviderPin } from "@/lib/provider-pin";
+import { isValidProviderPhone, normalizeProviderPhone, validateNewPin } from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   try {
@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Geçerli telefon numarası girin." }, { status: 400 });
     }
 
-    const pinCheck = validateProviderPin(String(pin ?? ""));
+    const pinCheck = validateNewPin(String(pin ?? ""));
     if (!pinCheck.ok) {
       return NextResponse.json({ error: pinCheck.error }, { status: 400 });
     }

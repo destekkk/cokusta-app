@@ -1253,10 +1253,15 @@ export async function getAdminStats() {
     .filter((q) => q.completedAt && new Date(q.completedAt) >= thisMonth)
     .reduce((sum, q) => sum + (q.commissionAmount ?? 0), 0);
 
+  const pendingOfferReviews = (store.providerOfferReviews ?? []).filter(
+    (r) => (r.status ?? "approved") === "pending"
+  ).length;
+
   return {
     commissionRate,
     openQuotes: openQuotes.length,
     awaitingReviewQuotes: awaitingReviewQuotes.length,
+    pendingOfferReviews,
     matchedQuotes: matchedQuotes.length,
     pendingQuotes: openQuotes.length,
     completedQuotes: completedQuotes.length,
@@ -1753,6 +1758,7 @@ function getProviderOfferReviewMapForQuote(
       rating: row.rating,
       comment: row.comment,
       reviewerLabel: row.reviewerLabel,
+      status: row.status ?? "approved",
       createdAt: row.createdAt,
     });
   }
@@ -1805,6 +1811,7 @@ export async function submitProviderOfferReview(
     comment: input.comment.trim(),
     reviewerLabel: reviewerLabelFromCustomerName(quote.name),
     serviceName: quote.serviceName,
+    status: "pending",
     createdAt: new Date().toISOString(),
   };
   store.providerOfferReviews = [...reviews, review];
@@ -1816,9 +1823,99 @@ export async function submitProviderOfferReview(
       rating: review.rating,
       comment: review.comment,
       reviewerLabel: review.reviewerLabel,
+      status: review.status,
       createdAt: review.createdAt,
     },
   };
+}
+
+export async function countPendingOfferReviews(): Promise<number> {
+  const store = await ensureStore();
+  return (store.providerOfferReviews ?? []).filter((r) => (r.status ?? "approved") === "pending")
+    .length;
+}
+
+export async function listAdminOfferReviews(options?: {
+  status?: "pending" | "approved" | "all";
+  limit?: number;
+}): Promise<import("@/lib/types").AdminOfferReviewRow[]> {
+  const store = await ensureStore();
+  const limit = Math.min(200, Math.max(1, options?.limit ?? 100));
+  let rows = [...(store.providerOfferReviews ?? [])];
+  if (options?.status === "pending") {
+    rows = rows.filter((r) => (r.status ?? "approved") === "pending");
+  } else if (options?.status === "approved") {
+    rows = rows.filter((r) => (r.status ?? "approved") === "approved");
+  }
+  rows.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  rows = rows.slice(0, limit);
+
+  return rows.map((row) => {
+    const quote = store.quoteRequests.find((q) => q.id === row.quoteRequestId);
+    const provider = store.providers.find((p) => p.id === row.providerId);
+    return {
+      id: row.id,
+      quoteRequestId: row.quoteRequestId,
+      offerId: row.offerId,
+      rating: row.rating,
+      comment: row.comment,
+      reviewerLabel: row.reviewerLabel,
+      serviceName: row.serviceName,
+      status: row.status ?? "approved",
+      createdAt: row.createdAt,
+      moderatedAt: row.moderatedAt,
+      customerPhone: row.customerPhone,
+      customerName: quote?.name ?? "—",
+      quoteCity: quote?.city ?? "—",
+      quoteDistrict: quote?.district,
+      providerId: row.providerId,
+      providerName: provider?.name ?? "—",
+      providerPhone: provider?.phone ?? "—",
+      providerEmail: provider?.email ?? "—",
+      providerCity: provider?.city ?? "—",
+    };
+  });
+}
+
+export async function approveAdminOfferReview(
+  reviewId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const store = await ensureStore();
+  const row = (store.providerOfferReviews ?? []).find((r) => r.id === reviewId);
+  if (!row) return { ok: false, error: "Değerlendirme bulunamadı." };
+  row.status = "approved";
+  row.moderatedAt = new Date().toISOString();
+  await saveStore(store);
+  return { ok: true };
+}
+
+export async function deleteAdminOfferReview(
+  reviewId: string
+): Promise<{ ok: boolean; error?: string }> {
+  const store = await ensureStore();
+  const before = store.providerOfferReviews?.length ?? 0;
+  store.providerOfferReviews = (store.providerOfferReviews ?? []).filter((r) => r.id !== reviewId);
+  if (store.providerOfferReviews.length === before) {
+    return { ok: false, error: "Değerlendirme bulunamadı." };
+  }
+  await saveStore(store);
+  return { ok: true };
+}
+
+export async function getCustomerQuoteReviewFlags(
+  quoteIds: string[],
+  customerPhone: string
+): Promise<Record<string, "none" | "pending" | "approved">> {
+  const store = await ensureStore();
+  const phone = normalizeProviderPhone(customerPhone);
+  const out: Record<string, "none" | "pending" | "approved"> = {};
+  for (const id of quoteIds) out[id] = "none";
+  for (const row of store.providerOfferReviews ?? []) {
+    if (!quoteIds.includes(row.quoteRequestId)) continue;
+    if (!phonesEqual(row.customerPhone, phone)) continue;
+    out[row.quoteRequestId] = (row.status ?? "approved") === "approved" ? "approved" : "pending";
+  }
+  return out;
 }
 
 export async function getPublicProviderReviews(
@@ -1827,7 +1924,7 @@ export async function getPublicProviderReviews(
 ): Promise<PublicProviderReview[]> {
   const store = await ensureStore();
   return (store.providerOfferReviews ?? [])
-    .filter((r) => r.providerId === providerId)
+    .filter((r) => r.providerId === providerId && (r.status ?? "approved") === "approved")
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
     .slice(0, limit)
     .map((r) => ({
@@ -1844,7 +1941,9 @@ export async function getProviderReviewStats(
   providerId: string
 ): Promise<ProviderReviewStats> {
   const store = await ensureStore();
-  const rows = (store.providerOfferReviews ?? []).filter((r) => r.providerId === providerId);
+  const rows = (store.providerOfferReviews ?? []).filter(
+    (r) => r.providerId === providerId && (r.status ?? "approved") === "approved"
+  );
   if (rows.length === 0) return { reviewCount: 0, averageRating: 0 };
   const sum = rows.reduce((acc, r) => acc + r.rating, 0);
   return {

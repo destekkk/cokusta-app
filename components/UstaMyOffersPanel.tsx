@@ -152,7 +152,7 @@ export default function UstaMyOffersPanel({
     <>
       <div className="space-y-3 md:hidden">
         {visibleItems.map((item) => (
-          <div key={item.offer.id} className="rounded-xl border border-border bg-background p-4">
+          <div key={item.offer.id} className="rounded-xl border border-border bg-card p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-semibold text-foreground">{item.quote.serviceName}</p>
@@ -189,23 +189,21 @@ export default function UstaMyOffersPanel({
         ))}
       </div>
 
-      <div className="hidden min-w-0 w-full overflow-x-auto rounded-xl border border-border bg-background md:block">
-        <table className="w-full min-w-[720px] text-sm">
+      <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
+        <table className="w-full text-sm">
           <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr>
-              <th className="px-4 py-3">Hizmet</th>
-              <th className="whitespace-nowrap px-4 py-3">Konum</th>
-              <th className="whitespace-nowrap px-4 py-3">Teklif</th>
-              <th className="px-4 py-3">Durum</th>
-              <th className="sticky right-0 z-[1] whitespace-nowrap bg-muted/40 px-4 py-3 text-right shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.12)]">
-                İşlem
-              </th>
+              <th className="px-4 py-3 font-semibold">Hizmet</th>
+              <th className="px-4 py-3 font-semibold">Konum</th>
+              <th className="px-4 py-3 font-semibold">Teklif</th>
+              <th className="px-4 py-3 font-semibold">Durum</th>
+              <th className="px-4 py-3 text-right font-semibold">İşlem</th>
             </tr>
           </thead>
           <tbody>
             {visibleItems.map((item) => (
-              <tr key={item.offer.id} className="border-t border-border align-top hover:bg-accent/10">
-                <td className="px-4 py-3 font-medium">{item.quote.serviceName}</td>
+              <tr key={item.offer.id} className="border-t border-border align-top hover:bg-accent/20">
+                <td className="px-4 py-3 font-medium text-foreground">{item.quote.serviceName}</td>
                 <td className="px-4 py-3 text-muted-foreground">
                   {item.quote.city}
                   {item.quote.district ? `, ${item.quote.district}` : ""}
@@ -220,7 +218,7 @@ export default function UstaMyOffersPanel({
                 <td className="px-4 py-3">
                   {statusBadge(item)}
                 </td>
-                <td className="sticky right-0 z-[1] bg-background px-4 py-3 text-right shadow-[-6px_0_10px_-6px_rgba(0,0,0,0.08)]">
+                <td className="px-4 py-3 text-right">
                   {mode !== "done" &&
                   mode !== "escrow" &&
                   item.offer.status === "pending" &&

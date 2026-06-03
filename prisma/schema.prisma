@@ -25,6 +25,12 @@ enum OfferStatus {
   withdrawn
 }
 
+enum OfferReviewStatus {
+  pending
+  approved
+  rejected
+}
+
 enum ProviderStatus {
   pending
   approved
@@ -216,16 +222,18 @@ model Provider {
 }
 
 model ProviderOfferReview {
-  id             String   @id @db.VarChar(64)
-  quoteRequestId String   @map("quote_request_id") @db.VarChar(64)
-  offerId        String   @unique @map("offer_id") @db.VarChar(64)
-  providerId     String   @map("provider_id") @db.VarChar(64)
-  customerPhone  String   @map("customer_phone") @db.VarChar(32)
+  id             String            @id @db.VarChar(64)
+  quoteRequestId String            @map("quote_request_id") @db.VarChar(64)
+  offerId        String            @unique @map("offer_id") @db.VarChar(64)
+  providerId     String            @map("provider_id") @db.VarChar(64)
+  customerPhone  String            @map("customer_phone") @db.VarChar(32)
   rating         Int
-  comment        String   @db.Text
-  reviewerLabel  String   @map("reviewer_label") @db.VarChar(128)
-  serviceName    String   @map("service_name") @db.VarChar(255)
-  createdAt      DateTime @map("created_at")
+  comment        String            @db.Text
+  reviewerLabel  String            @map("reviewer_label") @db.VarChar(128)
+  serviceName    String            @map("service_name") @db.VarChar(255)
+  status         OfferReviewStatus @default(pending)
+  createdAt      DateTime          @map("created_at")
+  moderatedAt    DateTime?         @map("moderated_at")
 
   offer        ProviderOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
   provider     Provider      @relation(fields: [providerId], references: [id], onDelete: Cascade)
@@ -233,6 +241,7 @@ model ProviderOfferReview {
 
   @@index([providerId, createdAt])
   @@index([quoteRequestId])
+  @@index([status, createdAt])
   @@map("provider_offer_reviews")
 }
 

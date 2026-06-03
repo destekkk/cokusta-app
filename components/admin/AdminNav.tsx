@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,6 +12,7 @@ export type { AdminNavBadges } from "@/components/admin/admin-nav-types";
 const links: { href: string; label: string; badgeKey?: keyof AdminNavBadges }[] = [
   { href: "/sltn/panel", label: "Dashboard" },
   { href: "/sltn/teklifler", label: "Teklifler", badgeKey: "awaitingReviewQuotes" },
+  { href: "/sltn/degerlendirmeler", label: "Değerlendirmeler", badgeKey: "pendingOfferReviews" },
   { href: "/sltn/ustalar", label: "Başvurular", badgeKey: "pendingProviders" },
   { href: "/sltn/usta-listesi", label: "Usta Listesi" },
   { href: "/sltn/musteriler", label: "Müşteriler" },
