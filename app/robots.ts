@@ -1,4 +1,4 @@
-import type { MetadataRoute } from "next";
+﻿import type { MetadataRoute } from "next";
 import { resolveSiteUrl } from "@/lib/seo/site-url";
 
 export default function robots(): MetadataRoute.Robots {
@@ -7,7 +7,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/admin/", "/api/admin/", "/teklif-al/onay", "/usta-ol/onay"],
+      disallow: ["/sltn/", "/api/admin/", "/teklif-al/onay", "/usta-ol/onay"],
     },
     sitemap: `${base}/sitemap.xml`,
   };

@@ -1,10 +1,17 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { getAdminStats, getAllProviders, getBillingOverview } from "@/lib/db";
 import { getPendingProviderPayouts } from "@/lib/db-credits";
 import { isDatabaseEnabled } from "@/lib/db/config";
+import { pingDatabase } from "@/lib/db-status";
 import ProviderApplicationsPanel from "@/components/admin/ProviderApplicationsPanel";
+import AdminDbDownPage from "@/components/admin/AdminDbDownPage";
 
 export default async function AdminDashboardPage() {
+  const db = await pingDatabase();
+  if (!db.ok) {
+    return <AdminDbDownPage message={db.message} />;
+  }
+
   const [stats, billing, providers, payouts] = await Promise.all([
     getAdminStats(),
     getBillingOverview(),
@@ -49,35 +56,35 @@ export default async function AdminDashboardPage() {
       {/* Özet kartlar */}
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Link
-          href="/admin/teklifler?status=awaiting_review"
+          href="/sltn/teklifler?status=awaiting_review"
           className="rounded-xl border border-orange-200 bg-orange-50 p-5 hover:border-orange-300"
         >
           <div className="text-3xl font-bold text-orange-600">{stats.awaitingReviewQuotes}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Onay bekleyen teklif</div>
         </Link>
         <Link
-          href="/admin/teklifler?status=open"
+          href="/sltn/teklifler?status=open"
           className="rounded-xl border border-border bg-card p-5 hover:border-primary/40"
         >
           <div className="text-3xl font-bold text-amber-600">{stats.pendingQuotes}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Yayında (usta bekliyor)</div>
         </Link>
         <Link
-          href="/admin/teklifler?status=accepted"
+          href="/sltn/teklifler?status=accepted"
           className="rounded-xl border border-border bg-card p-5 hover:border-primary/40"
         >
           <div className="text-3xl font-bold text-primary">{stats.matchedQuotes}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Eşleştirilmiş iş</div>
         </Link>
         <Link
-          href="/admin/ustalar"
+          href="/sltn/ustalar"
           className="rounded-xl border border-border bg-card p-5 hover:border-primary/40"
         >
           <div className="text-3xl font-bold text-amber-600">{stats.pendingProviders}</div>
           <div className="mt-1 text-sm font-medium text-foreground">Onay bekleyen usta</div>
         </Link>
         <Link
-          href="/admin/teklifler?status=completed"
+          href="/sltn/teklifler?status=completed"
           className="rounded-xl border border-border bg-card p-5 hover:border-primary/40"
         >
           <div className="text-3xl font-bold text-emerald-600">{stats.completedQuotes}</div>
@@ -94,14 +101,14 @@ export default async function AdminDashboardPage() {
         </p>
         <div className="mt-4 flex flex-wrap gap-3">
           <Link
-            href="/admin/muhasebe"
+            href="/sltn/muhasebe"
             className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
           >
             Fatura Kes & Beyanname
           </Link>
           {payouts.length > 0 && (
             <Link
-              href="/admin/muhasebe#payouts"
+              href="/sltn/muhasebe#payouts"
               className="rounded-lg border border-amber-300 bg-amber-50 px-5 py-2.5 text-sm font-medium text-amber-900 hover:bg-amber-100"
             >
               {payouts.length} ödeme talebi
@@ -109,7 +116,7 @@ export default async function AdminDashboardPage() {
           )}
           {billing.hasDeclaration && billing.latestDeclaration && (
             <Link
-              href={`/admin/beyanname/${billing.latestDeclaration.id}`}
+              href={`/sltn/beyanname/${billing.latestDeclaration.id}`}
               target="_blank"
               className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium hover:bg-accent"
             >
@@ -155,7 +162,7 @@ export default async function AdminDashboardPage() {
             </p>
           </div>
           <Link
-            href="/admin/ustalar"
+            href="/sltn/ustalar"
             className="text-sm font-semibold text-primary hover:underline"
           >
             Tümünü gör →
@@ -167,25 +174,25 @@ export default async function AdminDashboardPage() {
       {/* Hızlı işlemler */}
       <div className="mt-8 flex flex-wrap gap-3">
         <Link
-          href="/admin/ustalar"
+          href="/sltn/ustalar"
           className="rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark"
         >
           Usta başvurularını incele ({stats.pendingProviders})
         </Link>
         <Link
-          href="/admin/teklifler?status=awaiting_review"
+          href="/sltn/teklifler?status=awaiting_review"
           className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium hover:bg-accent"
         >
           Teklif taleplerini yönet
         </Link>
         <Link
-          href="/admin/musteriler"
+          href="/sltn/musteriler"
           className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium hover:bg-accent"
         >
           Müşteri listesi
         </Link>
         <Link
-          href="/admin/usta-listesi"
+          href="/sltn/usta-listesi"
           className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium hover:bg-accent"
         >
           Usta listesi

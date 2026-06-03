@@ -1,22 +1,22 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import Logo from "@/components/Logo";
-import { adminLogoutAction } from "@/app/admin/logout-action";
+import { adminLogoutAction } from "@/app/sltn/logout-action";
 import type { AdminNavBadges } from "@/components/admin/admin-nav-types";
 
 export type { AdminNavBadges } from "@/components/admin/admin-nav-types";
 
 const links: { href: string; label: string; badgeKey?: keyof AdminNavBadges }[] = [
-  { href: "/admin", label: "Dashboard" },
-  { href: "/admin/teklifler", label: "Teklifler", badgeKey: "awaitingReviewQuotes" },
-  { href: "/admin/ustalar", label: "Başvurular", badgeKey: "pendingProviders" },
-  { href: "/admin/usta-listesi", label: "Usta Listesi" },
-  { href: "/admin/musteriler", label: "Müşteriler" },
-  { href: "/admin/muhasebe", label: "Muhasebe", badgeKey: "pendingInvoices" },
-  { href: "/admin/oduller", label: "Ayın Ustası" },
+  { href: "/sltn/panel", label: "Dashboard" },
+  { href: "/sltn/teklifler", label: "Teklifler", badgeKey: "awaitingReviewQuotes" },
+  { href: "/sltn/ustalar", label: "Başvurular", badgeKey: "pendingProviders" },
+  { href: "/sltn/usta-listesi", label: "Usta Listesi" },
+  { href: "/sltn/musteriler", label: "Müşteriler" },
+  { href: "/sltn/muhasebe", label: "Muhasebe", badgeKey: "pendingInvoices" },
+  { href: "/sltn/oduller", label: "Ayın Ustası" },
 ];
 
 function badgeCount(badges: AdminNavBadges, key?: keyof AdminNavBadges): number {
@@ -63,7 +63,7 @@ export default function AdminNav({ badges }: { badges: AdminNavBadges }) {
   const [open, setOpen] = useState(false);
 
   const isActive = (href: string) => {
-    if (href === "/admin") return pathname === "/admin";
+    if (href === "/sltn/panel") return pathname === "/sltn/panel";
     return pathname.startsWith(href);
   };
 
@@ -86,7 +86,7 @@ export default function AdminNav({ badges }: { badges: AdminNavBadges }) {
             </svg>
           </button>
           <div className="flex items-center">
-            <Logo variant="dark" size="sm" href="/admin" />
+            <Logo variant="dark" size="sm" href="/sltn/panel" />
             <span className="ml-2 hidden text-sm font-normal text-white/60 sm:inline">Yönetim</span>
           </div>
         </div>

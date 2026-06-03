@@ -8,8 +8,7 @@ import PanelStatCard from "@/components/panel/PanelStatCard";
 import PanelLogoutButton from "@/components/panel/PanelLogoutButton";
 
 const NAV_ITEMS: PanelNavItem[] = [
-  { href: "/usta/teklifler", label: "Açık Talepler", queryTab: "open" },
-  { href: "/usta/teklifler?tab=mine", label: "Verdiğim Teklifler", queryTab: "mine" },
+  { href: "/usta/teklifler", label: "Teklifler" },
   { href: "/usta/kontor", label: "Kontör" },
   { href: "/usta/odeme-talep", label: "Ödeme Talebi" },
   { href: "/usta/uygulama", label: "Uygulama" },

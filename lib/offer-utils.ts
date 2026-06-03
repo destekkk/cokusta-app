@@ -2,7 +2,8 @@ import type { OfferNegotiationEntry, ProviderOffer, ProviderRegistration, QuoteR
 import { generateId } from "@/lib/id";
 import { categories } from "@/lib/data/categories";
 import { getServiceBySlug } from "@/lib/data/services";
-import { citiesMatch, districtsMatch } from "@/lib/location-match";
+import { citiesMatch, districtsMatch, normalizeCityName } from "@/lib/location-match";
+import { cities } from "@/lib/data/cities";
 import { sanitizeQuoteForProvider } from "@/lib/quote-privacy";
 
 export function quoteIsOpenForOffers(quote: QuoteRequest): boolean {
@@ -39,8 +40,15 @@ export function parseProviderQuoteLocationFilter(
   const city = params.city?.trim();
   const district = params.district?.trim() || undefined;
   if (city === "all") return { cityMode: "all" };
-  if (city) return { cityMode: "selected", selectedCity: city, selectedDistrict: district };
+  if (city) return { cityMode: "selected", selectedCity: resolveCanonicalCityName(city), selectedDistrict: district };
   return { cityMode: "provider", selectedDistrict: district };
+}
+
+/** Veritabanı / filtre için tutarlı il adı */
+export function resolveCanonicalCityName(city: string): string {
+  const normalized = normalizeCityName(city);
+  const match = cities.find((name) => normalizeCityName(name) === normalized);
+  return match ?? city.trim();
 }
 
 export function locationFilterToQuery(location: ProviderQuoteLocationFilter, providerCity: string) {
@@ -125,8 +133,30 @@ export function parseNegotiation(raw: unknown): OfferNegotiationEntry[] {
 }
 
 export function getCurrentOfferPrice(offer: Pick<ProviderOffer, "price" | "negotiation">): number {
-  const last = offer.negotiation?.[offer.negotiation.length - 1];
+  const last = sortNegotiationEntries(offer.negotiation)[0];
   return last?.price ?? offer.price;
+}
+
+export function sortNegotiationEntries(
+  negotiation: OfferNegotiationEntry[] | undefined
+): OfferNegotiationEntry[] {
+  return [...(negotiation ?? [])].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+}
+
+export function getOfferLastActivityAt(
+  offer: Pick<ProviderOffer, "createdAt" | "negotiation">
+): number {
+  const entries = offer.negotiation ?? [];
+  if (entries.length === 0) return new Date(offer.createdAt).getTime();
+  return Math.max(...entries.map((entry) => new Date(entry.createdAt).getTime()));
+}
+
+export function sortOffersByLatestActivity<T extends Pick<ProviderOffer, "createdAt" | "negotiation">>(
+  offers: T[]
+): T[] {
+  return [...offers].sort((a, b) => getOfferLastActivityAt(b) - getOfferLastActivityAt(a));
 }
 
 export function buildInitialNegotiation(

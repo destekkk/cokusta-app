@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import CustomerLoginForm from "@/components/CustomerLoginForm";
+import DbDownNotice from "@/components/DbDownNotice";
 import { getCustomerSessionPhone } from "@/lib/customer-auth";
 
 export const metadata = {
@@ -22,6 +23,7 @@ export default async function CustomerLoginPage() {
           Telefon numaranız ve 4 haneli şifrenizle müşteri panelinize girin.
         </p>
         <div className="mt-6">
+          <DbDownNotice />
           <Suspense fallback={<p className="text-muted-foreground">Yükleniyor…</p>}>
             <CustomerLoginForm />
           </Suspense>

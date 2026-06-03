@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Logo from "@/components/Logo";
+import DbDownNotice from "@/components/DbDownNotice";
 
 export default function AdminLoginForm() {
   const router = useRouter();
@@ -28,7 +29,7 @@ export default function AdminLoginForm() {
         throw new Error(data.error ?? "Giriş başarısız");
       }
 
-      const redirect = searchParams.get("redirect") ?? "/admin";
+      const redirect = searchParams.get("redirect") ?? "/sltn/panel";
       router.push(redirect);
       router.refresh();
     } catch (err) {
@@ -47,6 +48,7 @@ export default function AdminLoginForm() {
         </div>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+          <DbDownNotice />
           <div>
             <label className="mb-1.5 block text-sm font-medium text-foreground">
               Şifre

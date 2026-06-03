@@ -31,6 +31,7 @@ import {
   providerCanBidOnQuote,
   providerCanSeeQuote,
   quoteIsOpenForOffers,
+  resolveCanonicalCityName,
   toPublicQuoteListItem,
 } from "./offer-utils";
 import {
@@ -296,12 +297,14 @@ function buildCustomerQuotesWhere(
         }
       : filter?.tab === "offers"
         ? {
-            OR: [
-              { offers: { some: {} } },
-              { status: { in: ["accepted", "completed", "cancelled"] } },
-            ],
+            status: { in: ["open", "awaiting_review"] },
+            offers: { some: {} },
           }
-        : null;
+        : filter?.tab === "finished"
+          ? {
+              status: { in: ["accepted", "completed", "cancelled"] },
+            }
+          : null;
 
   if (search && tabClause) {
     return {
@@ -335,10 +338,11 @@ export async function countCustomerQuotesByPhone(
 export async function getCustomerQuoteTabCounts(phone: string): Promise<{
   waiting: number;
   offers: number;
+  finished: number;
   total: number;
 }> {
   const normalized = normalizeProviderPhone(phone);
-  const [total, waiting] = await Promise.all([
+  const [total, waiting, finished, offers] = await Promise.all([
     prisma.quoteRequest.count({ where: { phone: normalized } }),
     prisma.quoteRequest.count({
       where: {
@@ -347,8 +351,21 @@ export async function getCustomerQuoteTabCounts(phone: string): Promise<{
         offers: { none: {} },
       },
     }),
+    prisma.quoteRequest.count({
+      where: {
+        phone: normalized,
+        status: { in: ["accepted", "completed", "cancelled"] },
+      },
+    }),
+    prisma.quoteRequest.count({
+      where: {
+        phone: normalized,
+        status: { in: ["open", "awaiting_review"] },
+        offers: { some: {} },
+      },
+    }),
   ]);
-  return { total, waiting, offers: total - waiting };
+  return { total, waiting, offers, finished };
 }
 
 export async function getQuoteRequestsByPhone(
@@ -499,7 +516,7 @@ export async function updateProvider(
         data.companyName !== undefined ? data.companyName?.trim() || null : undefined,
       phone: data.phone,
       email: data.email,
-      city: data.city,
+      city: data.city !== undefined ? resolveCanonicalCityName(data.city) : undefined,
       district: data.district !== undefined ? data.district?.trim() || null : undefined,
       categorySlugs: data.categorySlugs,
       experience: data.experience,
@@ -1662,18 +1679,22 @@ export async function getOpenQuotesForProvider(
   const where: {
     status: "open";
     serviceSlug: { in: string[] };
-    city?: string;
+    offers: { none: { providerId: string } };
+    city?: string | { equals: string; mode: "insensitive" };
     district?: string;
   } = {
     status: "open",
     serviceSlug: { in: allowedServiceSlugs },
+    offers: { none: { providerId } },
   };
 
   if (location.cityMode === "selected" && location.selectedCity) {
-    where.city = location.selectedCity;
+    const city = resolveCanonicalCityName(location.selectedCity);
+    where.city = { equals: city, mode: "insensitive" };
     if (location.selectedDistrict) where.district = location.selectedDistrict;
   } else if (location.cityMode === "provider" && provider.city) {
-    where.city = provider.city;
+    const city = resolveCanonicalCityName(provider.city);
+    where.city = { equals: city, mode: "insensitive" };
     if (location.selectedDistrict) where.district = location.selectedDistrict;
   }
 
@@ -1691,14 +1712,11 @@ export async function getOpenQuotesForProvider(
   if (quotes.length === 0) return [];
 
   const quoteIds = quotes.map((q) => q.id);
-  const [myOffers, pendingCounts] = await Promise.all([
-    prisma.providerOffer.findMany({ where: { providerId, quoteRequestId: { in: quoteIds } } }),
-    prisma.providerOffer.groupBy({
-      by: ["quoteRequestId"],
-      where: { quoteRequestId: { in: quoteIds }, status: "pending" },
-      _count: { id: true },
-    }),
-  ]);
+  const pendingCounts = await prisma.providerOffer.groupBy({
+    by: ["quoteRequestId"],
+    where: { quoteRequestId: { in: quoteIds }, status: "pending" },
+    _count: { id: true },
+  });
 
   const countByQuote = new Map(
     pendingCounts.map((row) => [row.quoteRequestId, row._count.id])
@@ -1707,9 +1725,7 @@ export async function getOpenQuotesForProvider(
   return quotes
     .map((quote) => {
       const offerCount = countByQuote.get(quote.id) ?? 0;
-      const myOfferRow = myOffers.find((o) => o.quoteRequestId === quote.id);
-      const myOffer = myOfferRow ? mapOfferFromRow(myOfferRow, provider) : undefined;
-      return { ...toPublicQuoteListItem(quote, offerCount, false), myOffer };
+      return { ...toPublicQuoteListItem(quote, offerCount, false) };
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

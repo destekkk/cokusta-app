@@ -278,6 +278,7 @@ export async function countCustomerQuotesByPhone(
 export async function getCustomerQuoteTabCounts(phone: string): Promise<{
   waiting: number;
   offers: number;
+  finished: number;
   total: number;
 }> {
   const store = await ensureStore();
@@ -287,6 +288,8 @@ export async function getCustomerQuoteTabCounts(phone: string): Promise<{
   }
 
   let waiting = 0;
+  let offers = 0;
+  let finished = 0;
   let total = 0;
   for (const quote of store.quoteRequests) {
     if (!phonesEqual(quote.phone, phone)) continue;
@@ -296,9 +299,11 @@ export async function getCustomerQuoteTabCounts(phone: string): Promise<{
       offerCount: offerCounts[quote.id] ?? 0,
     });
     if (tab === "waiting") waiting++;
+    else if (tab === "offers") offers++;
+    else finished++;
   }
 
-  return { total, waiting, offers: total - waiting };
+  return { total, waiting, offers, finished };
 }
 
 export async function getQuoteRequestsByPhone(
@@ -1484,19 +1489,18 @@ export async function getOpenQuotesForProvider(
 
   return store.quoteRequests
     .filter(
-      (quote) => quoteIsOpenForOffers(quote) && providerCanSeeQuote(provider, quote, location)
+      (quote) =>
+        quoteIsOpenForOffers(quote) &&
+        providerCanSeeQuote(provider, quote, location) &&
+        !store.providerOffers.some(
+          (o) => o.quoteRequestId === quote.id && o.providerId === providerId
+        )
     )
     .map((quote) => {
       const offerCount = store.providerOffers.filter(
         (o) => o.quoteRequestId === quote.id && o.status === "pending"
       ).length;
-      const myOffer = store.providerOffers.find(
-        (o) => o.quoteRequestId === quote.id && o.providerId === providerId
-      );
-      return {
-        ...toPublicQuoteListItem(quote, offerCount, false),
-        myOffer: myOffer ? enrichOffer(myOffer, provider) : undefined,
-      };
+      return toPublicQuoteListItem(quote, offerCount, false);
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }

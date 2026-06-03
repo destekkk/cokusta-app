@@ -5,7 +5,7 @@ import { getWhatsAppChatUrl } from "@/lib/whatsapp";
 
 export default function WhatsAppChat() {
   const pathname = usePathname();
-  if (pathname.startsWith("/admin")) return null;
+  if (pathname.startsWith("/sltn")) return null;
 
   return (
     <a

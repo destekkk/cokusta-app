@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { getCategoryName } from "@/lib/data/categories";
 import { formatDateTime, formatExperience } from "@/lib/admin-labels";
 import ProviderActions from "@/components/admin/ProviderActions";
@@ -25,7 +25,7 @@ type Props = {
 export default function ProviderApplicationsTable({
   providers,
   showAll = true,
-  detailBasePath = "/admin/ustalar",
+  detailBasePath = "/sltn/ustalar",
 }: Props) {
   const list = showAll
     ? providers

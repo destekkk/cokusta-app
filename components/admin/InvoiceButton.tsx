@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -24,7 +24,7 @@ export default function InvoiceButton({
   if (invoiceId) {
     return (
       <a
-        href={`/admin/fatura/${invoiceId}`}
+        href={`/sltn/fatura/${invoiceId}`}
         target="_blank"
         rel="noreferrer"
         className={
@@ -48,7 +48,7 @@ export default function InvoiceButton({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Fatura kesilemedi");
-      window.open(`/admin/fatura/${data.invoice.id}`, "_blank");
+      window.open(`/sltn/fatura/${data.invoice.id}`, "_blank");
       router.refresh();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Fatura kesilemedi");

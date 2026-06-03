@@ -79,6 +79,10 @@ const examplesBySlug: Record<string, string> = {
     "Örn: 65 inç Samsung TV açılıyor ama görüntü yok, ses geliyor. Yerinde bakım mümkün mü?",
   "telefon-tablet-servis":
     "Örn: iPhone 13 ekran kırık, orijinal veya A kalite ekran değişimi. Bugün teslim alınabilir mi?",
+  "oto-tamir":
+    "Örn: 2018 model Volkswagen Passat, periyodik bakım + fren balata kontrolü. Araç atölyeye götürülebilir, cumartesi uygun.",
+  "tekne-tamiri":
+    "Örn: 8 m motor bot, dıştan takma Yamaha 150 HP motor çalışmıyor. Tekne Bodrum marina iskelesinde, sezon açılış bakımı da yapılsın.",
   "tadilat-sonrasi-temizlik":
     "Örn: Boya tadilatı biten 3+1 dairede ince toz temizliği, cam ve dolap içleri dahil. Pazartesi uygun.",
   "koltuk-hali-yikama":
@@ -115,7 +119,7 @@ const examplesByCategory: Record<string, string> = {
   tesisat:
     "Örn: Sorunun yeri ve türü (kaçak, tıkanıklık, montaj), aciliyet ve uygun saat.",
   tamirat:
-    "Örn: Cihaz marka/model, arıza belirtisi ve yerinde servis için uygun gün/saat.",
+    "Örn: Cihaz/araç/tekne marka-model, arıza veya bakım detayı, yerinde servis için uygun gün/saat.",
   bahce:
     "Örn: Bahçe büyüklüğü, istenen iş (biçme, budama, peyzaj) ve tek seferlik mi düzenli mi.",
   "ozel-ders":

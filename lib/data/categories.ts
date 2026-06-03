@@ -34,7 +34,7 @@ export const categories: Category[] = [
   {
     slug: "tamirat",
     name: "Tamirat & Servis",
-    description: "Ev aleti, elektronik ve cihaz onarım hizmetleri",
+    description: "Ev aleti, elektronik, oto ve tekne onarım hizmetleri",
   },
   {
     slug: "bahce",

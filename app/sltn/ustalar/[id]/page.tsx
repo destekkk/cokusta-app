@@ -32,7 +32,7 @@ export default async function ProviderApplicationDetailPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-4xl px-4 py-8 sm:px-6">
       <Link
-        href="/admin/ustalar"
+        href="/sltn/ustalar"
         className="text-sm font-medium text-primary hover:underline"
       >
         ← Başvuru listesine dön
@@ -99,7 +99,7 @@ export default async function ProviderApplicationDetailPage({ params }: Props) {
           <ProviderActions
             providerId={provider.id}
             status={provider.status}
-            redirectTo="/admin/ustalar"
+            redirectTo="/sltn/ustalar"
           />
         </div>
       )}

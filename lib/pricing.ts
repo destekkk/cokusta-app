@@ -124,6 +124,8 @@ const serviceCatalogPrices: Record<string, number> = {
   "bilgisayar-onarim": 615,
   "televizyon-onarim": 770,
   "telefon-tablet-servis": 540,
+  "oto-tamir": 1380,
+  "tekne-tamiri": 2460,
   "tadilat-sonrasi-temizlik": 2150,
   "koltuk-hali-yikama": 980,
   "bos-daire-temizligi": 1690,

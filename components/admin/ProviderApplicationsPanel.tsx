@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -51,7 +51,7 @@ function matchesSearch(provider: ProviderRegistration, query: string): boolean {
 export default function ProviderApplicationsPanel({
   providers,
   showAll = true,
-  detailBasePath = "/admin/ustalar",
+  detailBasePath = "/sltn/ustalar",
   initialStatus = showAll ? "pending" : "pending",
 }: Props) {
   const router = useRouter();

@@ -1,0 +1,12 @@
+<svg width="1000" height="380" viewBox="0 0 1000 380" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="500" height="380" rx="46" fill="#1d4d3c"/>
+  <rect x="500" y="0" width="500" height="380" rx="46" fill="#00A650"/>
+  <rect x="454" y="0" width="92" height="380" fill="#1d4d3c"/>
+  <rect x="500" y="0" width="46" height="380" fill="#00A650"/>
+  <text x="250" y="235.6" text-anchor="middle"
+    font-family="Inter, Segoe UI, Arial, sans-serif" font-size="160" font-weight="700"
+    fill="#ffffff" letter-spacing="0.04em">çok</text>
+  <text x="750" y="235.6" text-anchor="middle"
+    font-family="Inter, Segoe UI, Arial, sans-serif" font-size="160" font-weight="700"
+    fill="#ffffff" letter-spacing="0.04em">usta</text>
+</svg>

@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import LocationPicker from "@/components/LocationPicker";
 
+import { readJsonResponse } from "@/lib/safe-fetch";
+
 type Props = {
   onUpdated?: (city: string, district: string) => void;
 };
@@ -21,7 +23,7 @@ export default function UstaProfileLocationCard({ onUpdated }: Props) {
     setError("");
     try {
       const res = await fetch("/api/usta/profil");
-      const data = await res.json();
+      const data = await readJsonResponse<{ error?: string; profile?: { city?: string; district?: string } }>(res);
       if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
       setCity(data.profile?.city ?? "");
       setDistrict(data.profile?.district ?? "");
@@ -51,7 +53,7 @@ export default function UstaProfileLocationCard({ onUpdated }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ city, district }),
       });
-      const data = await res.json();
+      const data = await readJsonResponse<{ error?: string; profile?: { city?: string; district?: string } }>(res);
       if (!res.ok) throw new Error(data.error ?? "Kaydedilemedi");
       setCity(data.profile?.city ?? city);
       setDistrict(data.profile?.district ?? district);

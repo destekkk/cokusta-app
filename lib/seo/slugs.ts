@@ -265,6 +265,8 @@ const NEIGHBORHOOD_SERVICE_SLUGS = [
   "alcipan-asma-tavan",
   "sehir-ici-nakliyat",
   "ev-aleti-servisi",
+  "oto-tamir",
+  "tekne-tamiri",
 ];
 
 export function getNeighborhoodServiceParams() {

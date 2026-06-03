@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+﻿import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { COOKIE_NAME, isValidSessionToken } from "@/lib/admin-session";
 import { PROVIDER_COOKIE, getProviderSessionFromToken } from "@/lib/provider-session";
@@ -6,6 +6,11 @@ import { CUSTOMER_COOKIE, getCustomerSessionFromToken } from "@/lib/customer-ses
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (pathname.startsWith("/admin")) {
+    const target = pathname.replace(/^\/admin/, "/sltn") || "/sltn";
+    return NextResponse.redirect(new URL(target, request.url));
+  }
 
   if (pathname.startsWith("/usta/kontor/sonuc")) return NextResponse.next();
   if (pathname.startsWith("/musteri/kontor/sonuc")) return NextResponse.next();
@@ -36,13 +41,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!pathname.startsWith("/admin")) return NextResponse.next();
+  if (!pathname.startsWith("/sltn")) return NextResponse.next();
 
-  if (pathname === "/admin/login") return NextResponse.next();
+  if (pathname === "/sltn" || pathname === "/sltn/login") return NextResponse.next();
 
   const token = request.cookies.get(COOKIE_NAME)?.value;
   if (!(await isValidSessionToken(token))) {
-    const loginUrl = new URL("/admin/login", request.url);
+    const loginUrl = new URL("/sltn", request.url);
     loginUrl.searchParams.set("redirect", pathname);
     return NextResponse.redirect(loginUrl);
   }
@@ -53,7 +58,9 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/admin",
-    "/admin/:path*",
+    "/sltn/:path*",
+    "/sltn",
+    "/sltn/:path*",
     "/usta/teklifler",
     "/usta/kontor",
     "/usta/odeme-talep",

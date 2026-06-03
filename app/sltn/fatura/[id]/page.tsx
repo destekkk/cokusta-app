@@ -17,7 +17,7 @@ export default async function InvoicePrintPage({ params }: Props) {
     <div className="min-h-screen bg-white px-6 py-10 text-black print:p-0">
       <div className="mx-auto max-w-3xl">
         <div className="mb-8 flex items-center justify-between print:hidden">
-          <a href="/admin/muhasebe" className="text-sm text-primary hover:underline">
+          <a href="/sltn/muhasebe" className="text-sm text-primary hover:underline">
             ← Muhasebe
           </a>
           <PrintButton />

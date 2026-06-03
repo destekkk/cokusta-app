@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { ProviderOffer } from "@/lib/types";
-import { getCurrentOfferPrice } from "@/lib/offer-utils";
+import { getCurrentOfferPrice, sortNegotiationEntries } from "@/lib/offer-utils";
 
 type Props = {
   offer: ProviderOffer;
@@ -13,6 +13,20 @@ type Props = {
   onAgree: () => void;
   onWithdraw?: () => void;
 };
+
+function formatOfferTime(value: string): string {
+  return new Date(value).toLocaleString("tr-TR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function roleLabel(from: "customer" | "provider"): string {
+  return from === "customer" ? "Müşteri" : "Usta";
+}
 
 export default function OfferNegotiationPanel({
   offer,
@@ -26,6 +40,11 @@ export default function OfferNegotiationPanel({
   const [price, setPrice] = useState("");
   const [message, setMessage] = useState("");
   const [showCounter, setShowCounter] = useState(false);
+  const [showPrevious, setShowPrevious] = useState(false);
+
+  const sortedEntries = sortNegotiationEntries(offer.negotiation);
+  const latestEntry = sortedEntries[0];
+  const previousEntries = sortedEntries.slice(1);
   const currentPrice = getCurrentOfferPrice(offer);
 
   const customerAgreed = !!offer.customerAgreedAt;
@@ -40,19 +59,60 @@ export default function OfferNegotiationPanel({
 
   return (
     <div className="space-y-3">
-      <div className="rounded-lg bg-muted/40 p-3 text-sm">
-        <p className="font-semibold text-foreground">Güncel teklif: {currentPrice.toLocaleString("tr-TR")} ₺</p>
-        {(offer.negotiation ?? []).map((entry, i) => (
-          <div key={i} className="mt-2 border-t border-border/60 pt-2">
-            <p className="text-xs font-medium text-muted-foreground">
-              {entry.from === "customer" ? "Müşteri" : "Usta"} ·{" "}
-              {entry.price.toLocaleString("tr-TR")} ₺ ·{" "}
-              {new Date(entry.createdAt).toLocaleString("tr-TR")}
-            </p>
-            <p className="mt-0.5 text-foreground">{entry.message}</p>
+      {latestEntry ? (
+        <div className="rounded-xl border-2 border-primary/25 bg-primary/5 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white">
+              En son teklif
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {roleLabel(latestEntry.from)} · {formatOfferTime(latestEntry.createdAt)}
+            </span>
           </div>
-        ))}
-      </div>
+          <p className="mt-3 text-2xl font-bold text-foreground">
+            {latestEntry.price.toLocaleString("tr-TR")} ₺
+          </p>
+          <p className="mt-2 text-sm font-semibold leading-relaxed text-foreground">
+            {latestEntry.message}
+          </p>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">En son teklif</p>
+          <p className="mt-2 text-2xl font-bold text-foreground">
+            {currentPrice.toLocaleString("tr-TR")} ₺
+          </p>
+        </div>
+      )}
+
+      {previousEntries.length > 0 && (
+        <div className="rounded-xl border border-border bg-card">
+          <button
+            type="button"
+            onClick={() => setShowPrevious((value) => !value)}
+            className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
+            <span>Önceki teklifler ({previousEntries.length})</span>
+            <span className="text-xs">{showPrevious ? "Gizle" : "Göster"}</span>
+          </button>
+          {showPrevious && (
+            <div className="space-y-0 border-t border-border px-4 pb-4">
+              {previousEntries.map((entry, index) => (
+                <div
+                  key={`${entry.createdAt}-${index}`}
+                  className="border-t border-border/70 pt-3 first:border-t-0 first:pt-3"
+                >
+                  <p className="text-xs text-muted-foreground">
+                    {roleLabel(entry.from)} · {entry.price.toLocaleString("tr-TR")} ₺ ·{" "}
+                    {formatOfferTime(entry.createdAt)}
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{entry.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2">
         {customerAgreed && (

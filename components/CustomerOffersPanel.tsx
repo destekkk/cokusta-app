@@ -8,7 +8,7 @@ import QuoteLocationEditor from "@/components/QuoteLocationEditor";
 import ParamGuvendePaymentOption from "@/components/ParamGuvendePaymentOption";
 import ParamGuvendePitch from "@/components/ParamGuvendePitch";
 import type { CustomerJobEscrowOrder, ProviderOffer } from "@/lib/types";
-import { getCurrentOfferPrice } from "@/lib/offer-utils";
+import { getCurrentOfferPrice, getOfferLastActivityAt, sortOffersByLatestActivity } from "@/lib/offer-utils";
 import { computeParamGuvendeBreakdown } from "@/lib/param-guvende";
 
 type Props = {
@@ -174,6 +174,8 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
   const checkoutBreakdown = checkoutOffer
     ? computeParamGuvendeBreakdown(getCurrentOfferPrice(checkoutOffer))
     : null;
+  const sortedOffers = sortOffersByLatestActivity(offers);
+  const latestOfferId = sortedOffers[0]?.id;
 
   return (
     <div className="space-y-6">
@@ -245,26 +247,50 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
 
       {quoteStatus === "open" && offers.length > 0 && (
         <>
-          <div className="overflow-x-auto rounded-xl border border-border bg-card">
-            <table className="w-full min-w-[900px] text-sm">
-              <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-4 py-3">Usta</th>
-                  <th className="px-4 py-3">Fiyat</th>
-                  <th className="px-4 py-3">Pazarlık &amp; Ödeme</th>
-                </tr>
-              </thead>
-              <tbody>
-                {offers.map((offer) => (
-                  <tr key={offer.id} className="border-t border-border align-top">
-                    <td className="px-4 py-4">
-                      <p className="font-semibold">{offer.providerName ?? "Usta"}</p>
-                      <p className="text-muted-foreground">{offer.providerCity}</p>
-                    </td>
-                    <td className="px-4 py-4 font-bold text-primary">
-                      {getCurrentOfferPrice(offer).toLocaleString("tr-TR")} ₺
-                    </td>
-                    <td className="px-4 py-4">
+          <div className="space-y-4">
+            {sortedOffers.map((offer) => {
+              const isLatest = offer.id === latestOfferId && sortedOffers.length > 1;
+              return (
+                <article
+                  key={offer.id}
+                  className={`rounded-xl border bg-card p-4 sm:p-5 ${
+                    isLatest ? "border-primary/40 ring-1 ring-primary/15" : "border-border"
+                  }`}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-base font-semibold text-foreground">
+                          {offer.providerName ?? "Usta"}
+                        </p>
+                        {isLatest && (
+                          <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                            En güncel usta teklifi
+                          </span>
+                        )}
+                      </div>
+                      {offer.providerCity && (
+                        <p className="mt-1 text-sm text-muted-foreground">{offer.providerCity}</p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Güncel fiyat</p>
+                      <p className="text-xl font-bold text-primary">
+                        {getCurrentOfferPrice(offer).toLocaleString("tr-TR")} ₺
+                      </p>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Son güncelleme:{" "}
+                        {new Date(getOfferLastActivityAt(offer)).toLocaleString("tr-TR", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
                     <OfferNegotiationPanel
                       offer={offer}
                       role="customer"
@@ -282,12 +308,11 @@ export default function CustomerOffersPanel({ quoteId, serviceName }: Props) {
                         }
                       }}
                     />
-                      {renderPaymentOptions(offer)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    {renderPaymentOptions(offer)}
+                  </div>
+                </article>
+              );
+            })}
           </div>
 
           {payableOffers.length > 0 && !escrowPaid && (

@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import UstaLoginForm from "@/components/UstaLoginForm";
+import DbDownNotice from "@/components/DbDownNotice";
 
 export const metadata = {
   title: "Usta Girişi | Çokusta",
@@ -26,6 +27,7 @@ export default function UstaLoginPage() {
           </Link>
         </p>
         <div className="mt-6">
+          <DbDownNotice />
           <Suspense fallback={<p className="text-muted-foreground">Yükleniyor…</p>}>
             <UstaLoginForm />
           </Suspense>

@@ -3,6 +3,7 @@ import { getOpenQuotesForProvider, getProviderById } from "@/lib/db";
 import { getProviderSessionId } from "@/lib/provider-auth";
 import {
   parseProviderQuoteLocationFilter,
+  resolveCanonicalCityName,
   type ProviderQuoteLocationFilter,
 } from "@/lib/offer-utils";
 
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
     borcKredisiAktif: provider.borcKredisiAktif ?? false,
     maxCreditDebt: MAX_CREDIT_DEBT,
     canUseDebt: creditDebt < MAX_CREDIT_DEBT,
-    providerCity: provider.city,
+    providerCity: resolveCanonicalCityName(provider.city),
     providerDistrict: provider.district ?? "",
     providerCategories: provider.categorySlugs,
     escrowBalanceTl: provider.escrowBalanceTl ?? 0,

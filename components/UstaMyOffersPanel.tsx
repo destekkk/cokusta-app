@@ -5,25 +5,21 @@ import OfferNegotiationPanel from "@/components/OfferNegotiationPanel";
 import type { ProviderOffer } from "@/lib/types";
 import { readJsonResponse } from "@/lib/safe-fetch";
 import { getCurrentOfferPrice } from "@/lib/offer-utils";
+import {
+  countProviderOfferTabs,
+  filterProviderOffersBySheetTab,
+  type ProviderOfferListItem,
+} from "@/lib/provider-offer-tabs";
 
-type OfferItem = {
-  offer: ProviderOffer;
-  quote: {
-    id: string;
-    serviceName: string;
-    city: string;
-    district: string;
-    status: string;
-    createdAt: string;
-  };
+type OfferItem = ProviderOfferListItem & {
   escrowStatus: "pending" | "completed" | "failed" | null;
   escrowReleaseStatus?: "none" | "requested" | "released" | null;
 };
 
 function statusBadge(item: OfferItem) {
-  const { offer, quote, escrowStatus, escrowReleaseStatus } = item;
+  const { offer, quote } = item;
   if (offer.status === "accepted" || quote.status === "accepted") {
-    if (escrowStatus === "completed" && escrowReleaseStatus === "released") {
+    if (item.escrowStatus === "completed" && item.escrowReleaseStatus === "released") {
       return (
         <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
           Ödeme aktarıldı
@@ -50,14 +46,14 @@ function statusBadge(item: OfferItem) {
       </span>
     );
   }
-  if (escrowStatus === "completed" && escrowReleaseStatus !== "released") {
+  if (item.escrowStatus === "completed" && item.escrowReleaseStatus !== "released") {
     return (
       <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-900">
         Ödeme havuzda
       </span>
     );
   }
-  if (escrowReleaseStatus === "released") {
+  if (item.escrowReleaseStatus === "released") {
     return (
       <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800">
         Ödeme aktarıldı
@@ -72,6 +68,7 @@ function statusBadge(item: OfferItem) {
 }
 
 type Props = {
+  mode: "active" | "done";
   onNegotiate: (
     offer: ProviderOffer,
     action: "agree" | "counter",
@@ -80,9 +77,18 @@ type Props = {
   ) => Promise<void>;
   submitting: boolean;
   refreshToken?: number;
+  onCounts?: (counts: { mine: number; done: number }) => void;
+  onPendingAgreement?: (pending: boolean) => void;
 };
 
-export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToken = 0 }: Props) {
+export default function UstaMyOffersPanel({
+  mode,
+  onNegotiate,
+  submitting,
+  refreshToken = 0,
+  onCounts,
+  onPendingAgreement,
+}: Props) {
   const [items, setItems] = useState<OfferItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -94,7 +100,17 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
       const res = await fetch("/api/usta/tekliflerim");
       const data = await readJsonResponse<{ error?: string; offers?: OfferItem[] }>(res);
       if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
-      setItems(data.offers ?? []);
+      const all = data.offers ?? [];
+      setItems(all);
+      onCounts?.(countProviderOfferTabs(all));
+      onPendingAgreement?.(
+        all.some(
+          (item) =>
+            item.offer.status === "pending" &&
+            item.offer.customerAgreedAt &&
+            !item.offer.providerAgreedAt
+        )
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Yüklenemedi");
     } finally {
@@ -106,6 +122,8 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
     load();
   }, [refreshToken]);
 
+  const visibleItems = filterProviderOffersBySheetTab(items, mode);
+
   if (loading) {
     return <p className="text-muted-foreground">Teklifleriniz yükleniyor…</p>;
   }
@@ -114,10 +132,12 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
     return <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>;
   }
 
-  if (items.length === 0) {
+  if (visibleItems.length === 0) {
     return (
-      <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
-        Henüz teklif vermediniz. Açık talepler sekmesinden teklif gönderebilirsiniz.
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 p-8 text-center text-muted-foreground">
+        {mode === "done"
+          ? "Henüz tamamlanmış veya kapanmış işiniz yok."
+          : "Henüz aktif teklifiniz yok. Açık talepler sekmesinden teklif gönderebilirsiniz."}
       </div>
     );
   }
@@ -125,8 +145,8 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
   return (
     <>
       <div className="space-y-3 md:hidden">
-        {items.map((item) => (
-          <div key={item.offer.id} className="rounded-xl border border-border bg-card p-4">
+        {visibleItems.map((item) => (
+          <div key={item.offer.id} className="rounded-xl border border-border bg-background p-4">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <p className="font-semibold text-foreground">{item.quote.serviceName}</p>
@@ -145,7 +165,7 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
                 {new Date(item.offer.createdAt).toLocaleDateString("tr-TR")}
               </span>
             </div>
-            {item.offer.status === "pending" && item.quote.status === "open" && (
+            {mode === "active" && item.offer.status === "pending" && item.quote.status === "open" && (
               <div className="mt-3">
                 <OfferNegotiationPanel
                   offer={item.offer}
@@ -160,51 +180,53 @@ export default function UstaMyOffersPanel({ onNegotiate, submitting, refreshToke
         ))}
       </div>
 
-      <div className="hidden overflow-x-auto rounded-xl border border-border bg-card md:block">
-      <table className="w-full min-w-[960px] text-sm">
-        <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="px-4 py-3">Hizmet</th>
-            <th className="px-4 py-3">Konum</th>
-            <th className="px-4 py-3">Teklif</th>
-            <th className="px-4 py-3">Durum</th>
-            <th className="px-4 py-3">İşlem</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((item) => (
-            <tr key={item.offer.id} className="border-t border-border align-top hover:bg-accent/10">
-              <td className="px-4 py-3 font-medium">{item.quote.serviceName}</td>
-              <td className="px-4 py-3 text-muted-foreground">
-                {item.quote.city}
-                {item.quote.district ? `, ${item.quote.district}` : ""}
-                <br />
-                <span className="text-xs">
-                  {new Date(item.offer.createdAt).toLocaleDateString("tr-TR")}
-                </span>
-              </td>
-              <td className="px-4 py-3 font-semibold text-primary">
-                {getCurrentOfferPrice(item.offer).toLocaleString("tr-TR")} ₺
-              </td>
-              <td className="px-4 py-3">{statusBadge(item)}</td>
-              <td className="px-4 py-3">
-                {item.offer.status === "pending" && item.quote.status === "open" ? (
-                  <OfferNegotiationPanel
-                    offer={item.offer}
-                    role="provider"
-                    loading={submitting}
-                    onAgree={() => onNegotiate(item.offer, "agree")}
-                    onCounter={(p, m) => onNegotiate(item.offer, "counter", p, m)}
-                  />
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-              </td>
+      <div className="hidden overflow-x-auto rounded-xl border border-border bg-background md:block">
+        <table className="w-full min-w-[960px] text-sm">
+          <thead className="border-b border-border bg-muted/40 text-left text-xs uppercase tracking-wide text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3">Hizmet</th>
+              <th className="px-4 py-3">Konum</th>
+              <th className="px-4 py-3">Teklif</th>
+              <th className="px-4 py-3">Durum</th>
+              <th className="px-4 py-3">İşlem</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {visibleItems.map((item) => (
+              <tr key={item.offer.id} className="border-t border-border align-top hover:bg-accent/10">
+                <td className="px-4 py-3 font-medium">{item.quote.serviceName}</td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {item.quote.city}
+                  {item.quote.district ? `, ${item.quote.district}` : ""}
+                  <br />
+                  <span className="text-xs">
+                    {new Date(item.offer.createdAt).toLocaleDateString("tr-TR")}
+                  </span>
+                </td>
+                <td className="px-4 py-3 font-semibold text-primary">
+                  {getCurrentOfferPrice(item.offer).toLocaleString("tr-TR")} ₺
+                </td>
+                <td className="px-4 py-3">{statusBadge(item)}</td>
+                <td className="px-4 py-3">
+                  {mode === "active" &&
+                  item.offer.status === "pending" &&
+                  item.quote.status === "open" ? (
+                    <OfferNegotiationPanel
+                      offer={item.offer}
+                      role="provider"
+                      loading={submitting}
+                      onAgree={() => onNegotiate(item.offer, "agree")}
+                      onCounter={(p, m) => onNegotiate(item.offer, "counter", p, m)}
+                    />
+                  ) : (
+                    <span className="text-xs text-muted-foreground">—</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }

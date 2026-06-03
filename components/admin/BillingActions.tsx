@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -53,7 +53,7 @@ export default function BillingActions({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Beyanname oluşturulamadı");
-      window.open(`/admin/beyanname/${data.declaration.id}`, "_blank");
+      window.open(`/sltn/beyanname/${data.declaration.id}`, "_blank");
       router.refresh();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Beyanname oluşturulamadı");
@@ -102,7 +102,7 @@ export default function BillingActions({
           </button>
           {hasDeclaration && latestDeclarationId && (
             <a
-              href={`/admin/beyanname/${latestDeclarationId}`}
+              href={`/sltn/beyanname/${latestDeclarationId}`}
               target="_blank"
               rel="noreferrer"
               className="rounded-lg border border-border px-5 py-2.5 text-sm font-medium hover:bg-accent"

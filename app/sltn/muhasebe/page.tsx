@@ -1,4 +1,4 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import {
   getAllInvoices,
   getBillableItems,
@@ -122,7 +122,7 @@ export default async function AdminBillingPage() {
                     </td>
                     <td className="px-4 py-4">
                       <Link
-                        href={`/admin/fatura/${invoice.id}`}
+                        href={`/sltn/fatura/${invoice.id}`}
                         target="_blank"
                         className="font-semibold text-primary hover:underline"
                       >
