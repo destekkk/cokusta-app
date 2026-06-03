@@ -7,10 +7,10 @@ export const LAUNCH_CAMPAIGN = {
     /** 3 ay — kampanya bitişi */
     endsAt: "2026-09-02T23:59:59+03:00",
     /** Onay sonrası verilen ücretsiz teklif kontörü */
-    freeCredits: 5,
-    title: "3 ay boyunca kayıt olan her ustaya 5 kontör hediye",
+    freeCredits: 10,
+    title: "3 ay boyunca kayıt olan her ustaya 10 kontör hediye",
     description:
-      "Kampanya süresince usta olarak kayıt olan ve hesabı onaylanan tüm ustalar 5 teklif kontörü kazanır. Kontör bitince uygun fiyatlı paketlerle devam edin.",
+      "Kampanya süresince usta olarak kayıt olan ve hesabı onaylanan tüm ustalar 10 teklif kontörü kazanır. Kontör bitince uygun fiyatlı paketlerle devam edin.",
     /** Eski slot sayacı — artık sınırsız; istatistik için sayım devam eder */
     displayClaimedOffset: 0,
   },

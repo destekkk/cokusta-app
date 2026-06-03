@@ -1,5 +1,5 @@
-import Link from "next/link";
 import BorcKredisiAlert from "@/components/BorcKredisiAlert";
+import PanelBackButton from "@/components/panel/PanelBackButton";
 import UstaKontorYukleLink from "@/components/UstaKontorYukleLink";
 
 type Props = {
@@ -23,23 +23,19 @@ export default function UstaPanelIntro({
   showKontorYukle = true,
   kontorHref,
   backHref,
-  backLabel = "← Tekliflere dön",
+  backLabel = "Tekliflere dön",
 }: Props) {
   const showStats = creditBalance !== undefined;
 
   return (
     <div className="space-y-4">
+      {backHref ? (
+        <PanelBackButton href={backHref} label={backLabel.replace(/^←\s*/, "")} />
+      ) : null}
+
       {creditDebt > 0 ? <BorcKredisiAlert creditDebt={creditDebt} /> : null}
 
       <div className="rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/5 p-5 shadow-sm sm:p-6">
-      {backHref ? (
-        <Link
-          href={backHref}
-          className="mb-3 inline-block text-sm font-medium text-primary hover:underline"
-        >
-          {backLabel}
-        </Link>
-      ) : null}
 
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0 flex-1">

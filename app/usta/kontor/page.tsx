@@ -30,11 +30,13 @@ export default async function UstaCreditPage() {
           creditDebt={provider.creditDebt ?? 0}
           showKontorYukle={false}
           backHref="/usta/teklifler"
+          backLabel="Tekliflere dön"
         />
         <div className="mt-8">
           <UstaCreditShopWrapper
             initialBalance={provider.creditBalance ?? 0}
             initialCreditDebt={provider.creditDebt ?? 0}
+            borcKredisiAktif={provider.borcKredisiAktif ?? false}
           />
         </div>
       </div>

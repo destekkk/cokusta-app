@@ -134,7 +134,7 @@ export default async function AdminDashboardPage() {
         </p>
         <div className="mt-4 space-y-3 text-sm text-muted-foreground">
           <p>
-            <strong className="text-foreground">1. Teklif kontörü:</strong> Kayıt onayında 5
+            <strong className="text-foreground">1. Teklif kontörü:</strong> Kayıt onayında 10
             hediye kontör. Sonrasında paketler: 5 kontör 83 ₺, 10 kontör 115 ₺, 50 kontör 450 ₺.
           </p>
           <p>

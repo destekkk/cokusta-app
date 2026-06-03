@@ -16,14 +16,20 @@ import {
   computeDebtSettlementAmount,
   MAX_CREDIT_DEBT,
 } from "@/lib/credit-debt";
+import BorcKredisiActivateCard from "@/components/BorcKredisiActivateCard";
 import OnlinePaymentsNotice from "@/components/OnlinePaymentsNotice";
 
 type Props = {
   initialBalance: number;
   initialCreditDebt: number;
+  borcKredisiAktif?: boolean;
 };
 
-export default function UstaCreditShop({ initialBalance, initialCreditDebt }: Props) {
+export default function UstaCreditShop({
+  initialBalance,
+  initialCreditDebt,
+  borcKredisiAktif = false,
+}: Props) {
   const searchParams = useSearchParams();
   const noCredit = searchParams.get("reason") === "no-credit";
   const [balance] = useState(initialBalance);
@@ -44,6 +50,15 @@ export default function UstaCreditShop({ initialBalance, initialCreditDebt }: Pr
           ulaşın; admin panelinden hesabınıza yüklenebilir.
         </div>
       )}
+
+      <BorcKredisiActivateCard
+        creditBalance={balance}
+        creditDebt={creditDebt}
+        borcKredisiAktif={borcKredisiAktif}
+        onActivated={() => {
+          window.location.reload();
+        }}
+      />
 
       <OnlinePaymentsNotice variant="usta-kontor" />
 

@@ -27,6 +27,10 @@ import {
   type QuoteSummary,
 } from "./src/api";
 import { useQuoteAlerts } from "./src/useQuoteAlerts";
+import BrandLogo from "./src/components/BrandLogo";
+import KontorScreen from "./src/screens/KontorScreen";
+
+type MainTab = "talepler" | "kontor";
 
 function AppContent() {
   const [booting, setBooting] = useState(true);
@@ -42,6 +46,7 @@ function AppContent() {
   const [quotes, setQuotes] = useState<QuoteSummary[]>([]);
   const [alertsOn, setAlertsOn] = useState(true);
   const [loadingQuotes, setLoadingQuotes] = useState(false);
+  const [tab, setTab] = useState<MainTab>("talepler");
 
   const { latestAlert, checkNow } = useQuoteAlerts(district, alertsOn && !!token);
 
@@ -142,8 +147,8 @@ function AppContent() {
       <SafeAreaView style={styles.safe}>
         <StatusBar style="dark" />
         <View style={styles.loginBox}>
-          <Text style={styles.brand}>Çok Usta</Text>
-          <Text style={styles.subtitle}>Usta mobil — ilçe bazlı talep uyarısı</Text>
+          <BrandLogo size="lg" style={styles.loginLogo} />
+          <Text style={styles.subtitle}>Usta girişi — ilçe bazlı talep uyarısı</Text>
           <TextInput
             style={styles.input}
             placeholder="Telefon (05xx...)"
@@ -169,6 +174,15 @@ function AppContent() {
     );
   }
 
+  if (tab === "kontor" && token) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar style="dark" />
+        <KontorScreen token={token} onBack={() => setTab("talepler")} />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
       <StatusBar style="dark" />
@@ -177,11 +191,17 @@ function AppContent() {
           <Text style={styles.hello}>Merhaba, {profile.name}</Text>
           <Text style={styles.meta}>
             {profile.city} · {profile.creditBalance} kontör
+            {(profile.creditDebt ?? 0) > 0 ? ` · borç ${profile.creditDebt}` : ""}
           </Text>
         </View>
-        <Pressable onPress={onLogout}>
-          <Text style={styles.link}>Çıkış</Text>
-        </Pressable>
+        <View style={styles.headerActions}>
+          <Pressable onPress={() => setTab("kontor")}>
+            <Text style={styles.kontorLink}>Kontör</Text>
+          </Pressable>
+          <Pressable onPress={onLogout}>
+            <Text style={styles.link}>Çıkış</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.card}>
@@ -267,10 +287,11 @@ export default function App() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#f4f7f5" },
   centered: { flex: 1, alignItems: "center", justifyContent: "center" },
-  loginBox: { flex: 1, padding: 24, justifyContent: "center" },
-  brand: { fontSize: 28, fontWeight: "800", color: "#00A650" },
-  subtitle: { marginTop: 8, marginBottom: 24, color: "#555" },
+  loginBox: { flex: 1, padding: 24, justifyContent: "center", alignItems: "center" },
+  loginLogo: { marginBottom: 20 },
+  subtitle: { marginTop: 4, marginBottom: 24, color: "#555", textAlign: "center" },
   input: {
+    alignSelf: "stretch",
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 12,
@@ -280,6 +301,7 @@ const styles = StyleSheet.create({
   },
   error: { color: "#c0392b", marginBottom: 8 },
   primaryBtn: {
+    alignSelf: "stretch",
     backgroundColor: "#00A650",
     borderRadius: 12,
     padding: 16,
@@ -295,6 +317,8 @@ const styles = StyleSheet.create({
   },
   hello: { fontSize: 20, fontWeight: "700" },
   meta: { color: "#666", marginTop: 4 },
+  headerActions: { alignItems: "flex-end", gap: 8 },
+  kontorLink: { color: "#1d4d3c", fontWeight: "800", fontSize: 15 },
   link: { color: "#00A650", fontWeight: "600" },
   card: {
     marginHorizontal: 16,

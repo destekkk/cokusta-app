@@ -1,7 +1,7 @@
 import { COKUSTA_CREDIT_PRICE } from "@/lib/pricing";
 
 /** Usta başına en fazla borç kredisi ile kullanılabilecek kontör */
-export const MAX_CREDIT_DEBT = 5;
+export const MAX_CREDIT_DEBT = 10;
 
 export function computeDebtSettlementAmount(debtCredits: number): number {
   return debtCredits * COKUSTA_CREDIT_PRICE;

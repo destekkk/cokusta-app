@@ -21,6 +21,7 @@ export async function GET(request: Request) {
       city: provider.city,
       categorySlugs: provider.categorySlugs,
       creditBalance: provider.creditBalance ?? 0,
+      creditDebt: provider.creditDebt ?? 0,
     },
     districts: getDistricts(provider.city),
   });

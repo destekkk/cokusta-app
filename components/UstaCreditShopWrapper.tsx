@@ -6,6 +6,7 @@ import UstaCreditShop from "@/components/UstaCreditShop";
 type Props = {
   initialBalance: number;
   initialCreditDebt: number;
+  borcKredisiAktif?: boolean;
 };
 
 function Shop(props: Props) {

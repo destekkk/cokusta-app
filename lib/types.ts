@@ -204,7 +204,7 @@ export type ProviderRegistration = {
   platformPurchases?: ProviderPlatformPurchase[];
   /** Kullanılabilir teklif kontörü bakiyesi */
   creditBalance?: number;
-  /** Borç kredisi ile kullanılan kontör (en fazla 5) */
+  /** Borç kredisi ile kullanılan kontör (en fazla MAX_CREDIT_DEBT) */
   creditDebt?: number;
   /** Borç kredi hattı aktifleştirildi (ödeme yapılana kadar tekrar açılamaz) */
   borcKredisiAktif?: boolean;

@@ -6,6 +6,7 @@ import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getCategoryName } from "@/lib/data/categories";
 import { MAX_CREDIT_DEBT, canActivateBorcKredisi, canSubmitOffer } from "@/lib/credit-debt";
 import UstaMyOffersPanel from "@/components/UstaMyOffersPanel";
+import BorcKredisiActivateCard from "@/components/BorcKredisiActivateCard";
 import UstaPanelIntro from "@/components/UstaPanelIntro";
 import SheetTabs from "@/components/panel/SheetTabs";
 import type { ProviderOffer } from "@/lib/types";
@@ -83,7 +84,6 @@ export default function UstaOpenQuotesPanel() {
   const [creditBalance, setCreditBalance] = useState(0);
   const [creditDebt, setCreditDebt] = useState(0);
   const [borcKredisiAktif, setBorcKredisiAktif] = useState(false);
-  const [activatingBorcKredisi, setActivatingBorcKredisi] = useState(false);
   const [escrowBalanceTl, setEscrowBalanceTl] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -267,30 +267,6 @@ export default function UstaOpenQuotesPanel() {
 
   const goBuyCredits = () => router.push(KONTOR_URL);
 
-  const activateBorcKredisi = async () => {
-    if (!canActivateDebt || activatingBorcKredisi) return;
-    setActivatingBorcKredisi(true);
-    setError("");
-    try {
-      const res = await fetch("/api/usta/borc-kredisi/aktif-et", { method: "POST" });
-      const data = await readJsonResponse<{
-        error?: string;
-        creditBalance?: number;
-        creditDebt?: number;
-        borcKredisiAktif?: boolean;
-      }>(res);
-      if (!res.ok) throw new Error(data.error ?? "Borç kredisi açılamadı");
-      setCreditBalance(data.creditBalance ?? 0);
-      setCreditDebt(data.creditDebt ?? 0);
-      setBorcKredisiAktif(Boolean(data.borcKredisiAktif));
-      setBorcActivatedNotice(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Borç kredisi açılamadı");
-    } finally {
-      setActivatingBorcKredisi(false);
-    }
-  };
-
   const startOffer = (quoteId: string) => {
     if (pendingCustomerAgreement) return;
     if (!canOffer) {
@@ -423,23 +399,18 @@ export default function UstaOpenQuotesPanel() {
         </div>
       )}
 
-      {canActivateDebt && tab === "open" && (
-        <div className="rounded-xl border-2 border-amber-400 bg-amber-50 p-4 sm:flex sm:items-center sm:justify-between sm:gap-4">
-          <div>
-            <p className="text-sm font-semibold text-amber-950">Kontörünüz bitti</p>
-            <p className="mt-1 text-sm text-amber-900/90">
-              {MAX_CREDIT_DEBT} kontöre kadar borç kredisi kullanarak teklif verebilirsiniz.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={activateBorcKredisi}
-            disabled={activatingBorcKredisi}
-            className="mt-3 w-full shrink-0 rounded-xl bg-amber-500 px-5 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-amber-600 disabled:opacity-70 sm:mt-0 sm:w-auto"
-          >
-            {activatingBorcKredisi ? "Tanımlanıyor…" : "Hemen Kullan"}
-          </button>
-        </div>
+      {tab === "open" && (
+        <BorcKredisiActivateCard
+          creditBalance={creditBalance}
+          creditDebt={creditDebt}
+          borcKredisiAktif={borcKredisiAktif}
+          onActivated={(data) => {
+            setCreditBalance(data.creditBalance ?? 0);
+            setCreditDebt(data.creditDebt ?? 0);
+            setBorcKredisiAktif(Boolean(data.borcKredisiAktif));
+            setBorcActivatedNotice(true);
+          }}
+        />
       )}
 
       {atDebtLimit && (
@@ -466,7 +437,7 @@ export default function UstaOpenQuotesPanel() {
         <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           Bir müşteri sizinle anlaşmayı onayladı.{" "}
           <button type="button" onClick={() => setTab("mine")} className="font-semibold underline">
-            Verdiğim Teklifler
+            Benim Tekliflerim
           </button>{" "}
           sekmesinden onaylayın.
         </p>
@@ -487,7 +458,13 @@ export default function UstaOpenQuotesPanel() {
             onChange={(id) => setTab(id as ProviderOfferSheetTab)}
             tabs={[
               { id: "open", label: "Açık Talepler" },
-              { id: "mine", label: "Verdiğim Teklifler", count: offerTabCounts.mine },
+              {
+                id: "mine",
+                label: "Benim Tekliflerim",
+                lines: ["Benim", "Tekliflerim"],
+                redBorder: true,
+                count: offerTabCounts.mine,
+              },
               { id: "negotiating", label: "Pazarlık", count: offerTabCounts.negotiating },
               { id: "escrow", label: "Param Güvende", count: offerTabCounts.escrow },
               { id: "done", label: "Bitmiş İşler", count: offerTabCounts.done },

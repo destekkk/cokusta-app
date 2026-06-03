@@ -42,6 +42,18 @@ export type ProviderProfile = {
   city: string;
   categorySlugs: string[];
   creditBalance: number;
+  creditDebt?: number;
+};
+
+export type KontorPackage = {
+  slug: string;
+  name: string;
+  credits: number;
+  formattedPrice: string;
+  description: string;
+  perCredit: number;
+  savingsPercent: number;
+  badge: string | null;
 };
 
 export type QuoteSummary = {
@@ -112,4 +124,24 @@ export async function fetchNewQuotes(district: string, since: string) {
   return apiFetch<{ newQuotes: QuoteSummary[]; serverTime: string }>(
     `/api/mobile/usta/yeni-talepler?district=${encodeURIComponent(district)}&since=${encodeURIComponent(since)}`
   );
+}
+
+export async function fetchKontorShop() {
+  return apiFetch<{
+    creditBalance: number;
+    creditDebt: number;
+    debtSettlementFormatted: string | null;
+    packages: KontorPackage[];
+  }>("/api/mobile/usta/kontor");
+}
+
+export async function startKontorCheckout(packageSlug: string) {
+  return apiFetch<{ orderId: string; paymentUrl: string; amount: number; packageName: string }>(
+    "/api/mobile/usta/kontor/checkout",
+    { method: "POST", body: JSON.stringify({ packageSlug }) }
+  );
+}
+
+export function getMobilPaymentUrl(token: string): string {
+  return `${getApiBaseUrl()}/usta/kontor/mobil?access=${encodeURIComponent(token)}`;
 }
