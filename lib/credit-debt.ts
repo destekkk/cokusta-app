@@ -31,6 +31,15 @@ export function remainingDebtCapacity(creditDebt: number): number {
   return Math.max(0, MAX_CREDIT_DEBT - (creditDebt ?? 0));
 }
 
+export function computePlatformCheckoutTotal(packagePrice: number): {
+  packageAmount: number;
+  debtCredits: number;
+  debtAmount: number;
+  totalAmount: number;
+} {
+  return { packageAmount: packagePrice, debtCredits: 0, debtAmount: 0, totalAmount: packagePrice };
+}
+
 export function computeCheckoutTotal(packagePrice: number, creditDebt: number): {
   packageAmount: number;
   debtCredits: number;

@@ -1,4 +1,8 @@
-import type { ProviderOffer, QuoteRequest } from "@/lib/types";
+import type {
+  ProviderOffer,
+  ProviderOfferReviewSummary,
+  QuoteRequest,
+} from "@/lib/types";
 
 export const REVIEW_COMMENT_MIN = 10;
 export const REVIEW_COMMENT_MAX = 1000;

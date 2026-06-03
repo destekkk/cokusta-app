@@ -28,8 +28,12 @@ import type {
 } from "./types";
 import { PROVIDER_OF_MONTH_CREDIT_REWARD } from "./provider-of-month";
 import { REFERRAL_REWARD_CREDITS, validateReferralInput, type ProviderReferralSubmitInput } from "./referrals";
-import { getCreditPackage } from "./credit-packages";
-import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
+import { getShopPackage, isPlatformShopPackage } from "./credit-packages";
+import {
+  computeCheckoutTotal,
+  computePlatformCheckoutTotal,
+  MAX_CREDIT_DEBT,
+} from "./credit-debt";
 import {
   buildCertificatePayload,
   computeBlockHash,
@@ -2277,7 +2281,7 @@ export async function createCreditPurchaseOrder(
   providerId: string,
   packageSlug: string
 ): Promise<{ order?: CreditPurchaseOrder; error?: string }> {
-  const pkg = getCreditPackage(packageSlug);
+  const pkg = getShopPackage(packageSlug);
   if (!pkg) return { error: "Geçersiz paket." };
 
   const store = await ensureStore();
@@ -2286,7 +2290,9 @@ export async function createCreditPurchaseOrder(
     return { error: "Usta hesabı onaylı değil." };
   }
 
-  const checkout = computeCheckoutTotal(pkg.price, provider.creditDebt ?? 0);
+  const checkout = isPlatformShopPackage(packageSlug)
+    ? computePlatformCheckoutTotal(pkg.price)
+    : computeCheckoutTotal(pkg.price, provider.creditDebt ?? 0);
 
   const id = generateId();
   const order: CreditPurchaseOrder = {
@@ -2344,9 +2350,13 @@ export async function fulfillCreditPurchaseOrder(
 
   const purchaseId = generateId();
   const provider = store.providers[providerIndex];
-  provider.creditBalance = (provider.creditBalance ?? 0) + order.credits;
-  provider.creditDebt = 0;
-  provider.borcKredisiAktif = false;
+  if (order.credits > 0) {
+    provider.creditBalance = (provider.creditBalance ?? 0) + order.credits;
+  }
+  if (order.debtCredits > 0) {
+    provider.creditDebt = 0;
+    provider.borcKredisiAktif = false;
+  }
 
   const purchases = provider.platformPurchases ?? [];
   purchases.unshift({

@@ -7,6 +7,8 @@ import {
   creditPackages,
   formatCreditPrice,
   getBadgeLabel,
+  getShopPackage,
+  platformShopPackages,
 } from "@/lib/credit-packages";
 import { COKUSTA_CREDIT_PRICE } from "@/lib/pricing";
 import { LAUNCH_CAMPAIGN, isProviderSignupBonusActive } from "@/lib/campaigns";
@@ -34,10 +36,11 @@ export default function UstaCreditShop({
   const [balance, setBalance] = useState(initialBalance);
   const [creditDebt, setCreditDebt] = useState(initialCreditDebt);
   const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
-  const selected = creditPackages.find((p) => p.slug === selectedSlug);
+  const selected = selectedSlug ? getShopPackage(selectedSlug) : undefined;
 
   const bulkPackages = creditPackages.filter((p) => p.credits > 1);
   const singlePackage = creditPackages.find((p) => p.slug === "kontor-tek");
+  const platformPackages = platformShopPackages;
 
   const refreshBalance = () => {
     fetch("/api/usta/talepler")
@@ -163,6 +166,40 @@ export default function UstaCreditShop({
           );
         })}
       </div>
+
+      {platformPackages.length > 0 && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Platform hizmetleri</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Profil öne çıkarma ve doğrulanmış rozet — kart ile güvenli ödeme.
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {platformPackages.map((pkg) => (
+              <article
+                key={pkg.slug}
+                className="rounded-xl border border-border bg-card p-5 transition hover:border-primary/40"
+              >
+                <h3 className="text-lg font-bold">{pkg.name}</h3>
+                <p className="mt-1 min-h-[40px] text-sm text-muted-foreground">{pkg.description}</p>
+                <p className="mt-4 text-2xl font-bold">{formatCreditPrice(pkg.price)}</p>
+                {pkg.unitLabel && (
+                  <p className="mt-1 text-xs text-muted-foreground">{pkg.unitLabel} abonelik</p>
+                )}
+                <button
+                  type="button"
+                  disabled={!iyzicoConfigured}
+                  onClick={() => setSelectedSlug(pkg.slug)}
+                  className="mt-4 w-full rounded-xl border border-primary bg-primary/5 py-3 text-sm font-semibold text-primary hover:bg-primary/10 disabled:opacity-50"
+                >
+                  Satın Al
+                </button>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
 
       {singlePackage && (
         <article className="rounded-xl border border-dashed border-border bg-muted/30 p-5">

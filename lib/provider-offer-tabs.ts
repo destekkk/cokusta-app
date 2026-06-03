@@ -31,14 +31,11 @@ export function providerOfferHasEscrow(
   return item.escrowStatus === "completed" || item.escrowStatus === "pending";
 }
 
-export function filterProviderOffersBySheetTab<T extends ProviderOfferTabInput>(
-  items: T[],
-  tab: ProviderOfferSheetTab
-): T[] {
+export function filterProviderOffersBySheetTab<
+  T extends ProviderOfferTabInput & Pick<ProviderOfferListItem, "escrowStatus">,
+>(items: T[], tab: ProviderOfferSheetTab): T[] {
   if (tab === "escrow") {
-    return items.filter((item) =>
-      providerOfferHasEscrow(item as ProviderOfferListItem)
-    );
+    return items.filter((item) => providerOfferHasEscrow(item));
   }
   if (tab === "done") return items.filter(isProviderOfferFinished);
   if (tab === "open") return [];

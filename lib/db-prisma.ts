@@ -23,8 +23,12 @@ import type {
 } from "./types";
 import { PROVIDER_OF_MONTH_CREDIT_REWARD } from "./provider-of-month";
 import { REFERRAL_REWARD_CREDITS, validateReferralInput, type ProviderReferralSubmitInput } from "./referrals";
-import { getCreditPackage } from "./credit-packages";
-import { computeCheckoutTotal, MAX_CREDIT_DEBT } from "./credit-debt";
+import { getShopPackage, isPlatformShopPackage } from "./credit-packages";
+import {
+  computeCheckoutTotal,
+  computePlatformCheckoutTotal,
+  MAX_CREDIT_DEBT,
+} from "./credit-debt";
 import {
   buildInitialNegotiation,
   enrichOffer,
@@ -2586,7 +2590,7 @@ export async function createCreditPurchaseOrder(
   providerId: string,
   packageSlug: string
 ): Promise<{ order?: CreditPurchaseOrder; error?: string }> {
-  const pkg = getCreditPackage(packageSlug);
+  const pkg = getShopPackage(packageSlug);
   if (!pkg) return { error: "Geçersiz paket." };
 
   const provider = await prisma.provider.findUnique({ where: { id: providerId } });
@@ -2594,7 +2598,9 @@ export async function createCreditPurchaseOrder(
     return { error: "Usta hesabı onaylı değil." };
   }
 
-  const checkout = computeCheckoutTotal(pkg.price, provider.creditDebt ?? 0);
+  const checkout = isPlatformShopPackage(packageSlug)
+    ? computePlatformCheckoutTotal(pkg.price)
+    : computeCheckoutTotal(pkg.price, provider.creditDebt ?? 0);
 
   const id = generateId();
   const row = await prisma.creditPurchaseOrder.create({
@@ -2649,14 +2655,24 @@ export async function fulfillCreditPurchaseOrder(
   const purchasedAt = new Date();
 
   await prisma.$transaction(async (tx) => {
-    await tx.provider.update({
-      where: { id: row.providerId },
-      data: {
-        creditBalance: { increment: row.credits },
-        creditDebt: 0,
-        borcKredisiAktif: false,
-      },
-    });
+    const providerUpdate: {
+      creditBalance?: { increment: number };
+      creditDebt?: number;
+      borcKredisiAktif?: boolean;
+    } = {};
+    if (row.credits > 0) {
+      providerUpdate.creditBalance = { increment: row.credits };
+    }
+    if (row.debtCredits > 0) {
+      providerUpdate.creditDebt = 0;
+      providerUpdate.borcKredisiAktif = false;
+    }
+    if (Object.keys(providerUpdate).length > 0) {
+      await tx.provider.update({
+        where: { id: row.providerId },
+        data: providerUpdate,
+      });
+    }
     await tx.providerPlatformPurchase.create({
       data: {
         id: purchaseId,
@@ -2678,15 +2694,17 @@ export async function fulfillCreditPurchaseOrder(
       },
     });
     const { appendCreditLedger } = await import("./db-credits");
-    await appendCreditLedger(tx, {
-      type: "provider_purchase",
-      creditsDelta: row.credits,
-      tlAmount: row.amount,
-      providerId: row.providerId,
-      referenceId: row.id,
-      description: `Usta kontör satın alma: ${row.packageName}`,
-      createdAt: purchasedAt,
-    });
+    if (row.credits > 0 || row.debtCredits > 0) {
+      await appendCreditLedger(tx, {
+        type: "provider_purchase",
+        creditsDelta: row.credits,
+        tlAmount: row.amount,
+        providerId: row.providerId,
+        referenceId: row.id,
+        description: `Usta kontör satın alma: ${row.packageName}`,
+        createdAt: purchasedAt,
+      });
+    }
     if (row.debtCredits > 0) {
       await appendCreditLedger(tx, {
         type: "debt_settlement",

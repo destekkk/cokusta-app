@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import PaymentBadges from "@/components/PaymentBadges";
-import { computeCheckoutTotal, computeDebtSettlementAmount } from "@/lib/credit-debt";
+import {
+  computeCheckoutTotal,
+  computeDebtSettlementAmount,
+  computePlatformCheckoutTotal,
+} from "@/lib/credit-debt";
 
 type Props = {
   packageSlug: string;
@@ -28,8 +32,11 @@ export default function IyzicoCheckoutModal({
   const [error, setError] = useState("");
   const [confirmed, setConfirmed] = useState(false);
 
-  const checkout = computeCheckoutTotal(price, creditDebt);
-  const hasDebt = checkout.debtCredits > 0;
+  const isPlatform = credits === 0;
+  const checkout = isPlatform
+    ? computePlatformCheckoutTotal(price)
+    : computeCheckoutTotal(price, creditDebt);
+  const hasDebt = !isPlatform && checkout.debtCredits > 0;
 
   useEffect(() => {
     if (hasDebt && !confirmed) return;
@@ -81,7 +88,9 @@ export default function IyzicoCheckoutModal({
           <div>
             <h2 className="text-lg font-bold">{packageName}</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              {credits} kontör · {checkout.totalAmount.toLocaleString("tr-TR")} ₺
+              {isPlatform
+                ? `${checkout.totalAmount.toLocaleString("tr-TR")} ₺`
+                : `${credits} kontör · ${checkout.totalAmount.toLocaleString("tr-TR")} ₺`}
             </p>
             {hasDebt && (
               <p className="mt-1 text-xs text-amber-700">
