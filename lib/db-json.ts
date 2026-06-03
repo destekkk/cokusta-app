@@ -415,6 +415,8 @@ export async function updateProviderStatus(
   if (index === -1) return null;
 
   const provider = store.providers[index];
+  if (status === "rejected" && provider.status !== "pending") return null;
+  if (status === "approved" && provider.status !== "pending") return null;
   provider.status = status;
   provider.reviewedAt = new Date().toISOString();
   provider.rejectionReason = status === "rejected" ? rejectionReason ?? "" : undefined;
@@ -537,6 +539,16 @@ export async function createProviderAdmin(
   store.providers.unshift(provider);
   await saveStore(store);
   return provider;
+}
+
+export async function deleteRejectedQuoteRequest(id: string): Promise<boolean> {
+  const store = await ensureStore();
+  const quote = store.quoteRequests.find((q) => q.id === id);
+  if (!quote || quote.status !== "cancelled") return false;
+  store.quoteRequests = store.quoteRequests.filter((q) => q.id !== id);
+  store.providerOffers = store.providerOffers.filter((o) => o.quoteRequestId !== id);
+  await saveStore(store);
+  return true;
 }
 
 export async function deleteProvider(id: string): Promise<boolean> {
@@ -2233,8 +2245,8 @@ export async function bulkAdminQuoteAction(params: {
         const quote = await getQuoteRequestById(id);
         if (!quote) {
           result.failed.push({ id, error: "Talep bulunamadı." });
-        } else if (quote.status !== "awaiting_review" && quote.status !== "open") {
-          result.failed.push({ id, error: "Reddedilemez durumda." });
+        } else if (quote.status !== "awaiting_review") {
+          result.failed.push({ id, error: "Sadece onay bekleyen talepler reddedilebilir." });
         } else {
           const updated = await updateQuoteRequestStatus(id, "cancelled");
           if (updated) result.succeeded.push(id);

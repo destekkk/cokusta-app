@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { updateProviderStatus } from "@/lib/db";
+import { getProviderById, updateProviderStatus } from "@/lib/db";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -25,9 +25,18 @@ export async function POST(request: Request) {
 
     for (const id of ids) {
       try {
+        const existing = await getProviderById(id);
+        if (!existing) {
+          failed.push({ id, error: "Bulunamadı" });
+          continue;
+        }
+        if (existing.status !== "pending") {
+          failed.push({ id, error: "Sadece bekleyen başvurular işlenebilir." });
+          continue;
+        }
         const updated = await updateProviderStatus(id, status, body.rejectionReason);
         if (updated) succeeded.push(id);
-        else failed.push({ id, error: "Bulunamadı" });
+        else failed.push({ id, error: "Güncellenemedi" });
       } catch {
         failed.push({ id, error: "Güncellenemedi" });
       }

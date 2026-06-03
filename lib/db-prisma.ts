@@ -580,6 +580,12 @@ export async function updateProviderStatus(
 ): Promise<ProviderRegistration | null> {
   const existing = await prisma.provider.findUnique({ where: { id } });
   if (!existing) return null;
+  if (status === "rejected" && existing.status !== "pending") {
+    return null;
+  }
+  if (status === "approved" && existing.status !== "pending") {
+    return null;
+  }
 
   const row = await prisma.provider.update({
     where: { id },
@@ -764,6 +770,17 @@ export async function createProviderAdmin(
     include: providerInclude,
   });
   return toProvider(row);
+}
+
+export async function deleteRejectedQuoteRequest(id: string): Promise<boolean> {
+  const existing = await prisma.quoteRequest.findUnique({ where: { id } });
+  if (!existing || existing.status !== "cancelled") return false;
+  try {
+    await prisma.quoteRequest.delete({ where: { id } });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function deleteProvider(id: string): Promise<boolean> {
@@ -2554,8 +2571,8 @@ export async function bulkAdminQuoteAction(params: {
         result.failed.push({ id, error: "Talep bulunamadı." });
         continue;
       }
-      if (existing.status !== "awaiting_review" && existing.status !== "open") {
-        result.failed.push({ id, error: "Reddedilemez durumda." });
+      if (existing.status !== "awaiting_review") {
+        result.failed.push({ id, error: "Sadece onay bekleyen talepler reddedilebilir." });
         continue;
       }
       await prisma.quoteRequest.update({

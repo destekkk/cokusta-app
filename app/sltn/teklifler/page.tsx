@@ -5,6 +5,7 @@ import {
   getQuoteOfferCounts,
 } from "@/lib/db";
 import { isUrgentActive } from "@/lib/urgent";
+import AdminRejectedQuotesSection from "@/components/admin/AdminRejectedQuotesSection";
 import QuotesListTable from "@/components/admin/QuotesListTable";
 import type { QuoteRequest } from "@/lib/types";
 
@@ -35,7 +36,10 @@ export default async function AdminQuotesPage({ searchParams }: Props) {
     getQuoteOfferCounts(),
   ]);
 
-  const quotes = [...allQuotes].sort((a, b) => {
+  const activeQuotes = allQuotes.filter((q) => q.status !== "cancelled");
+  const rejectedQuotes = allQuotes.filter((q) => q.status === "cancelled");
+
+  const quotes = [...activeQuotes].sort((a, b) => {
     const rank = (status: QuoteRequest["status"]) => {
       if (status === "awaiting_review") return 0;
       if (status === "open") return 1;
@@ -54,30 +58,26 @@ export default async function AdminQuotesPage({ searchParams }: Props) {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground">Teklif Talepleri</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {quotes.length.toLocaleString("tr-TR")} talep · {stats.awaitingReviewQuotes} onay bekliyor ·{" "}
-        {stats.pendingQuotes} yayında
+        {stats.awaitingReviewQuotes} onay bekliyor · {stats.pendingQuotes} yayında
+        {rejectedQuotes.length > 0 ? ` · ${rejectedQuotes.length} reddedilmiş (altta)` : ""}
       </p>
 
       <div className="mt-4 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-        Ara, filtrele ve sayfalandır. Toplu <strong>Onayla</strong>, <strong>Reddet</strong>,{" "}
-        <strong>Otomatik Eşleştir</strong> veya usta seçerek eşleştir.
+        Üstte yalnızca aktif talepler. <strong>Reddet</strong> edilenler onay bekleyen listeden çıkar ve
+        sayfanın altındaki reddedilmiş listesine düşer; oradan kalıcı silebilirsiniz.
       </div>
 
       <div className="mt-6">
-        {quotes.length === 0 ? (
-          <div className="rounded-xl border border-border bg-card p-12 text-center text-muted-foreground">
-            Henüz teklif talebi yok.
-          </div>
-        ) : (
-          <QuotesListTable
-            quotes={quotes}
-            offerCounts={offerCounts}
-            approvedProviders={approvedProviders}
-            commissionRate={stats.commissionRate}
-            initialStatus={initialStatus}
-          />
-        )}
+        <QuotesListTable
+          quotes={quotes}
+          offerCounts={offerCounts}
+          approvedProviders={approvedProviders}
+          commissionRate={stats.commissionRate}
+          initialStatus={initialStatus === "cancelled" ? "awaiting_review" : initialStatus}
+        />
       </div>
+
+      <AdminRejectedQuotesSection quotes={rejectedQuotes} />
     </div>
   );
 }

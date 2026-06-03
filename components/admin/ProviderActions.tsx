@@ -42,6 +42,9 @@ export default function ProviderActions({
       setRejectionReason("");
       if (redirectTo) {
         router.push(redirectTo);
+      } else if (nextStatus === "rejected") {
+        router.push("/sltn/ustalar#reddedilmis-ustalar");
+        router.refresh();
       } else {
         router.refresh();
       }

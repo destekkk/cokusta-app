@@ -15,7 +15,7 @@ const statusLabels: Record<QuoteRequest["status"], string> = {
   open: "Yayında",
   accepted: "Usta Seçildi",
   completed: "Tamamlandı",
-  cancelled: "İptal Edildi",
+  cancelled: "Reddedildi",
 };
 
 const statusColors: Record<QuoteRequest["status"], string> = {
@@ -60,7 +60,7 @@ export default function QuotesListTable({
   offerCounts,
   approvedProviders,
   commissionRate,
-  initialStatus = "all",
+  initialStatus = "awaiting_review",
 }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -148,8 +148,15 @@ export default function QuotesListTable({
 
       const ok = data.succeeded?.length ?? 0;
       const fail = data.failed?.length ?? 0;
-      setMessage(`${ok} başarılı${fail > 0 ? `, ${fail} başarısız` : ""}.`);
+      setMessage(
+        action === "reject" && ok > 0
+          ? `${ok} talep reddedildi — alttaki «Reddedilmiş teklif talepleri» listesinde.`
+          : `${ok} başarılı${fail > 0 ? `, ${fail} başarısız` : ""}.`
+      );
       setSelected(new Set());
+      if (action === "reject" && ok > 0) {
+        router.push("/sltn/teklifler#reddedilmis-teklifler");
+      }
       router.refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "İşlem başarısız");
@@ -212,7 +219,6 @@ export default function QuotesListTable({
             ["open", "Yayında"],
             ["accepted", "Eşleşti"],
             ["completed", "Tamamlandı"],
-            ["cancelled", "İptal"],
           ] as const
         ).map(([key, label]) => (
           <button

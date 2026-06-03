@@ -122,8 +122,15 @@ export default function ProviderApplicationsPanel({
       if (!res.ok) throw new Error(data.error ?? "İşlem başarısız");
       const ok = data.succeeded?.length ?? 0;
       const fail = data.failed?.length ?? 0;
-      setMessage(`${ok} başvuru güncellendi${fail > 0 ? `, ${fail} başarısız` : ""}.`);
+      setMessage(
+        action === "reject" && ok > 0
+          ? `${ok} başvuru reddedildi — alttaki «Reddedilmiş usta başvuruları» listesinde.`
+          : `${ok} başvuru güncellendi${fail > 0 ? `, ${fail} başarısız` : ""}.`
+      );
       setSelected(new Set());
+      if (action === "reject" && ok > 0) {
+        router.push("/sltn/ustalar#reddedilmis-ustalar");
+      }
       router.refresh();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "İşlem başarısız");
@@ -135,7 +142,7 @@ export default function ProviderApplicationsPanel({
   if (baseList.length === 0) {
     return (
       <div className="rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
-        Onay bekleyen usta başvurusu yok.
+        Onay bekleyen usta başvurusu yok. Reddettikleriniz sayfanın altındaki listede görünür.
       </div>
     );
   }

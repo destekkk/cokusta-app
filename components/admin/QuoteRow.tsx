@@ -14,7 +14,7 @@ const statusLabels: Record<QuoteRequest["status"], string> = {
   open: "Yayında",
   accepted: "Usta Seçildi",
   completed: "Tamamlandı",
-  cancelled: "İptal Edildi",
+  cancelled: "Reddedildi",
 };
 
 const statusColors: Record<QuoteRequest["status"], string> = {
@@ -85,6 +85,9 @@ export default function QuoteRow({
         throw new Error(data.error ?? "İşlem başarısız");
       }
       setShowComplete(false);
+      if (status === "cancelled") {
+        router.push("/sltn/teklifler#reddedilmis-teklifler");
+      }
       router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Güncelleme başarısız");

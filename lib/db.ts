@@ -38,6 +38,7 @@ export const updateProvider = delegate("updateProvider");
 export const grantAdminGiftCreditsToProviders = delegate("grantAdminGiftCreditsToProviders");
 export const createProviderAdmin = delegate("createProviderAdmin");
 export const deleteProvider = delegate("deleteProvider");
+export const deleteRejectedQuoteRequest = delegate("deleteRejectedQuoteRequest");
 export const getCustomerById = delegate("getCustomerById");
 export const createCustomer = delegate("createCustomer");
 export const updateCustomer = delegate("updateCustomer");

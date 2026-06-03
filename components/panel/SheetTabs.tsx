@@ -1,5 +1,7 @@
 "use client";
 
+export type SheetTabAccent = "primary" | "amber" | "orange" | "emerald" | "red";
+
 export type SheetTabItem = {
   id: string;
   label: string;
@@ -8,6 +10,7 @@ export type SheetTabItem = {
   /** Kırmızı çerçeve vurgusu */
   redBorder?: boolean;
   count?: number;
+  accent?: SheetTabAccent;
 };
 
 type Props = {
@@ -18,7 +21,23 @@ type Props = {
   className?: string;
   /** Excel: içerik üstte, sayfa sekmeleri altta */
   tabPosition?: "top" | "bottom";
+  /** Admin paneli tarzı tıklanabilir özet kartları */
+  variant?: "bar" | "cards";
 };
+
+const accentNumberClass: Record<SheetTabAccent, string> = {
+  primary: "text-primary",
+  amber: "text-amber-600",
+  orange: "text-orange-600",
+  emerald: "text-emerald-600",
+  red: "text-red-600",
+};
+
+function formatCount(count: number | undefined): string {
+  if (count === undefined) return "0";
+  if (count > 99) return "99+";
+  return String(count);
+}
 
 function TabBar({
   tabs,
@@ -42,11 +61,7 @@ function TabBar({
       {tabs.map((tab) => {
         const active = tab.id === activeId;
         const countLabel =
-          tab.count !== undefined && tab.count > 0
-            ? tab.count > 99
-              ? "99+"
-              : String(tab.count)
-            : null;
+          tab.count !== undefined && tab.count > 0 ? formatCount(tab.count) : null;
         const redFrame = tab.redBorder;
         return (
           <button
@@ -93,6 +108,64 @@ function TabBar({
   );
 }
 
+function TabCards({
+  tabs,
+  activeId,
+  onChange,
+}: {
+  tabs: SheetTabItem[];
+  activeId: string;
+  onChange: (id: string) => void;
+}) {
+  return (
+    <div
+      className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+      role="tablist"
+    >
+      {tabs.map((tab) => {
+        const active = tab.id === activeId;
+        const redFrame = tab.redBorder;
+        const accent = tab.accent ?? (redFrame ? "red" : active ? "primary" : "amber");
+        const numberClass = accentNumberClass[accent];
+
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-label={tab.lines ? `${tab.lines[0]} ${tab.lines[1]}` : tab.label}
+            onClick={() => onChange(tab.id)}
+            className={[
+              "rounded-xl border p-4 text-left transition sm:p-5",
+              "hover:border-primary/40 hover:shadow-sm",
+              active && redFrame
+                ? "border-red-500 bg-red-50 ring-2 ring-red-300/50"
+                : active
+                  ? "border-primary bg-primary/5 ring-2 ring-primary/25"
+                  : redFrame
+                    ? "border-red-300 bg-red-50/80"
+                    : "border-border bg-card",
+            ].join(" ")}
+          >
+            <div className={`text-2xl font-bold tabular-nums sm:text-3xl ${numberClass}`}>
+              {formatCount(tab.count)}
+            </div>
+            {tab.lines ? (
+              <div className="mt-1 text-sm font-medium leading-tight text-foreground">
+                <div>{tab.lines[0]}</div>
+                <div>{tab.lines[1]}</div>
+              </div>
+            ) : (
+              <div className="mt-1 text-sm font-medium text-foreground">{tab.label}</div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function SheetTabs({
   tabs,
   activeId,
@@ -100,22 +173,36 @@ export default function SheetTabs({
   children,
   className = "",
   tabPosition = "bottom",
+  variant = "bar",
 }: Props) {
+  const useCards = variant === "cards";
+  const tabsOnTop = tabPosition === "top" || useCards;
+
+  const tabNav = useCards ? (
+    <TabCards tabs={tabs} activeId={activeId} onChange={onChange} />
+  ) : (
+    <TabBar tabs={tabs} activeId={activeId} onChange={onChange} edge={tabsOnTop ? "top" : "bottom"} />
+  );
+
   const content = (
     <div
       className={[
         "min-h-[200px] min-w-0 border border-primary/15 bg-card p-4 sm:p-5",
-        tabPosition === "bottom" ? "rounded-t-xl border-b-0" : "rounded-b-xl border-t-0",
+        useCards
+          ? "rounded-xl"
+          : tabsOnTop
+            ? "rounded-b-xl border-t-0"
+            : "rounded-t-xl border-b-0",
       ].join(" ")}
     >
       {children}
     </div>
   );
 
-  if (tabPosition === "top") {
+  if (tabsOnTop) {
     return (
       <div className={`flex min-w-0 flex-col ${className}`}>
-        <TabBar tabs={tabs} activeId={activeId} onChange={onChange} edge="top" />
+        {tabNav}
         {content}
       </div>
     );
@@ -124,7 +211,7 @@ export default function SheetTabs({
   return (
     <div className={`flex min-w-0 flex-col ${className}`}>
       {content}
-      <TabBar tabs={tabs} activeId={activeId} onChange={onChange} edge="bottom" />
+      {tabNav}
     </div>
   );
 }

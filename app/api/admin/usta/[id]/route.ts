@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { deleteProvider, updateProvider, updateProviderStatus } from "@/lib/db";
+import { deleteProvider, getProviderById, updateProvider, updateProviderStatus } from "@/lib/db";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -49,9 +49,19 @@ export async function DELETE(_request: Request, { params }: Props) {
 
   try {
     const { id } = await params;
+    const provider = await getProviderById(id);
+    if (!provider) {
+      return NextResponse.json({ error: "Usta bulunamadı." }, { status: 404 });
+    }
+    if (provider.status !== "rejected") {
+      return NextResponse.json(
+        { error: "Sadece reddedilmiş başvurular silinebilir. Önce reddedin." },
+        { status: 400 }
+      );
+    }
     const deleted = await deleteProvider(id);
     if (!deleted) {
-      return NextResponse.json({ error: "Usta bulunamadı." }, { status: 404 });
+      return NextResponse.json({ error: "Silinemedi." }, { status: 404 });
     }
     return NextResponse.json({ success: true });
   } catch {
