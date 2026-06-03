@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Logo from "./Logo";
 import { companyInfo } from "@/lib/data/company";
 import { TOP_CITIES, toSlug } from "@/lib/seo/slugs";
+import { shouldShowUstaGuestLinks, normalizePathname } from "@/lib/panel-paths";
 
 const legalLinks = [
   { href: "/hakkimizda", label: "Hakkımızda" },
@@ -13,6 +17,8 @@ const legalLinks = [
 ];
 
 export default function Footer() {
+  const showUstaGuestLinks = shouldShowUstaGuestLinks(normalizePathname(usePathname()));
+
   return (
     <footer className="border-t border-border bg-secondary px-4 py-12 text-white sm:px-6">
       <div className="mx-auto max-w-6xl">
@@ -40,8 +46,12 @@ export default function Footer() {
             </h4>
             <ul className="mt-4 space-y-2.5 text-sm text-white/65">
               <li><Link href="/nasil-calisir" className="transition-colors hover:text-white">Nasıl Çalışır?</Link></li>
-              <li><Link href="/usta-ol" className="transition-colors hover:text-white">Usta Ol</Link></li>
-              <li><Link href="/usta/uygulama" className="transition-colors hover:text-white">Usta Uygulaması (APK)</Link></li>
+              {showUstaGuestLinks && (
+                <>
+                  <li><Link href="/usta-ol" className="transition-colors hover:text-white">Usta Ol</Link></li>
+                  <li><Link href="/usta/uygulama" className="transition-colors hover:text-white">Usta Uygulaması (APK)</Link></li>
+                </>
+              )}
               <li><Link href="/lokasyon" className="transition-colors hover:text-white">Lokasyon Rehberi</Link></li>
               <li><Link href="/hizmetler" className="transition-colors hover:text-white">Tüm Hizmetler</Link></li>
               <li><Link href="/hakkimizda" className="transition-colors hover:text-white">Hakkımızda</Link></li>

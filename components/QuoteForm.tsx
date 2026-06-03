@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Service, ServiceQuestion } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
 import { getJobDescriptionExample } from "@/lib/data/job-description-examples";
+import { isValidProviderPhone, phonesEqual } from "@/lib/phone-utils";
 
 type Props = {
   service: Service;
@@ -23,7 +24,8 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
   const [email, setEmail] = useState("");
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  /** Oturumdaki müşteri telefonu — yalnızca aynı numara ile teklif verirken şifre istemeyiz */
+  const [sessionPhone, setSessionPhone] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [urgent, setUrgent] = useState(defaultUrgent);
   const [loading, setLoading] = useState(false);
@@ -37,8 +39,8 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
     fetch("/api/musteri/profil", { credentials: "same-origin" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
-        if (!data?.profile) return;
-        setIsLoggedIn(true);
+        if (!data?.profile?.phone) return;
+        setSessionPhone(data.profile.phone);
         if (!defaultCity && data.profile.city) setCity(data.profile.city);
         if (data.profile.district) setDistrict(data.profile.district);
       })
@@ -58,9 +60,16 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
 
   const validateStep2 = () => city.length > 0 && district.length > 0;
 
+  const sessionMatchesPhone =
+    Boolean(sessionPhone) &&
+    isValidProviderPhone(phone) &&
+    phonesEqual(sessionPhone!, phone);
+
+  const needsPinOnSubmit = !sessionMatchesPhone;
+
   const validateStep3 = () => {
-    if (name.trim().length < 2 || phone.trim().length < 10) return false;
-    if (isLoggedIn) return true;
+    if (name.trim().length < 2 || !isValidProviderPhone(phone)) return false;
+    if (!needsPinOnSubmit) return true;
     if (!/^\d{4}$/.test(pin)) return false;
     if (pin !== pinConfirm) return false;
     return true;
@@ -82,12 +91,14 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
   const handleSubmit = async () => {
     setError("");
     if (!validateStep3()) {
-      if (!isLoggedIn && pin !== pinConfirm) {
+      if (needsPinOnSubmit && pin !== pinConfirm) {
         setError("Giriş şifreleri eşleşmiyor.");
-      } else if (!isLoggedIn && !/^\d{4}$/.test(pin)) {
+      } else if (needsPinOnSubmit && !/^\d{4}$/.test(pin)) {
         setError("Tekliflerim paneline giriş için 4 haneli şifre belirleyin.");
+      } else if (!isValidProviderPhone(phone)) {
+        setError("Geçerli bir cep telefonu girin (05XX XXX XX XX).");
       } else {
-        setError("Ad soyad, geçerli telefon ve giriş şifresini girin.");
+        setError("Ad soyad, telefon ve giriş şifresini girin.");
       }
       return;
     }
@@ -112,7 +123,7 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
           email,
           notes,
           urgent,
-          ...(!isLoggedIn ? { pin, pinConfirm } : {}),
+          ...(needsPinOnSubmit ? { pin, pinConfirm } : {}),
         }),
       });
 
@@ -270,6 +281,9 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
           <h2 className="text-xl font-bold text-foreground">İletişim bilgileri</h2>
           <p className="mt-1 text-sm text-muted-foreground">
             Ustalar tekliflerini bu bilgilerle size ulaşsın.
+            {needsPinOnSubmit
+              ? " Tekliflerim paneline girmek için 4 haneli bir şifre belirleyin."
+              : null}
           </p>
           <div className="mt-6 space-y-4">
             <div>
@@ -309,12 +323,12 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
               />
             </div>
 
-            {!isLoggedIn && (
+            {needsPinOnSubmit && (
               <>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1.5 block text-sm font-medium text-foreground">
-                      Giriş şifresi (4 hane) *
+                      Tekliflerim şifresi (4 hane) *
                     </label>
                     <input
                       type="password"

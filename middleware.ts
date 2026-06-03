@@ -25,7 +25,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  if (pathname.startsWith("/musteri/teklifler") || pathname.startsWith("/musteri/kontor")) {
+  if (
+    pathname.startsWith("/musteri/teklifler") ||
+    pathname.startsWith("/musteri/kontor") ||
+    pathname.startsWith("/musteri/teklif") ||
+    pathname.startsWith("/tekliflerim")
+  ) {
     const token = request.cookies.get(CUSTOMER_COOKIE)?.value;
     const session = await getCustomerSessionFromToken(token);
     if (!session) {
@@ -58,6 +63,9 @@ export const config = {
     "/usta/kontor",
     "/usta/odeme-talep",
     "/musteri/teklifler",
+    "/musteri/teklifler/:path*",
     "/musteri/kontor",
+    "/musteri/teklif/:path*",
+    "/tekliflerim/:path*",
   ],
 };

@@ -75,6 +75,33 @@ h1, h2, h3, h4 {
   filter: brightness(1.06);
 }
 
+@keyframes kontor-yukle-blink {
+  0%,
+  100% {
+    background-color: hsl(148 100% 28%);
+    box-shadow:
+      0 4px 16px hsl(148 100% 28% / 0.4),
+      0 0 0 0 hsl(148 75% 50% / 0);
+    filter: brightness(1);
+  }
+  50% {
+    background-color: hsl(148 100% 36%);
+    box-shadow:
+      0 8px 28px hsl(148 100% 32% / 0.55),
+      0 0 0 8px hsl(148 75% 50% / 0.28);
+    filter: brightness(1.12);
+  }
+}
+
+.kontor-yukle-blink {
+  animation: kontor-yukle-blink 1.15s ease-in-out infinite;
+  will-change: filter, box-shadow, background-color;
+}
+
+.kontor-yukle-blink:hover {
+  animation-play-state: paused;
+}
+
 @keyframes debt-alert-blink {
   0%,
   100% {
@@ -113,7 +140,8 @@ h1, h2, h3, h4 {
     animation: none;
   }
 
-  .cta-pulse {
+  .cta-pulse,
+  .kontor-yukle-blink {
     animation: none;
   }
 }

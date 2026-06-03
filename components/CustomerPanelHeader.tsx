@@ -43,20 +43,7 @@ export default function CustomerPanelHeader({
           ) : (
             <span className="text-sm font-bold tracking-tight">Müşteri Paneli</span>
           )}
-          <div className="flex flex-wrap items-center gap-2">
-            {!backHref && (
-              <Link href="/" className="hidden text-sm text-white/60 hover:text-white sm:inline">
-                Siteye dön
-              </Link>
-            )}
-            <Link
-              href="/usta-ol"
-              className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 text-sm font-semibold text-white hover:bg-white/15"
-            >
-              Usta Ol
-            </Link>
-            <PanelLogoutButton onClick={logout} disabled={loggingOut} />
-          </div>
+          <PanelLogoutButton onClick={logout} disabled={loggingOut} />
         </div>
       </div>
 

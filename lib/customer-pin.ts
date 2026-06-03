@@ -41,12 +41,19 @@ export async function getCustomerAuthByPhone(phone: string): Promise<{
   pinHash: string | null;
 }> {
   const normalized = normalizeProviderPhone(phone);
-  const quoteCount = await countQuoteRequestsByPhone(normalized);
 
   if (isDatabaseEnabled()) {
-    const wallet = await prisma.customerWallet.findFirst({ where: { phone: normalized } });
+    const [quoteCount, wallet] = await Promise.all([
+      countQuoteRequestsByPhone(normalized),
+      prisma.customerWallet.findFirst({
+        where: { phone: normalized },
+        select: { pinHash: true },
+      }),
+    ]);
     return { quoteCount, pinHash: wallet?.pinHash ?? null };
   }
+
+  const quoteCount = await countQuoteRequestsByPhone(normalized);
 
   const store = await readJsonStore();
   return {

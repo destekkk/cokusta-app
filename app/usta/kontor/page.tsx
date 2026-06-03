@@ -1,7 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import UstaCreditShopWrapper from "@/components/UstaCreditShopWrapper";
-import ProviderPanelHeader from "@/components/ProviderPanelHeader";
+import UstaPanelIntro from "@/components/UstaPanelIntro";
 import { getProviderById } from "@/lib/db";
 import { getProviderSessionId } from "@/lib/provider-auth";
 import { redirect } from "next/navigation";
@@ -23,12 +23,13 @@ export default async function UstaCreditPage() {
     <div className="min-h-full bg-muted/20">
       <Header />
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 sm:py-10">
-        <ProviderPanelHeader
+        <UstaPanelIntro
           title="Kontör Satın Al"
           subtitle="Güncel kontör fiyatları ve platform hizmetleri. Satın alma işlemi için destek ekibimizle iletişime geçin."
           creditBalance={provider.creditBalance ?? 0}
           creditDebt={provider.creditDebt ?? 0}
-          showStats
+          showKontorYukle={false}
+          backHref="/usta/teklifler"
         />
         <div className="mt-8">
           <UstaCreditShopWrapper

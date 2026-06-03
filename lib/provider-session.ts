@@ -1,27 +1,11 @@
 /** Edge middleware uyumlu usta oturum yardımcıları (Node crypto yok). */
 
+import { hmacSha256Hex, timingSafeEqualStrings } from "@/lib/edge-hmac";
+
 export const PROVIDER_COOKIE = "provider_session";
 
-function getSecret(): string {
-  return process.env.ADMIN_SESSION_SECRET ?? "cokusta-dev-secret-change-me";
-}
-
-async function sign(value: string): Promise<string> {
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(getSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"]
-  );
-  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
 export async function createProviderSessionToken(providerId: string): Promise<string> {
-  const signature = await sign(providerId);
+  const signature = await hmacSha256Hex(providerId);
   return `${providerId}.${signature}`;
 }
 
@@ -33,13 +17,8 @@ export async function parseProviderSessionToken(
   if (dot <= 0) return null;
   const providerId = token.slice(0, dot);
   const signature = token.slice(dot + 1);
-  const expected = await sign(providerId);
-  if (signature.length !== expected.length) return null;
-  let ok = 0;
-  for (let i = 0; i < signature.length; i++) {
-    ok |= signature.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
-  return ok === 0 ? providerId : null;
+  const expected = await hmacSha256Hex(providerId);
+  return timingSafeEqualStrings(signature, expected) ? providerId : null;
 }
 
 export async function getProviderSessionFromToken(

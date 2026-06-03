@@ -1,7 +1,7 @@
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import UstaPayoutPanel from "@/components/UstaPayoutPanel";
-import ProviderPanelHeader from "@/components/ProviderPanelHeader";
+import UstaPanelIntro from "@/components/UstaPanelIntro";
 import { getProviderSessionId } from "@/lib/provider-auth";
 import { getProviderById } from "@/lib/db";
 import { getProviderPayoutRequests } from "@/lib/db-credits";
@@ -33,12 +33,12 @@ export default async function UstaPayoutPage() {
     <div className="min-h-full bg-muted/20">
       <Header />
       <div className="mx-auto max-w-2xl px-4 py-8 sm:px-6 sm:py-10">
-        <ProviderPanelHeader
+        <UstaPanelIntro
           title="Ödeme Talebi"
           subtitle="Kazandığınız kontörleri teklif vermek için kullanın veya aylık nakit talep edin."
           creditBalance={provider?.creditBalance ?? 0}
           creditDebt={provider?.creditDebt ?? 0}
-          showStats
+          backHref="/usta/teklifler"
         />
         <div className="mt-8">
           <UstaPayoutPanel

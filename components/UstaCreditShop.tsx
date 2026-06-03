@@ -16,7 +16,6 @@ import {
   computeDebtSettlementAmount,
   MAX_CREDIT_DEBT,
 } from "@/lib/credit-debt";
-import BorcKredisiAlert from "@/components/BorcKredisiAlert";
 import OnlinePaymentsNotice from "@/components/OnlinePaymentsNotice";
 
 type Props = {
@@ -45,8 +44,6 @@ export default function UstaCreditShop({ initialBalance, initialCreditDebt }: Pr
           ulaşın; admin panelinden hesabınıza yüklenebilir.
         </div>
       )}
-
-      <BorcKredisiAlert creditDebt={creditDebt} />
 
       <OnlinePaymentsNotice variant="usta-kontor" />
 

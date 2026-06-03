@@ -1076,14 +1076,30 @@ export async function getApprovedProviders(): Promise<ProviderRegistration[]> {
   return rows.map(toProvider);
 }
 
+function providerPhoneLookupVariants(normalized: string): string[] {
+  const variants = new Set<string>([normalized]);
+  if (normalized.startsWith("0")) variants.add(normalized.slice(1));
+  return [...variants];
+}
+
 export async function findProviderByPhone(
   phone: string
 ): Promise<{ provider: ProviderRegistration; pinHash: string | null } | undefined> {
   const normalized = normalizeProviderPhone(phone);
   if (!/^05\d{9}$/.test(normalized)) return undefined;
 
-  const rows = await prisma.provider.findMany({ include: providerInclude });
-  const row = rows.find((provider) => normalizeProviderPhone(provider.phone) === normalized);
+  let row = await prisma.provider.findFirst({
+    where: { phone: { in: providerPhoneLookupVariants(normalized) } },
+  });
+
+  if (!row) {
+    const legacy = await prisma.provider.findMany({
+      where: { phone: { endsWith: normalized.slice(-10) } },
+      take: 12,
+    });
+    row = legacy.find((p) => normalizeProviderPhone(p.phone) === normalized) ?? null;
+  }
+
   if (!row) return undefined;
 
   return {
@@ -1105,12 +1121,13 @@ export async function getApprovedProviderAuthByPhone(
   const normalized = normalizeProviderPhone(phone);
   if (!/^05\d{9}$/.test(normalized)) return undefined;
 
-  const rows = await prisma.provider.findMany({
-    where: { status: "approved" },
-    include: providerInclude,
+  const row = await prisma.provider.findFirst({
+    where: {
+      status: "approved",
+      phone: { in: providerPhoneLookupVariants(normalized) },
+    },
   });
 
-  const row = rows.find((provider) => normalizeProviderPhone(provider.phone) === normalized);
   if (!row) return undefined;
 
   return {

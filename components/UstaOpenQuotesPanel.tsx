@@ -5,10 +5,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getCategoryName } from "@/lib/data/categories";
 import { MAX_CREDIT_DEBT, canActivateBorcKredisi, canSubmitOffer } from "@/lib/credit-debt";
-import UstaReferralCampaign from "@/components/UstaReferralCampaign";
 import UstaMyOffersPanel from "@/components/UstaMyOffersPanel";
-import BorcKredisiAlert from "@/components/BorcKredisiAlert";
-import ProviderPanelHeader from "@/components/ProviderPanelHeader";
+import UstaPanelIntro from "@/components/UstaPanelIntro";
 import SheetTabs from "@/components/panel/SheetTabs";
 import type { ProviderOffer } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
@@ -169,7 +167,14 @@ export default function UstaOpenQuotesPanel() {
 
   useEffect(() => {
     if (!locationReady) return;
-    load(location);
+    let cancelled = false;
+    void (async () => {
+      await load(location);
+      if (!cancelled) await refreshOfferMeta();
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [location, locationReady]);
 
   useEffect(() => {
@@ -219,8 +224,9 @@ export default function UstaOpenQuotesPanel() {
   };
 
   useEffect(() => {
-    refreshOfferMeta();
-  }, [myOffersRefresh]);
+    if (!locationReady) return;
+    void refreshOfferMeta();
+  }, [myOffersRefresh, locationReady]);
 
   const onCityChange = (value: string) => {
     if (value === "__all__") {
@@ -371,14 +377,12 @@ export default function UstaOpenQuotesPanel() {
 
   return (
     <div className="space-y-6">
-      <ProviderPanelHeader
-        showStats
+      <UstaPanelIntro
         creditBalance={creditBalance}
         creditDebt={creditDebt}
         escrowBalanceTl={escrowBalanceTl}
+        kontorHref={KONTOR_URL}
       />
-
-      {creditDebt > 0 && <BorcKredisiAlert creditDebt={creditDebt} />}
 
       {debtNotice && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -802,8 +806,6 @@ export default function UstaOpenQuotesPanel() {
         )}
         </>
       )}
-
-      <UstaReferralCampaign onCreditsUpdated={(balance) => setCreditBalance(balance)} />
               </>
             )}
           </SheetTabs>

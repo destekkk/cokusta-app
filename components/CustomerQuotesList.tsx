@@ -29,6 +29,16 @@ type TabCounts = {
   total: number;
 };
 
+const PAGE_SIZE = 25;
+
+function getCustomerPageNumbers(current: number, total: number): number[] {
+  if (total <= 12) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const set = new Set<number>([1, total, current, current - 1, current + 1, current - 2, current + 2]);
+  return [...set].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+}
+
 function statusClass(status: string) {
   if (status === "open") return "bg-primary/10 text-primary";
   if (status === "accepted") return "bg-emerald-100 text-emerald-800";
@@ -112,38 +122,54 @@ export default function CustomerQuotesList() {
     finished: 0,
     total: 0,
   });
-  const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
   const [locationReady, setLocationReady] = useState(false);
-  const pageSize = 50;
 
   const searchQuery = searchParams.get("q")?.trim() ?? "";
   const filterCity = searchParams.get("city")?.trim() ?? "";
   const filterDistrict = searchParams.get("district")?.trim() ?? "";
+  const pageParam = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const safePage = Math.min(pageParam, pageCount);
+
+  const replaceParams = (mutate: (params: URLSearchParams) => void) => {
+    const params = new URLSearchParams(searchParams.toString());
+    mutate(params);
+    router.replace(`/musteri/teklifler?${params.toString()}`);
+  };
 
   const setTab = (next: CustomerQuoteTab) => {
-    const params = new URLSearchParams(searchParams.toString());
-    params.set("tab", next);
-    router.replace(`/musteri/teklifler?${params.toString()}`);
+    replaceParams((params) => {
+      params.set("tab", next);
+      params.delete("page");
+    });
+  };
+
+  const setPage = (next: number) => {
+    replaceParams((params) => {
+      if (next <= 1) params.delete("page");
+      else params.set("page", String(next));
+    });
   };
 
   const applySearch = () => {
-    const params = new URLSearchParams(searchParams.toString());
-    const q = searchInput.trim();
-    if (q) params.set("q", q);
-    else params.delete("q");
-    router.replace(`/musteri/teklifler?${params.toString()}`);
+    replaceParams((params) => {
+      const q = searchInput.trim();
+      if (q) params.set("q", q);
+      else params.delete("q");
+      params.delete("page");
+    });
   };
 
   const setLocationFilter = (city: string, district: string) => {
-    const params = new URLSearchParams(searchParams.toString());
-    if (city && city !== "__all__") params.set("city", city);
-    else params.delete("city");
-    if (district && city !== "__all__") params.set("district", district);
-    else params.delete("district");
-    router.replace(`/musteri/teklifler?${params.toString()}`);
+    replaceParams((params) => {
+      if (city && city !== "__all__") params.set("city", city);
+      else params.delete("city");
+      if (district && city !== "__all__") params.set("district", district);
+      else params.delete("district");
+      params.delete("page");
+    });
   };
 
   useEffect(() => {
@@ -186,39 +212,36 @@ export default function CustomerQuotesList() {
     }
   }, [searchParams, locationReady]);
 
-  const loadQuotes = useCallback(
-    async (nextOffset: number, append: boolean) => {
-      const params = new URLSearchParams({
-        limit: String(pageSize),
-        offset: String(nextOffset),
-        tab,
-      });
-      if (searchQuery) params.set("q", searchQuery);
-      if (filterCity) params.set("city", filterCity);
-      if (filterDistrict) params.set("district", filterDistrict);
+  const loadQuotes = useCallback(async () => {
+    const offset = (safePage - 1) * PAGE_SIZE;
+    const params = new URLSearchParams({
+      limit: String(PAGE_SIZE),
+      offset: String(offset),
+      tab,
+    });
+    if (searchQuery) params.set("q", searchQuery);
+    if (filterCity) params.set("city", filterCity);
+    if (filterDistrict) params.set("district", filterDistrict);
 
-      const res = await fetch(`/api/musteri/talepler?${params.toString()}`, {
-        credentials: "same-origin",
-      });
-      if (res.status === 401) {
-        router.replace("/musteri/giris");
-        return null;
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
-      setTotal(data.total ?? 0);
-      if (data.tabCounts) setTabCounts(data.tabCounts);
-      setOffset(nextOffset + (data.quotes?.length ?? 0));
-      setQuotes((prev) => (append ? [...prev, ...(data.quotes ?? [])] : (data.quotes ?? [])));
-      return data;
-    },
-    [router, searchQuery, tab, filterCity, filterDistrict]
-  );
+    const res = await fetch(`/api/musteri/talepler?${params.toString()}`, {
+      credentials: "same-origin",
+    });
+    if (res.status === 401) {
+      router.replace("/musteri/giris");
+      return null;
+    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Yüklenemedi");
+    setTotal(data.total ?? 0);
+    if (data.tabCounts) setTabCounts(data.tabCounts);
+    setQuotes(data.quotes ?? []);
+    return data;
+  }, [router, searchQuery, tab, filterCity, filterDistrict, safePage]);
 
   useEffect(() => {
     if (!locationReady) return;
     setLoading(true);
-    loadQuotes(0, false)
+    loadQuotes()
       .catch((err) => setError(err instanceof Error ? err.message : "Yüklenemedi"))
       .finally(() => setLoading(false));
   }, [loadQuotes, locationReady]);
@@ -227,7 +250,11 @@ export default function CustomerQuotesList() {
     setSearchInput(searchQuery);
   }, [searchQuery]);
 
-  const hasMore = quotes.length < total;
+  useEffect(() => {
+    if (!locationReady || total === 0) return;
+    const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+    if (pageParam > maxPage) setPage(maxPage);
+  }, [locationReady, total, pageParam]);
 
   const summaryHint = useMemo(() => {
     if (tab === "offers") return "Yeni gelen usta teklifleri (henüz yazışma yok)";
@@ -292,8 +319,14 @@ export default function CustomerQuotesList() {
         />
       </div>
 
-      <div className="flex flex-wrap items-end gap-3 rounded-xl border border-border bg-card p-4">
-        <label className="flex min-w-[160px] flex-col gap-1 text-xs text-muted-foreground">
+      <form
+        className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card p-3 sm:gap-3 sm:p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          applySearch();
+        }}
+      >
+        <label className="flex w-[130px] shrink-0 flex-col gap-1 text-xs text-muted-foreground sm:w-[150px]">
           İl
           <select
             value={filterCity || "__all__"}
@@ -302,7 +335,7 @@ export default function CustomerQuotesList() {
               if (v === "__all__") setLocationFilter("", "");
               else setLocationFilter(v, "");
             }}
-            className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+            className="rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground"
           >
             <option value="__all__">Tüm iller</option>
             {cities.map((city) => (
@@ -313,12 +346,12 @@ export default function CustomerQuotesList() {
           </select>
         </label>
         {filterCity ? (
-          <label className="flex min-w-[160px] flex-col gap-1 text-xs text-muted-foreground">
+          <label className="flex w-[130px] shrink-0 flex-col gap-1 text-xs text-muted-foreground sm:w-[150px]">
             İlçe
             <select
               value={filterDistrict}
               onChange={(e) => setLocationFilter(filterCity, e.target.value)}
-              className="rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+              className="rounded-lg border border-border bg-background px-2 py-2 text-sm text-foreground"
             >
               <option value="">Tüm ilçeler</option>
               {getDistricts(filterCity).map((district) => (
@@ -329,25 +362,19 @@ export default function CustomerQuotesList() {
             </select>
           </label>
         ) : null}
-      </div>
-
-      <form
-        className="flex w-full max-w-md gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          applySearch();
-        }}
-      >
-        <input
-          type="search"
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Hizmet adı ara…"
-          className="min-w-0 flex-1 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-        />
+        <label className="flex min-w-[140px] flex-1 flex-col gap-1 text-xs text-muted-foreground">
+          Hizmet ara
+          <input
+            type="search"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Hizmet adı ara…"
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm"
+          />
+        </label>
         <button
           type="submit"
-          className="shrink-0 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted/50"
+          className="shrink-0 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark"
         >
           Ara
         </button>
@@ -373,7 +400,8 @@ export default function CustomerQuotesList() {
           )}
           {total > 0 && (
             <span className="ml-1">
-              · {quotes.length.toLocaleString("tr-TR")}/{total.toLocaleString("tr-TR")} gösteriliyor
+              · {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, total)} /{" "}
+              {total.toLocaleString("tr-TR")} (sayfa {safePage}/{pageCount})
             </span>
           )}
         </p>
@@ -465,26 +493,48 @@ export default function CustomerQuotesList() {
           </>
         )}
 
-        {hasMore && (
-          <div className="mt-4 flex justify-center">
+        {pageCount > 1 && (
+          <nav
+            className="mt-4 flex flex-wrap items-center justify-center gap-2 border-t border-border pt-4"
+            aria-label="Talep listesi sayfaları"
+          >
             <button
               type="button"
-              onClick={async () => {
-                setLoadingMore(true);
-                try {
-                  await loadQuotes(offset, true);
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Yüklenemedi");
-                } finally {
-                  setLoadingMore(false);
-                }
-              }}
-              disabled={loadingMore}
-              className="rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-accent disabled:opacity-60"
+              disabled={safePage <= 1}
+              onClick={() => setPage(safePage - 1)}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm disabled:opacity-40"
             >
-              {loadingMore ? "Yükleniyor…" : "Daha fazla yükle"}
+              ← Önceki
             </button>
-          </div>
+            {getCustomerPageNumbers(safePage, pageCount).map((pageNum, idx, arr) => {
+              const prev = arr[idx - 1];
+              const showEllipsis = prev !== undefined && pageNum - prev > 1;
+              return (
+                <span key={pageNum} className="flex items-center gap-2">
+                  {showEllipsis && <span className="text-muted-foreground">…</span>}
+                  <button
+                    type="button"
+                    onClick={() => setPage(pageNum)}
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-medium ${
+                      pageNum === safePage
+                        ? "border-primary bg-primary text-white"
+                        : "border-border hover:bg-accent"
+                    }`}
+                  >
+                    {pageNum}. sayfa
+                  </button>
+                </span>
+              );
+            })}
+            <button
+              type="button"
+              disabled={safePage >= pageCount}
+              onClick={() => setPage(safePage + 1)}
+              className="rounded-lg border border-border px-3 py-1.5 text-sm disabled:opacity-40"
+            >
+              Sonraki →
+            </button>
+          </nav>
         )}
       </SheetTabs>
     </div>

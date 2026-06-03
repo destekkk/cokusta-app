@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { findProviderByPhone, getProviderById } from "@/lib/db";
+import { findProviderByPhone } from "@/lib/db";
 import { setProviderSession } from "@/lib/provider-auth";
 import { isValidProviderPhone, verifyProviderPin } from "@/lib/provider-pin";
 
@@ -62,14 +62,13 @@ export async function POST(request: Request) {
     }
 
     await setProviderSession(auth.provider.id);
-    const fresh = await getProviderById(auth.provider.id);
     return NextResponse.json({
       success: true,
       provider: {
         id: auth.provider.id,
         name: auth.provider.name,
         city: auth.provider.city,
-        creditBalance: fresh?.creditBalance ?? 0,
+        creditBalance: auth.provider.creditBalance ?? 0,
       },
     });
   } catch {

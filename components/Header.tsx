@@ -2,17 +2,16 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Logo from "./Logo";
 import PanelLogoutButton from "@/components/panel/PanelLogoutButton";
-
-function isUstaPanelPath(pathname: string): boolean {
-  return (
-    pathname.startsWith("/usta/teklifler") ||
-    pathname.startsWith("/usta/kontor") ||
-    pathname.startsWith("/usta/odeme-talep")
-  );
-}
+import {
+  isAppPanelPath,
+  isCustomerPanelPath,
+  isUstaPanelPath,
+  normalizePathname,
+  shouldShowUstaGuestLinks,
+} from "@/lib/panel-paths";
 
 const ctaClassName =
   "cta-pulse rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark sm:px-5";
@@ -27,9 +26,16 @@ const navLinks = [
 export default function Header() {
   const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  const pathname = normalizePathname(usePathname());
   const router = useRouter();
+
+  useEffect(() => setMounted(true), []);
+
+  const appPanelOpen = isAppPanelPath(pathname);
   const ustaPanelOpen = isUstaPanelPath(pathname);
+  const customerPanelOpen = isCustomerPanelPath(pathname);
+  const showUstaGuestLinks = mounted && shouldShowUstaGuestLinks(pathname);
 
   const ustaLogout = async () => {
     setLoggingOut(true);
@@ -48,98 +54,79 @@ export default function Header() {
         <Logo />
 
         <nav className="hidden min-w-0 flex-1 items-center justify-center gap-5 md:flex lg:gap-7">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-sm font-medium text-muted-foreground transition-colors hover:text-foreground ${link.className ?? ""}`}
-            >
-              {link.label}
-            </Link>
-          ))}
-          <Link href="/hizmetler" className={`${ctaClassName} ml-1 lg:ml-3`}>
-            Hemen Teklif Al
-          </Link>
-        </nav>
-
-        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
-          {!ustaPanelOpen && (
-            <Link
-              href="/usta/giris"
-              className="inline-flex rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground sm:px-3 sm:py-2 sm:text-sm"
-            >
-              <span className="sm:hidden">Giriş</span>
-              <span className="hidden sm:inline">Usta Girişi</span>
-            </Link>
-          )}
-          <Link
-            href="/usta-ol"
-            className="inline-flex rounded-md border-2 border-primary/30 bg-primary/5 px-2 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 sm:px-3 sm:py-2 sm:text-sm"
-          >
-            Usta Ol
-          </Link>
-          {ustaPanelOpen && (
-            <PanelLogoutButton
-              variant="light"
-              onClick={ustaLogout}
-              disabled={loggingOut}
-            />
-          )}
-
-          <button
-            type="button"
-            className="inline-flex rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted md:hidden"
-            onClick={() => setOpen((value) => !value)}
-            aria-expanded={open}
-            aria-label={open ? "Menüyü kapat" : "Menüyü aç"}
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              {open ? (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              )}
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      {open && (
-        <nav className="border-t border-border px-4 py-4 md:hidden">
-          <div className="mx-auto flex max-w-7xl flex-col gap-1">
-            {navLinks.map((link) => (
+          {!appPanelOpen &&
+            navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setOpen(false)}
-                className={`rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${link.className ?? ""}`}
+                className={`text-sm font-medium text-muted-foreground transition-colors hover:text-foreground ${link.className ?? ""}`}
               >
                 {link.label}
               </Link>
             ))}
-            <Link
-              href="/hizmetler"
-              onClick={() => setOpen(false)}
-              className={`${ctaClassName} mt-2 text-center`}
-            >
+          {!appPanelOpen && (
+            <Link href="/hizmetler" className={`${ctaClassName} ml-1 lg:ml-3`}>
               Hemen Teklif Al
             </Link>
-            {!ustaPanelOpen && (
+          )}
+        </nav>
+
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
+          {ustaPanelOpen && (
+            <PanelLogoutButton variant="light" onClick={ustaLogout} disabled={loggingOut} />
+          )}
+          {showUstaGuestLinks && (
+            <>
               <Link
                 href="/usta/giris"
-                onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+                className="inline-flex rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground sm:px-3 sm:py-2 sm:text-sm"
               >
-                Usta Girişi
+                <span className="sm:hidden">Giriş</span>
+                <span className="hidden sm:inline">Usta Girişi</span>
               </Link>
-            )}
-            <Link
-              href="/usta-ol"
-              onClick={() => setOpen(false)}
-              className="rounded-lg px-3 py-2.5 text-sm font-semibold text-primary hover:bg-muted"
+              <Link
+                href="/usta-ol"
+                className="inline-flex rounded-md border-2 border-primary/30 bg-primary/5 px-2 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 sm:px-3 sm:py-2 sm:text-sm"
+              >
+                Usta Ol
+              </Link>
+            </>
+          )}
+
+          {(!appPanelOpen || ustaPanelOpen) && !customerPanelOpen && (
+            <button
+              type="button"
+              className="inline-flex rounded-lg border border-border p-2 text-muted-foreground hover:bg-muted md:hidden"
+              onClick={() => setOpen((value) => !value)}
+              aria-expanded={open}
+              aria-label={open ? "Menüyü kapat" : "Menüyü aç"}
             >
-              Usta Ol
-            </Link>
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                {open ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
+          )}
+        </div>
+      </div>
+
+      {open && (!appPanelOpen || ustaPanelOpen) && !customerPanelOpen && (
+        <nav className="border-t border-border px-4 py-4 md:hidden">
+          <div className="mx-auto flex max-w-7xl flex-col gap-1">
+            {!appPanelOpen &&
+              navLinks.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={() => setOpen(false)}
+                  className={`rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground ${link.className ?? ""}`}
+                >
+                  {link.label}
+                </Link>
+              ))}
             {ustaPanelOpen && (
               <div className="mt-2 px-3">
                 <PanelLogoutButton
@@ -152,6 +139,31 @@ export default function Header() {
                   label="Çıkış Yap"
                 />
               </div>
+            )}
+            {showUstaGuestLinks && (
+              <>
+                <Link
+                  href="/hizmetler"
+                  onClick={() => setOpen(false)}
+                  className={`${ctaClassName} mt-2 text-center`}
+                >
+                  Hemen Teklif Al
+                </Link>
+                <Link
+                  href="/usta/giris"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+                >
+                  Usta Girişi
+                </Link>
+                <Link
+                  href="/usta-ol"
+                  onClick={() => setOpen(false)}
+                  className="rounded-lg px-3 py-2.5 text-sm font-semibold text-primary hover:bg-muted"
+                >
+                  Usta Ol
+                </Link>
+              </>
             )}
           </div>
         </nav>
