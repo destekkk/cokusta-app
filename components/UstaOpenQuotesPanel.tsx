@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getCategoryName } from "@/lib/data/categories";
@@ -383,20 +383,21 @@ export default function UstaOpenQuotesPanel() {
       creditDebt={creditDebt}
       escrowBalanceTl={escrowBalanceTl}
       kontorHref={KONTOR_URL}
-      belowPanel={tabNav}
     />
   );
 
-  const panelContentClass =
-    "min-h-[200px] min-w-0 rounded-xl border border-primary/15 bg-card p-4 sm:p-5";
+  const listPanel = (body: ReactNode) => (
+    <div className="min-w-0 overflow-hidden rounded-xl border border-primary/15 bg-card shadow-sm">
+      <div className="border-b border-primary/10 p-2 sm:p-3">{tabNav}</div>
+      <div className="min-h-[200px] p-4 sm:p-5">{body}</div>
+    </div>
+  );
 
   if (loading && tab === "open") {
     return (
       <div className="space-y-6">
         {panelIntro}
-        <div className={panelContentClass}>
-          <p className="text-muted-foreground">Talepler yükleniyor…</p>
-        </div>
+        {listPanel(<p className="text-muted-foreground">Talepler yükleniyor…</p>)}
       </div>
     );
   }
@@ -444,13 +445,18 @@ export default function UstaOpenQuotesPanel() {
         </div>
       )}
 
-      <div className={panelContentClass}>
+      {listPanel(
         <div className="space-y-4">
           {pendingCustomerAgreement && (
             <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
               Bir müşteri sizinle anlaşmayı onayladı.{" "}
-              <button type="button" onClick={() => setTab("mine")} className="font-semibold underline">
-                Benim Tekliflerim
+              <button
+                type="button"
+                onClick={() => setTab("mine")}
+                className="inline-flex flex-col font-semibold leading-tight underline"
+              >
+                <span>Benim</span>
+                <span>Tekliflerim</span>
               </button>{" "}
               kartından onaylayın.
             </p>
@@ -814,7 +820,7 @@ export default function UstaOpenQuotesPanel() {
               </>
             )}
         </div>
-      </div>
+      )}
     </div>
   );
 }
