@@ -3,6 +3,13 @@
 import { useState } from "react";
 import type { ProviderOffer } from "@/lib/types";
 import { getCurrentOfferPrice, sortNegotiationEntries } from "@/lib/offer-utils";
+import {
+  canCustomerConfirmAgreement,
+  canPartyCounterOffer,
+  canProviderConfirmAgreement,
+  isMutualNegotiationActive,
+  latestNegotiationFrom,
+} from "@/lib/negotiation-access";
 
 type Props = {
   offer: ProviderOffer;
@@ -49,7 +56,11 @@ export default function OfferNegotiationPanel({
 
   const customerAgreed = !!offer.customerAgreedAt;
   const providerAgreed = !!offer.providerAgreedAt;
-  const canCounter = offer.status === "pending" && !customerAgreed;
+  const canCounter = canPartyCounterOffer(offer);
+  const canCustomerAgree = canCustomerConfirmAgreement(offer);
+  const canProviderAgree = canProviderConfirmAgreement(offer);
+  const mutualActive = isMutualNegotiationActive(offer);
+  const lastFrom = latestNegotiationFrom(offer);
   const canWithdraw =
     role === "customer" &&
     customerAgreed &&
@@ -127,33 +138,51 @@ export default function OfferNegotiationPanel({
         )}
       </div>
 
-      {role === "provider" && offer.status === "pending" && !customerAgreed && (
+      {role === "provider" && mutualActive && (
+        <p className="text-xs text-muted-foreground">
+          Karşılıklı teklif sürecindesiniz. &quot;Anlaştık&quot; butonu, müşteri önce onayladıktan sonra
+          açılır.
+          {lastFrom === "provider" && " Son teklif sizden; müşterinin onayı bekleniyor."}
+        </p>
+      )}
+
+      {role === "provider" && offer.status === "pending" && !customerAgreed && !mutualActive && (
         <p className="text-xs text-muted-foreground">
           Müşteri &quot;Anlaştık&quot; dedikten sonra siz de onaylayabilirsiniz.
         </p>
       )}
 
-      {role === "provider" && offer.status === "pending" && customerAgreed && !providerAgreed && (
+      {role === "provider" && canProviderAgree && (
         <p className="text-xs text-amber-800">
-          Müşteri anlaştı. Yalnızca &quot;Anlaştık&quot; ile onaylayabilirsiniz; yeni teklif verilemez.
+          Müşteri anlaştı. Yalnızca &quot;Anlaştık&quot; ile onaylayın; karşı teklif verilemez. Müşteri
+          sizi aradığında numaranızı görür; müşteri bilgileri size gösterilmez.
+        </p>
+      )}
+
+      {role === "customer" && customerAgreed && !providerAgreed && (
+        <p className="text-xs text-amber-800">
+          Siz anlaştınız. Usta da onayladığında &quot;Ustayı ara&quot; ile telefonuna ulaşabilirsiniz.
+        </p>
+      )}
+
+      {role === "customer" && customerAgreed && providerAgreed && (
+        <p className="text-xs text-amber-800">
+          Karşılıklı anlaşma tamam. Usta telefonu için &quot;Ustayı ara&quot; butonunu kullanın.
         </p>
       )}
 
       {offer.status === "pending" && (
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={
-              loading ||
-              (role === "customer"
-                ? customerAgreed
-                : providerAgreed || !customerAgreed)
-            }
-            onClick={onAgree}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-          >
-            Anlaştık
-          </button>
+          {(role === "customer" ? canCustomerAgree : canProviderAgree) && (
+            <button
+              type="button"
+              disabled={loading}
+              onClick={onAgree}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+            >
+              Anlaştık
+            </button>
+          )}
           {canCounter && (
             <button
               type="button"

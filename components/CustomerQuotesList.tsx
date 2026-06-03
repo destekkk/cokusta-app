@@ -20,7 +20,13 @@ type QuoteItem = {
   urgent?: boolean;
 };
 
-type TabCounts = { waiting: number; offers: number; finished: number; total: number };
+type TabCounts = {
+  waiting: number;
+  offers: number;
+  negotiating: number;
+  finished: number;
+  total: number;
+};
 
 function statusClass(status: string) {
   if (status === "open") return "bg-primary/10 text-primary";
@@ -36,7 +42,11 @@ function QuoteRowActions({ quote, tab }: { quote: QuoteItem; tab: CustomerQuoteT
       href={`/tekliflerim/${quote.id}`}
       className="inline-flex rounded-lg bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary hover:bg-primary/15"
     >
-      {tab === "offers" && quote.offerCount > 0 ? "Teklifleri gör" : "Detay"}
+      {tab === "offers" || tab === "negotiating"
+        ? quote.offerCount > 0
+          ? "Teklifleri gör"
+          : "Detay"
+        : "Detay"}
     </Link>
   );
 }
@@ -86,11 +96,21 @@ export default function CustomerQuotesList() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab: CustomerQuoteTab =
-    tabParam === "waiting" || tabParam === "finished" ? tabParam : "offers";
+    tabParam === "waiting" ||
+    tabParam === "finished" ||
+    tabParam === "negotiating"
+      ? tabParam
+      : "offers";
   const [searchInput, setSearchInput] = useState(searchParams.get("q") ?? "");
   const [quotes, setQuotes] = useState<QuoteItem[]>([]);
   const [total, setTotal] = useState(0);
-  const [tabCounts, setTabCounts] = useState<TabCounts>({ waiting: 0, offers: 0, finished: 0, total: 0 });
+  const [tabCounts, setTabCounts] = useState<TabCounts>({
+    waiting: 0,
+    offers: 0,
+    negotiating: 0,
+    finished: 0,
+    total: 0,
+  });
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -154,7 +174,8 @@ export default function CustomerQuotesList() {
   const hasMore = quotes.length < total;
 
   const summaryHint = useMemo(() => {
-    if (tab === "offers") return "Usta teklifi gelen, pazarlık süren talepler";
+    if (tab === "offers") return "Yeni gelen usta teklifleri (henüz yazışma yok)";
+    if (tab === "negotiating") return "Usta ile karşılıklı teklif / pazarlık süren talepler";
     if (tab === "finished") return "Anlaşılmış, tamamlanmış veya iptal edilmiş talepler";
     return "Henüz teklif gelmemiş veya onay bekleyen talepler";
   }, [tab]);
@@ -176,11 +197,16 @@ export default function CustomerQuotesList() {
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <PanelStatCard label="Toplam talep" value={tabCounts.total.toLocaleString("tr-TR")} />
         <PanelStatCard
           label="Gelen teklif"
           value={tabCounts.offers.toLocaleString("tr-TR")}
+          tone="primary"
+        />
+        <PanelStatCard
+          label="Pazarlık"
+          value={tabCounts.negotiating.toLocaleString("tr-TR")}
           tone="primary"
         />
         <PanelStatCard
@@ -222,6 +248,7 @@ export default function CustomerQuotesList() {
         onChange={(id) => setTab(id as CustomerQuoteTab)}
         tabs={[
           { id: "offers", label: "Gelen Teklifler", count: tabCounts.offers },
+          { id: "negotiating", label: "Pazarlık", count: tabCounts.negotiating },
           { id: "waiting", label: "Teklif Bekleyen", count: tabCounts.waiting },
           { id: "finished", label: "Bitmiş İşler", count: tabCounts.finished },
         ]}
@@ -241,8 +268,10 @@ export default function CustomerQuotesList() {
               {searchQuery
                 ? "Aramanızla eşleşen talep bulunamadı."
                 : tab === "offers"
-                  ? "Henüz usta teklifi almadığınız talep yok."
-                  : tab === "finished"
+                  ? "Henüz yalnızca yeni teklif aldığınız talep yok."
+                  : tab === "negotiating"
+                    ? "Aktif pazarlık / yazışma süren talep yok."
+                    : tab === "finished"
                     ? "Bitmiş iş kaydınız yok."
                     : "Teklif bekleyen talebiniz yok."}
             </p>

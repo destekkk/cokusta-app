@@ -71,6 +71,15 @@ export function providerCategoryMatches(
   return slugs.includes(categorySlug);
 }
 
+/** İlçe filtresi: yalnızca paneldeki ilçe seçimi (profil ilçesi otomatik filtre değil). */
+export function quoteMatchesDistrictFilter(
+  quoteDistrict: string,
+  filterDistrict?: string
+): boolean {
+  if (!filterDistrict?.trim()) return true;
+  return districtsMatch(filterDistrict, quoteDistrict);
+}
+
 export function providerCanSeeQuote(
   provider: ProviderRegistration,
   quote: QuoteRequest,
@@ -86,13 +95,11 @@ export function providerCanSeeQuote(
       ? location.selectedCity
       : provider.city;
 
-  if (!citiesMatch(targetCity, quote.city)) return false;
-
-  if (location.selectedDistrict) {
-    if (!districtsMatch(location.selectedDistrict, quote.district)) return false;
+  if (!citiesMatch(resolveCanonicalCityName(targetCity), resolveCanonicalCityName(quote.city))) {
+    return false;
   }
 
-  return true;
+  return quoteMatchesDistrictFilter(quote.district, location.selectedDistrict);
 }
 
 /** Kategori uygunsa il dışı taleplere de teklif verilebilir. */
@@ -184,12 +191,8 @@ export function enrichOffer(
   };
 }
 
-export function toPublicQuoteListItem(
-  quote: QuoteRequest,
-  offerCount: number,
-  revealContact: boolean
-) {
-  return sanitizeQuoteForProvider(quote, { revealContact, offerCount });
+export function toPublicQuoteListItem(quote: QuoteRequest, offerCount: number) {
+  return sanitizeQuoteForProvider(quote, { offerCount });
 }
 
 export { generateId };

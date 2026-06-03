@@ -21,7 +21,7 @@ type Props = {
 
 export default function CustomerPanelHeader({
   title = "Müşteri Paneli",
-  subtitle = "Usta tekliflerini takip edin, anlaşın ve Param Güvende ile güvenli ödeme yapın.",
+  subtitle = "Usta tekliflerini takip edin, pazarlık yapın; güvenli ödeme için talep detayında Param Güvende sekmesini kullanın.",
   backHref,
   backLabel = "← Tüm taleplerim",
   showNewRequest = true,
@@ -45,12 +45,7 @@ export default function CustomerPanelHeader({
       {!backHref && (
         <div className="-mx-4 border-b border-white/10 bg-secondary px-4 py-3 text-white sm:-mx-6 sm:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold tracking-tight">Müşteri Paneli</span>
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
-                Param Güvende
-              </span>
-            </div>
+            <span className="text-sm font-bold tracking-tight">Müşteri Paneli</span>
             <div className="flex flex-wrap items-center gap-2">
               <Link href="/" className="hidden text-sm text-white/60 hover:text-white sm:inline">
                 Siteye dön

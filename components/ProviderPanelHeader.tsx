@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Suspense, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense } from "react";
 import PanelNav, { type PanelNavItem } from "@/components/panel/PanelNav";
 import PanelStatCard from "@/components/panel/PanelStatCard";
-import PanelLogoutButton from "@/components/panel/PanelLogoutButton";
 
 const NAV_ITEMS: PanelNavItem[] = [
   { href: "/usta/teklifler", label: "Teklifler" },
@@ -31,32 +29,11 @@ export default function ProviderPanelHeader({
   escrowBalanceTl = 0,
   showStats = false,
 }: Props) {
-  const router = useRouter();
-  const [loggingOut, setLoggingOut] = useState(false);
-
-  const logout = async () => {
-    setLoggingOut(true);
-    try {
-      await fetch("/api/usta/cikis", { method: "POST" });
-      router.push("/usta/giris");
-      router.refresh();
-    } finally {
-      setLoggingOut(false);
-    }
-  };
-
   return (
     <div className="space-y-0">
       <div className="-mx-4 border-b border-white/10 bg-secondary px-4 py-3 text-white sm:-mx-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold tracking-tight">Usta Paneli</span>
-            {escrowBalanceTl > 0 && (
-              <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-200">
-                Param Güvende
-              </span>
-            )}
-          </div>
+          <span className="text-sm font-bold tracking-tight">Usta Paneli</span>
           <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/"
@@ -70,7 +47,6 @@ export default function ProviderPanelHeader({
             >
               Kontör Yükle
             </Link>
-            <PanelLogoutButton onClick={logout} disabled={loggingOut} />
           </div>
         </div>
         <Suspense fallback={null}>

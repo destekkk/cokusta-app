@@ -1,4 +1,9 @@
 import type { ProviderQuoteLocationFilter } from "@/lib/offer-utils";
+import { resolveCanonicalCityName } from "@/lib/offer-utils";
+
+function normalizeStoredCity(city: string): string {
+  return resolveCanonicalCityName(city).toLocaleLowerCase("tr-TR");
+}
 
 export const PROVIDER_LOCATION_STORAGE_KEY = "cokusta-usta-location-filter-v2";
 
@@ -18,6 +23,14 @@ export function readProviderLocationFilter(profileCity = ""): ProviderQuoteLocat
 
     if ("filter" in parsed && parsed.filter?.cityMode) {
       if (profileCity && parsed.profileCity && parsed.profileCity !== profileCity) {
+        return { cityMode: "provider" };
+      }
+      if (
+        profileCity &&
+        parsed.filter.cityMode === "selected" &&
+        parsed.filter.selectedCity &&
+        normalizeStoredCity(parsed.filter.selectedCity) !== normalizeStoredCity(profileCity)
+      ) {
         return { cityMode: "provider" };
       }
       return parsed.filter;

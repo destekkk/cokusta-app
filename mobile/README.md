@@ -48,7 +48,7 @@ eas submit --platform android
 
 ## API
 
-Canlı: `https://cokusta.com`
+Canlı: `https://www.cokusta.com` (www zorunlu — apex yönlendirmesi mobil POST’u bozabilir)
 
 Yerel Next.js:
 

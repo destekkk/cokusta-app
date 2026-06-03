@@ -11,6 +11,10 @@ import type {
   PortfolioWithProvider,
   ProviderCertificate,
   ProviderOffer,
+  ProviderOfferReview,
+  ProviderOfferReviewSummary,
+  PublicProviderReview,
+  ProviderReviewStats,
   ProviderOfTheMonth,
   ProviderPlatformPurchase,
   ProviderPortfolioItem,
@@ -51,7 +55,7 @@ import { MAX_PORTFOLIO_ITEMS } from "./portfolio-upload";
 import { PROVIDER_PHONE_EXISTS } from "./provider-registration";
 import { normalizeProviderPhone, phonesEqual } from "./phone-utils";
 import type { CustomerQuotesListFilter } from "./customer-quotes-filter";
-import { tabForQuoteInput } from "./customer-quotes-filter";
+import { classifyCustomerQuoteTab } from "./negotiation-tabs";
 
 type StoredProvider = ProviderRegistration & { pinHash?: string | null };
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
@@ -64,8 +68,18 @@ import {
   providerCanBidOnQuote,
   providerCanSeeQuote,
   quoteIsOpenForOffers,
+  resolveCanonicalCityName,
   toPublicQuoteListItem,
 } from "./offer-utils";
+import { canCustomerInitiateProviderCall } from "./negotiation-access";
+import {
+  attachReviewsToCustomerOffers,
+  canCustomerReviewOffer,
+  reviewerLabelFromCustomerName,
+  validateProviderOfferReviewInput,
+  type ProviderOfferReviewInput,
+} from "./provider-offer-reviews";
+import { generateId } from "./id";
 
 const STORE_PATH = path.join(process.cwd(), "data", "store.json");
 
@@ -81,6 +95,7 @@ const emptyStore: Store = {
   providerOfTheMonthHistory: [],
   creditPurchaseOrders: [],
   providerReferrals: [],
+  providerOfferReviews: [],
   customerPinHashes: {},
 };
 
@@ -107,6 +122,7 @@ async function ensureStore(): Promise<Store> {
       providerOfTheMonthHistory: parsed.providerOfTheMonthHistory ?? [],
       creditPurchaseOrders: parsed.creditPurchaseOrders ?? [],
       providerReferrals: parsed.providerReferrals ?? [],
+      providerOfferReviews: parsed.providerOfferReviews ?? [],
     };
   } catch {
     await fs.mkdir(path.dirname(STORE_PATH), { recursive: true });
@@ -118,10 +134,6 @@ async function ensureStore(): Promise<Store> {
 async function saveStore(store: Store): Promise<void> {
   await fs.mkdir(path.dirname(STORE_PATH), { recursive: true });
   await fs.writeFile(STORE_PATH, JSON.stringify(store, null, 2));
-}
-
-function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
 function countProviderLaunchSlots(store: Store): number {
@@ -256,10 +268,10 @@ async function filterCustomerQuotes(phone: string, filter?: CustomerQuotesListFi
 
   if (filter?.tab) {
     list = list.filter((q) => {
-      const tab = tabForQuoteInput({
-        status: q.status,
-        offerCount: offerCounts[q.id] ?? 0,
-      });
+      const offersForQuote = (store.providerOffers ?? []).filter(
+        (o) => o.quoteRequestId === q.id && o.status !== "withdrawn"
+      );
+      const tab = classifyCustomerQuoteTab({ status: q.status }, offersForQuote);
       return tab === filter.tab;
     });
   }
@@ -278,6 +290,7 @@ export async function countCustomerQuotesByPhone(
 export async function getCustomerQuoteTabCounts(phone: string): Promise<{
   waiting: number;
   offers: number;
+  negotiating: number;
   finished: number;
   total: number;
 }> {
@@ -289,21 +302,23 @@ export async function getCustomerQuoteTabCounts(phone: string): Promise<{
 
   let waiting = 0;
   let offers = 0;
+  let negotiating = 0;
   let finished = 0;
   let total = 0;
   for (const quote of store.quoteRequests) {
     if (!phonesEqual(quote.phone, phone)) continue;
     total++;
-    const tab = tabForQuoteInput({
-      status: quote.status,
-      offerCount: offerCounts[quote.id] ?? 0,
-    });
+    const offersForQuote = (store.providerOffers ?? []).filter(
+      (o) => o.quoteRequestId === quote.id && o.status !== "withdrawn"
+    );
+    const tab = classifyCustomerQuoteTab({ status: quote.status }, offersForQuote);
     if (tab === "waiting") waiting++;
     else if (tab === "offers") offers++;
+    else if (tab === "negotiating") negotiating++;
     else finished++;
   }
 
-  return { total, waiting, offers, finished };
+  return { total, waiting, offers, negotiating, finished };
 }
 
 export async function getQuoteRequestsByPhone(
@@ -414,10 +429,76 @@ export async function updateProvider(
   const index = store.providers.findIndex((provider) => provider.id === id);
   if (index === -1) return null;
 
-  const provider = { ...store.providers[index], ...data };
+  const patch = { ...data };
+  if (patch.city !== undefined) {
+    patch.city = resolveCanonicalCityName(String(patch.city));
+  }
+  if (patch.district !== undefined) {
+    patch.district = patch.district?.trim() || undefined;
+  }
+
+  const provider = { ...store.providers[index], ...patch };
   store.providers[index] = provider;
   await saveStore(store);
   return provider;
+}
+
+export type AdminGiftCreditGrantResult = {
+  granted: Array<{
+    id: string;
+    name: string;
+    previousBalance: number;
+    newBalance: number;
+  }>;
+  failed: Array<{ id: string; error: string }>;
+};
+
+export async function grantAdminGiftCreditsToProviders(input: {
+  providerIds?: string[];
+  allApproved?: boolean;
+  credits: number;
+  note?: string;
+}): Promise<AdminGiftCreditGrantResult> {
+  const { isValidAdminGiftCreditAmount } = await import("./admin-gift-credits");
+  if (!isValidAdminGiftCreditAmount(input.credits)) {
+    return { granted: [], failed: [{ id: "", error: "Geçersiz kontör miktarı." }] };
+  }
+
+  let ids = [...new Set((input.providerIds ?? []).filter(Boolean))];
+  const store = await ensureStore();
+
+  if (input.allApproved) {
+    ids = store.providers.filter((p) => p.status === "approved").map((p) => p.id);
+  }
+
+  if (ids.length === 0) {
+    return { granted: [], failed: [{ id: "", error: "En az bir usta seçin." }] };
+  }
+
+  const granted: AdminGiftCreditGrantResult["granted"] = [];
+  const failed: AdminGiftCreditGrantResult["failed"] = [];
+
+  for (const id of ids) {
+    const provider = store.providers.find((p) => p.id === id);
+    if (!provider) {
+      failed.push({ id, error: "Bulunamadı." });
+      continue;
+    }
+    const previousBalance = provider.creditBalance ?? 0;
+    provider.creditBalance = previousBalance + input.credits;
+    granted.push({
+      id,
+      name: provider.name,
+      previousBalance,
+      newBalance: provider.creditBalance,
+    });
+  }
+
+  if (granted.length > 0) {
+    await saveStore(store);
+  }
+
+  return { granted, failed };
 }
 
 export async function createProviderAdmin(
@@ -1500,7 +1581,7 @@ export async function getOpenQuotesForProvider(
       const offerCount = store.providerOffers.filter(
         (o) => o.quoteRequestId === quote.id && o.status === "pending"
       ).length;
-      return toPublicQuoteListItem(quote, offerCount, false);
+      return toPublicQuoteListItem(quote, offerCount);
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
@@ -1617,13 +1698,138 @@ export async function submitProviderOffer(
 
 export async function getOffersForQuoteRequest(quoteId: string): Promise<ProviderOffer[]> {
   const store = await ensureStore();
-  return store.providerOffers
-    .filter((o) => o.quoteRequestId === quoteId && o.status === "pending")
+  const quote = store.quoteRequests.find((q) => q.id === quoteId);
+  if (!quote) return [];
+
+  const offers = store.providerOffers
+    .filter(
+      (o) =>
+        o.quoteRequestId === quoteId &&
+        (o.status === "pending" || o.status === "accepted" || o.status === "rejected")
+    )
     .map((o) => {
       const provider = store.providers.find((p) => p.id === o.providerId);
-      return enrichOffer(o, provider);
+      const enriched = enrichOffer(o, provider);
+      return {
+        ...enriched,
+        providerPhone: o.customerInitiatedContactAt && provider?.phone ? provider.phone : undefined,
+      };
     })
     .sort((a, b) => a.price - b.price);
+
+  return enrichCustomerOffersWithReviews(quote, offers, store);
+}
+
+function getProviderOfferReviewMapForQuote(
+  store: Store,
+  quoteId: string
+): Map<string, ProviderOfferReviewSummary> {
+  const map = new Map<string, ProviderOfferReviewSummary>();
+  for (const row of store.providerOfferReviews ?? []) {
+    if (row.quoteRequestId !== quoteId) continue;
+    map.set(row.offerId, {
+      id: row.id,
+      rating: row.rating,
+      comment: row.comment,
+      reviewerLabel: row.reviewerLabel,
+      createdAt: row.createdAt,
+    });
+  }
+  return map;
+}
+
+function enrichCustomerOffersWithReviews(
+  quote: QuoteRequest,
+  offers: ProviderOffer[],
+  store: Store
+): ProviderOffer[] {
+  const reviews = getProviderOfferReviewMapForQuote(store, quote.id);
+  return attachReviewsToCustomerOffers(offers, quote, reviews);
+}
+
+export async function submitProviderOfferReview(
+  quoteId: string,
+  offerId: string,
+  customerPhone: string,
+  input: ProviderOfferReviewInput
+): Promise<{ review?: ProviderOfferReviewSummary; error?: string }> {
+  const validation = validateProviderOfferReviewInput(input);
+  if (validation) return { error: validation };
+
+  const store = await ensureStore();
+  const quote = store.quoteRequests.find((q) => q.id === quoteId);
+  if (!quote) return { error: "Talep bulunamadı." };
+  if (!phonesEqual(quote.phone, customerPhone)) {
+    return { error: "Bu talep size ait değil." };
+  }
+
+  const offer = store.providerOffers.find((o) => o.id === offerId && o.quoteRequestId === quoteId);
+  if (!offer) return { error: "Teklif bulunamadı." };
+  if (!canCustomerReviewOffer(quote, offer)) {
+    return { error: "Bu teklif için değerlendirme yapılamaz." };
+  }
+
+  const reviews = store.providerOfferReviews ?? [];
+  if (reviews.some((r) => r.offerId === offerId)) {
+    return { error: "Bu ustayı zaten değerlendirdiniz." };
+  }
+
+  const review: ProviderOfferReview = {
+    id: generateId(),
+    quoteRequestId: quoteId,
+    offerId,
+    providerId: offer.providerId,
+    customerPhone: normalizeProviderPhone(customerPhone),
+    rating: Math.round(input.rating),
+    comment: input.comment.trim(),
+    reviewerLabel: reviewerLabelFromCustomerName(quote.name),
+    serviceName: quote.serviceName,
+    createdAt: new Date().toISOString(),
+  };
+  store.providerOfferReviews = [...reviews, review];
+  await saveStore(store);
+
+  return {
+    review: {
+      id: review.id,
+      rating: review.rating,
+      comment: review.comment,
+      reviewerLabel: review.reviewerLabel,
+      createdAt: review.createdAt,
+    },
+  };
+}
+
+export async function getPublicProviderReviews(
+  providerId: string,
+  limit = 20
+): Promise<PublicProviderReview[]> {
+  const store = await ensureStore();
+  return (store.providerOfferReviews ?? [])
+    .filter((r) => r.providerId === providerId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, limit)
+    .map((r) => ({
+      id: r.id,
+      rating: r.rating,
+      comment: r.comment,
+      reviewerLabel: r.reviewerLabel,
+      serviceName: r.serviceName,
+      createdAt: r.createdAt,
+    }));
+}
+
+export async function getProviderReviewStats(
+  providerId: string
+): Promise<ProviderReviewStats> {
+  const store = await ensureStore();
+  const rows = (store.providerOfferReviews ?? []).filter((r) => r.providerId === providerId);
+  if (rows.length === 0) return { reviewCount: 0, averageRating: 0 };
+  const sum = rows.reduce((acc, r) => acc + r.rating, 0);
+  return {
+    reviewCount: rows.length,
+    averageRating: Math.round((sum / rows.length) * 10) / 10,
+  };
 }
 
 export async function getProviderOffersForQuote(quoteId: string): Promise<ProviderOffer[]> {
@@ -1646,8 +1852,12 @@ export async function getProviderOffersByProviderId(
   for (const o of store.providerOffers.filter((x) => x.providerId === providerId)) {
     const quote = store.quoteRequests.find((q) => q.id === o.quoteRequestId);
     if (!quote) continue;
+    const enriched = enrichOffer(o, provider);
     items.push({
-      offer: enrichOffer(o, provider),
+      offer: {
+        ...enriched,
+        providerPhone: o.customerInitiatedContactAt && provider?.phone ? provider.phone : undefined,
+      },
       quote: {
         id: quote.id,
         serviceName: quote.serviceName,
@@ -1815,13 +2025,62 @@ export async function agreeToOffer(
   return { offer: enrichOffer(offer, provider) };
 }
 
+export async function recordCustomerInitiatedContact(
+  quoteId: string,
+  offerId: string,
+  customerPhone: string
+): Promise<{ offer?: ProviderOffer; error?: string }> {
+  const store = await ensureStore();
+  const quote = store.quoteRequests.find((q) => q.id === quoteId);
+  if (!quote) return { error: "Talep bulunamadı." };
+  if (!phonesEqual(quote.phone, customerPhone)) {
+    return { error: "Bu talep size ait değil." };
+  }
+
+  const offer = store.providerOffers.find((o) => o.id === offerId && o.quoteRequestId === quoteId);
+  if (!offer) return { error: "Teklif bulunamadı." };
+
+  if (!canCustomerInitiateProviderCall(quote, offer)) {
+    return {
+      error: "Ustayı aramak için önce karşılıklı anlaşma sağlanmalı veya teklif kabul edilmiş olmalı.",
+    };
+  }
+
+  if (!offer.customerInitiatedContactAt) {
+    offer.customerInitiatedContactAt = new Date().toISOString();
+    await saveStore(store);
+  }
+
+  const provider = store.providers.find((p) => p.id === offer.providerId);
+  const enriched = enrichOffer(offer, provider);
+  return {
+    offer: {
+      ...enriched,
+      providerPhone: provider?.phone,
+    },
+  };
+}
+
 export async function getAcceptedContactDetails(quoteId: string) {
   const store = await ensureStore();
   const quote = store.quoteRequests.find((q) => q.id === quoteId);
-  if (!quote || quote.status !== "accepted" || !quote.matchedProviderId) {
-    return null;
+  if (!quote) return null;
+
+  let providerId = quote.matchedProviderId;
+  if (!providerId) {
+    const dualAgreed = store.providerOffers.find(
+      (o) =>
+        o.quoteRequestId === quoteId &&
+        o.customerAgreedAt &&
+        o.providerAgreedAt &&
+        (o.status === "pending" || o.status === "accepted")
+    );
+    providerId = dualAgreed?.providerId;
   }
-  const provider = store.providers.find((p) => p.id === quote.matchedProviderId);
+
+  if (!providerId) return null;
+
+  const provider = store.providers.find((p) => p.id === providerId);
   if (!provider) return null;
   return {
     customer: { name: quote.name, phone: quote.phone, email: quote.email },

@@ -5,7 +5,8 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { getCategoryName } from "@/lib/data/categories";
 import { getServiceBySlug } from "@/lib/data/services";
-import { getPublicProviderProfile } from "@/lib/db";
+import { getPublicProviderProfile, getPublicProviderReviews, getProviderReviewStats } from "@/lib/db";
+import ProviderReviewsSection from "@/components/ProviderReviewsSection";
 import { formatExperience } from "@/lib/admin-labels";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +30,11 @@ export default async function ProviderProfilePage({ params }: Props) {
   const provider = await getPublicProviderProfile(id);
   if (!provider) notFound();
 
+  const [reviews, reviewStats] = await Promise.all([
+    getPublicProviderReviews(id, 20),
+    getProviderReviewStats(id),
+  ]);
+
   const categories = provider.categorySlugs.map(getCategoryName).join(", ");
   const portfolio = provider.portfolio ?? [];
 
@@ -51,6 +57,12 @@ export default async function ProviderProfilePage({ params }: Props) {
               <h1 className="text-3xl font-bold text-foreground">{provider.name}</h1>
               <p className="mt-1 text-muted-foreground">
                 {provider.city} · {formatExperience(provider.experience)} · {categories}
+                {reviewStats.reviewCount > 0 && (
+                  <>
+                    {" "}
+                    · {reviewStats.averageRating} / 5 ({reviewStats.reviewCount} değerlendirme)
+                  </>
+                )}
               </p>
               {provider.bio?.trim() && (
                 <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted-foreground">
@@ -122,6 +134,8 @@ export default async function ProviderProfilePage({ params }: Props) {
             })}
           </div>
         )}
+
+        <ProviderReviewsSection stats={reviewStats} reviews={reviews} />
       </div>
 
       <Footer />

@@ -17,15 +17,12 @@ export type PublicQuoteRequest = Omit<QuoteRequest, "phone" | "email"> & {
   offerCount?: number;
 };
 
-/** Usta / herkese açık liste — iletişim bilgisi yok */
+/** Usta / herkese açık liste — müşteri iletişim bilgisi yok */
 export function sanitizeQuoteForProvider(
   quote: QuoteRequest,
-  options?: { revealContact?: boolean; offerCount?: number }
+  options?: { offerCount?: number }
 ): PublicQuoteRequest {
   const { phone, email, ...rest } = quote;
-  if (options?.revealContact && quote.status === "accepted") {
-    return { ...quote, offerCount: options.offerCount };
-  }
   return {
     ...rest,
     offerCount: options?.offerCount,

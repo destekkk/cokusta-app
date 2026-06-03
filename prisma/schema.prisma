@@ -133,6 +133,7 @@ model QuoteRequest {
   offers            ProviderOffer[]
   customerPayments  CustomerProviderPayment[]
   jobEscrowOrders   CustomerJobEscrowOrder[]
+  offerReviews      ProviderOfferReview[]
 
   @@index([status])
   @@index([phone])
@@ -153,11 +154,13 @@ model ProviderOffer {
   negotiation      Json        @default("[]")
   customerAgreedAt DateTime?   @map("customer_agreed_at")
   providerAgreedAt DateTime?   @map("provider_agreed_at")
+  customerInitiatedContactAt DateTime? @map("customer_initiated_contact_at")
 
   quoteRequest QuoteRequest @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
   provider     Provider     @relation(fields: [providerId], references: [id], onDelete: Cascade)
   customerPayment CustomerProviderPayment?
   jobEscrowOrder  CustomerJobEscrowOrder?
+  review          ProviderOfferReview?
 
   @@unique([quoteRequestId, providerId])
   @@index([quoteRequestId])
@@ -204,11 +207,33 @@ model Provider {
   inboxMessages     ProviderInboxMessage[]
   payoutRequests    ProviderPayoutRequest[]
   creditLedger      CreditLedgerEntry[]
+  offerReviews      ProviderOfferReview[]
 
   @@index([status])
   @@index([phone])
   @@index([createdAt])
   @@map("providers")
+}
+
+model ProviderOfferReview {
+  id             String   @id @db.VarChar(64)
+  quoteRequestId String   @map("quote_request_id") @db.VarChar(64)
+  offerId        String   @unique @map("offer_id") @db.VarChar(64)
+  providerId     String   @map("provider_id") @db.VarChar(64)
+  customerPhone  String   @map("customer_phone") @db.VarChar(32)
+  rating         Int
+  comment        String   @db.Text
+  reviewerLabel  String   @map("reviewer_label") @db.VarChar(128)
+  serviceName    String   @map("service_name") @db.VarChar(255)
+  createdAt      DateTime @map("created_at")
+
+  offer        ProviderOffer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  provider     Provider      @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  quoteRequest QuoteRequest  @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+
+  @@index([providerId, createdAt])
+  @@index([quoteRequestId])
+  @@map("provider_offer_reviews")
 }
 
 model ProviderReferral {

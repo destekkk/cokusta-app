@@ -77,6 +77,41 @@ export type ProviderOffer = {
   negotiation?: OfferNegotiationEntry[];
   customerAgreedAt?: string;
   providerAgreedAt?: string;
+  /** Müşteri panelde "Ustayı ara" ile iletişime geçtiğinde */
+  customerInitiatedContactAt?: string;
+  /** Yalnızca customerInitiatedContactAt sonrası müşteri API'sinde */
+  providerPhone?: string;
+  /** Bu talepteki mevcut müşteri değerlendirmesi */
+  customerReview?: ProviderOfferReviewSummary;
+  canReview?: boolean;
+};
+
+export type ProviderOfferReview = {
+  id: string;
+  quoteRequestId: string;
+  offerId: string;
+  providerId: string;
+  customerPhone: string;
+  rating: number;
+  comment: string;
+  reviewerLabel: string;
+  serviceName: string;
+  createdAt: string;
+};
+
+export type ProviderOfferReviewSummary = Pick<
+  ProviderOfferReview,
+  "id" | "rating" | "comment" | "reviewerLabel" | "createdAt"
+>;
+
+export type PublicProviderReview = Pick<
+  ProviderOfferReview,
+  "id" | "rating" | "comment" | "reviewerLabel" | "serviceName" | "createdAt"
+>;
+
+export type ProviderReviewStats = {
+  averageRating: number;
+  reviewCount: number;
 };
 
 export type OfferNegotiationEntry = {
@@ -318,6 +353,8 @@ export type ProviderOfferWithQuote = {
     status: QuoteRequest["status"];
     createdAt: string;
   };
+  /** Uygulama içinde ustaya müşteri iletişimi verilmez */
+  customerContact?: { name: string; phone: string; email: string };
   escrowStatus: "pending" | "completed" | "failed" | null;
   escrowReleaseStatus?: "none" | "requested" | "released" | null;
 };
@@ -427,6 +464,7 @@ export type CreditSettlementSummary = {
 export type Store = {
   quoteRequests: QuoteRequest[];
   providerOffers: ProviderOffer[];
+  providerOfferReviews?: ProviderOfferReview[];
   providers: ProviderRegistration[];
   customers: Customer[];
   invoices: Invoice[];

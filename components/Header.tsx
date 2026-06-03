@@ -1,8 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import Logo from "./Logo";
+import PanelLogoutButton from "@/components/panel/PanelLogoutButton";
+
+function isUstaPanelPath(pathname: string): boolean {
+  return (
+    pathname.startsWith("/usta/teklifler") ||
+    pathname.startsWith("/usta/kontor") ||
+    pathname.startsWith("/usta/odeme-talep")
+  );
+}
 
 const ctaClassName =
   "cta-pulse rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary-dark sm:px-5";
@@ -16,6 +26,21 @@ const navLinks = [
 
 export default function Header() {
   const [open, setOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const ustaPanelOpen = isUstaPanelPath(pathname);
+
+  const ustaLogout = async () => {
+    setLoggingOut(true);
+    try {
+      await fetch("/api/usta/cikis", { method: "POST" });
+      router.push("/usta/giris");
+      router.refresh();
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-card/95 backdrop-blur-sm">
@@ -38,19 +63,28 @@ export default function Header() {
         </nav>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-3">
-          <Link
-            href="/usta/giris"
-            className="inline-flex rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground sm:px-3 sm:py-2 sm:text-sm"
-          >
-            <span className="sm:hidden">Giriş</span>
-            <span className="hidden sm:inline">Usta Girişi</span>
-          </Link>
+          {!ustaPanelOpen && (
+            <Link
+              href="/usta/giris"
+              className="inline-flex rounded-md border border-border px-2 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground sm:px-3 sm:py-2 sm:text-sm"
+            >
+              <span className="sm:hidden">Giriş</span>
+              <span className="hidden sm:inline">Usta Girişi</span>
+            </Link>
+          )}
           <Link
             href="/usta-ol"
             className="inline-flex rounded-md border-2 border-primary/30 bg-primary/5 px-2 py-1.5 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 sm:px-3 sm:py-2 sm:text-sm"
           >
             Usta Ol
           </Link>
+          {ustaPanelOpen && (
+            <PanelLogoutButton
+              variant="light"
+              onClick={ustaLogout}
+              disabled={loggingOut}
+            />
+          )}
 
           <button
             type="button"
@@ -90,6 +124,35 @@ export default function Header() {
             >
               Hemen Teklif Al
             </Link>
+            {!ustaPanelOpen && (
+              <Link
+                href="/usta/giris"
+                onClick={() => setOpen(false)}
+                className="rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-muted"
+              >
+                Usta Girişi
+              </Link>
+            )}
+            <Link
+              href="/usta-ol"
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-3 py-2.5 text-sm font-semibold text-primary hover:bg-muted"
+            >
+              Usta Ol
+            </Link>
+            {ustaPanelOpen && (
+              <div className="mt-2 px-3">
+                <PanelLogoutButton
+                  variant="light"
+                  onClick={() => {
+                    setOpen(false);
+                    void ustaLogout();
+                  }}
+                  disabled={loggingOut}
+                  label="Çıkış Yap"
+                />
+              </div>
+            )}
           </div>
         </nav>
       )}

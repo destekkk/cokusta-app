@@ -11,6 +11,8 @@ import {
   type ProviderOfferListItem,
 } from "@/lib/provider-offer-tabs";
 
+export type UstaOffersPanelMode = "mine" | "negotiating" | "done" | "escrow";
+
 type OfferItem = ProviderOfferListItem & {
   escrowStatus: "pending" | "completed" | "failed" | null;
   escrowReleaseStatus?: "none" | "requested" | "released" | null;
@@ -68,7 +70,7 @@ function statusBadge(item: OfferItem) {
 }
 
 type Props = {
-  mode: "active" | "done";
+  mode: UstaOffersPanelMode;
   onNegotiate: (
     offer: ProviderOffer,
     action: "agree" | "counter",
@@ -77,7 +79,7 @@ type Props = {
   ) => Promise<void>;
   submitting: boolean;
   refreshToken?: number;
-  onCounts?: (counts: { mine: number; done: number }) => void;
+  onCounts?: (counts: { mine: number; negotiating: number; done: number; escrow: number }) => void;
   onPendingAgreement?: (pending: boolean) => void;
 };
 
@@ -137,7 +139,11 @@ export default function UstaMyOffersPanel({
       <div className="rounded-xl border border-dashed border-border bg-muted/20 p-8 text-center text-muted-foreground">
         {mode === "done"
           ? "Henüz tamamlanmış veya kapanmış işiniz yok."
-          : "Henüz aktif teklifiniz yok. Açık talepler sekmesinden teklif gönderebilirsiniz."}
+          : mode === "escrow"
+            ? "Param Güvende ile ödenmiş veya bekleyen işiniz yok."
+          : mode === "negotiating"
+            ? "Karşılıklı yazışma / pazarlık süren teklifiniz yok."
+            : "Bekleyen yeni teklifiniz yok. Açık talepler sekmesinden teklif gönderebilirsiniz."}
       </div>
     );
   }
@@ -165,7 +171,10 @@ export default function UstaMyOffersPanel({
                 {new Date(item.offer.createdAt).toLocaleDateString("tr-TR")}
               </span>
             </div>
-            {mode === "active" && item.offer.status === "pending" && item.quote.status === "open" && (
+            {mode !== "done" &&
+              mode !== "escrow" &&
+              item.offer.status === "pending" &&
+              item.quote.status === "open" && (
               <div className="mt-3">
                 <OfferNegotiationPanel
                   offer={item.offer}
@@ -206,9 +215,12 @@ export default function UstaMyOffersPanel({
                 <td className="px-4 py-3 font-semibold text-primary">
                   {getCurrentOfferPrice(item.offer).toLocaleString("tr-TR")} ₺
                 </td>
-                <td className="px-4 py-3">{statusBadge(item)}</td>
                 <td className="px-4 py-3">
-                  {mode === "active" &&
+                  {statusBadge(item)}
+                </td>
+                <td className="px-4 py-3">
+                  {mode !== "done" &&
+                  mode !== "escrow" &&
                   item.offer.status === "pending" &&
                   item.quote.status === "open" ? (
                     <OfferNegotiationPanel

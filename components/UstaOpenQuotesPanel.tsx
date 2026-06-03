@@ -68,7 +68,12 @@ export default function UstaOpenQuotesPanel() {
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
   const tab: ProviderOfferSheetTab =
-    tabParam === "mine" || tabParam === "done" ? tabParam : "open";
+    tabParam === "mine" ||
+    tabParam === "negotiating" ||
+    tabParam === "done" ||
+    tabParam === "escrow"
+      ? tabParam
+      : "open";
   const [quotes, setQuotes] = useState<OpenQuote[]>([]);
   const [creditBalance, setCreditBalance] = useState(0);
   const [creditDebt, setCreditDebt] = useState(0);
@@ -88,7 +93,12 @@ export default function UstaOpenQuotesPanel() {
   const [location, setLocation] = useState<ProviderQuoteLocationFilter>({ cityMode: "provider" });
   const [refreshing, setRefreshing] = useState(false);
   const [myOffersRefresh, setMyOffersRefresh] = useState(0);
-  const [offerTabCounts, setOfferTabCounts] = useState({ mine: 0, done: 0 });
+  const [offerTabCounts, setOfferTabCounts] = useState({
+    mine: 0,
+    negotiating: 0,
+    done: 0,
+    escrow: 0,
+  });
   const [pendingCustomerAgreement, setPendingCustomerAgreement] = useState(false);
   const [locationReady, setLocationReady] = useState(true);
   const [savedFilterApplied, setSavedFilterApplied] = useState(false);
@@ -216,6 +226,9 @@ export default function UstaOpenQuotesPanel() {
     else params.set("tab", next);
     router.replace(`/usta/teklifler?${params.toString()}`);
   };
+
+  const isOffersTab =
+    tab === "mine" || tab === "negotiating" || tab === "done" || tab === "escrow";
 
   const goBuyCredits = () => router.push(KONTOR_URL);
 
@@ -444,12 +457,22 @@ export default function UstaOpenQuotesPanel() {
             tabs={[
               { id: "open", label: "Açık Talepler" },
               { id: "mine", label: "Verdiğim Teklifler", count: offerTabCounts.mine },
+              { id: "negotiating", label: "Pazarlık", count: offerTabCounts.negotiating },
+              { id: "escrow", label: "Param Güvende", count: offerTabCounts.escrow },
               { id: "done", label: "Bitmiş İşler", count: offerTabCounts.done },
             ]}
           >
-            {tab === "mine" || tab === "done" ? (
+            {isOffersTab ? (
               <UstaMyOffersPanel
-                mode={tab === "done" ? "done" : "active"}
+                mode={
+                  tab === "done"
+                    ? "done"
+                    : tab === "negotiating"
+                      ? "negotiating"
+                      : tab === "escrow"
+                        ? "escrow"
+                        : "mine"
+                }
                 onNegotiate={negotiate}
                 submitting={submitting}
                 refreshToken={myOffersRefresh}
@@ -713,7 +736,9 @@ export default function UstaOpenQuotesPanel() {
               const canonical = resolveCanonicalCityName(city);
               setProviderCity(canonical);
               setSavedFilterApplied(true);
-              setLocation(resetProviderLocationFilter(canonical));
+              const nextLocation = resetProviderLocationFilter(canonical);
+              setLocation(nextLocation);
+              void load(nextLocation);
             }}
           />
           <UstaInboxPanel />

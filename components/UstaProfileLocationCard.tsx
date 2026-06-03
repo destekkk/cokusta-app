@@ -77,7 +77,8 @@ export default function UstaProfileLocationCard({ onUpdated }: Props) {
         <div>
           <p className="text-sm font-semibold text-foreground">Profil adresim</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Varsayılan iliniz. Farklı illerde teklif vermek için aşağıdan il seçebilir veya &quot;Tüm iller&quot; kullanabilirsiniz.
+            Varsayılan iliniz. Kaydettikten sonra açık talepler bu ile göre güncellenir; ilçe filtresi paneldeki
+            &quot;İlçe&quot; alanından seçilir (profil ilçesi tek başına filtre yapmaz).
           </p>
         </div>
         {!editing && (

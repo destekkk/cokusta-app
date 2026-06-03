@@ -35,7 +35,7 @@
       "expo-notifications"
     ],
     "extra": {
-      "apiUrl": "https://cokusta.com",
+      "apiUrl": "https://www.cokusta.com",
       "eas": {
         "projectId": "135c1a31-ddf1-479e-9552-aa5a743d6d9a"
       }

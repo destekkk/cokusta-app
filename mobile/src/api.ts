@@ -1,10 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Constants from "expo-constants";
 
 const TOKEN_KEY = "cokusta_usta_token";
 const DISTRICT_KEY = "cokusta_alert_district";
 
+const DEFAULT_API = "https://www.cokusta.com";
+
 export function getApiBaseUrl(): string {
-  return process.env.EXPO_PUBLIC_API_URL ?? "https://cokusta.com";
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (fromEnv) return fromEnv.replace(/\/$/, "");
+  const fromExtra = Constants.expoConfig?.extra?.apiUrl;
+  if (typeof fromExtra === "string" && fromExtra.startsWith("http")) {
+    return fromExtra.replace(/\/$/, "");
+  }
+  return DEFAULT_API;
 }
 
 export async function getToken(): Promise<string | null> {
@@ -50,14 +59,34 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getToken();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
+    Accept: "application/json",
     ...(init?.headers as Record<string, string> | undefined),
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers });
-  const data = await res.json();
+  let res: Response;
+  try {
+    res = await fetch(`${getApiBaseUrl()}${path}`, { ...init, headers });
+  } catch {
+    throw new Error("Sunucuya bağlanılamadı. İnternet veya sunucu adresini kontrol edin.");
+  }
+
+  const text = await res.text();
+  let data: { error?: string } = {};
+  if (text) {
+    try {
+      data = JSON.parse(text) as { error?: string };
+    } catch {
+      throw new Error(
+        res.ok
+          ? "Sunucu yanıtı okunamadı."
+          : `Sunucu hatası (${res.status}). ${getApiBaseUrl()}`
+      );
+    }
+  }
+
   if (!res.ok) {
-    throw new Error(data.error ?? "İstek başarısız");
+    throw new Error(data.error ?? `İstek başarısız (${res.status})`);
   }
   return data as T;
 }

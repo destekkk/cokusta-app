@@ -12,8 +12,11 @@ import type {
   ProviderPortfolioItem,
   ProviderRegistration,
   ProviderOffer,
+  ProviderOfferReviewSummary,
   ProviderOfferWithQuote,
   ProviderSummary,
+  PublicProviderReview,
+  ProviderReviewStats,
   QuoteRequest,
   TaxDeclaration,
   CreditPurchaseOrder,
@@ -82,6 +85,18 @@ import { normalizeProviderPhone, phonesEqual } from "./phone-utils";
 import { computeUrgentDeadline, isUrgentActive } from "./urgent";
 import { getCommissionRate } from "./admin-auth";
 import { generateId } from "./id";
+import {
+  canCustomerInitiateProviderCall,
+} from "./negotiation-access";
+import {
+  attachReviewsToCustomerOffers,
+  canCustomerReviewOffer,
+  reviewerLabelFromCustomerName,
+  validateProviderOfferReviewInput,
+  type ProviderOfferReviewInput,
+} from "./provider-offer-reviews";
+import { classifyCustomerQuoteTab } from "./negotiation-tabs";
+import type { CustomerQuoteTab } from "./customer-quotes-filter";
 
 const providerInclude = {
   portfolio: { orderBy: { createdAt: "desc" as const } },
@@ -109,11 +124,12 @@ type OfferRow = {
   negotiation?: unknown;
   customerAgreedAt?: Date | null;
   providerAgreedAt?: Date | null;
+  customerInitiatedContactAt?: Date | null;
 };
 
 function mapOfferFromRow(
   row: OfferRow,
-  provider?: Pick<ProviderRegistration, "name" | "city">
+  provider?: Pick<ProviderRegistration, "name" | "city" | "phone">
 ): ProviderOffer {
   return enrichOffer(
     {
@@ -128,6 +144,9 @@ function mapOfferFromRow(
       negotiation: parseNegotiation(row.negotiation),
       customerAgreedAt: row.customerAgreedAt?.toISOString(),
       providerAgreedAt: row.providerAgreedAt?.toISOString(),
+      customerInitiatedContactAt: row.customerInitiatedContactAt?.toISOString(),
+      providerPhone:
+        row.customerInitiatedContactAt && provider?.phone ? provider.phone : undefined,
     },
     provider
   );
@@ -295,14 +314,14 @@ function buildCustomerQuotesWhere(
           status: { in: ["open", "awaiting_review"] },
           offers: { none: {} },
         }
-      : filter?.tab === "offers"
+      : filter?.tab === "finished"
         ? {
-            status: { in: ["open", "awaiting_review"] },
-            offers: { some: {} },
+            status: { in: ["accepted", "completed", "cancelled"] },
           }
-        : filter?.tab === "finished"
+        : filter?.tab === "offers" || filter?.tab === "negotiating"
           ? {
-              status: { in: ["accepted", "completed", "cancelled"] },
+              status: { in: ["open", "awaiting_review"] },
+              offers: { some: {} },
             }
           : null;
 
@@ -328,51 +347,96 @@ function buildCustomerQuotesWhere(
   return { phone: normalized };
 }
 
+async function listCustomerQuoteItemsForTabs(phone: string, search?: string) {
+  const normalized = normalizeProviderPhone(phone);
+  const where: Prisma.QuoteRequestWhereInput = { phone: normalized };
+  if (search) {
+    where.serviceName = { contains: search, mode: "insensitive" };
+  }
+  const rows = await prisma.quoteRequest.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    include: { offers: true },
+  });
+  if (rows.length === 0) return [];
+
+  const providerIds = [...new Set(rows.flatMap((r) => r.offers.map((o) => o.providerId)))];
+  const providers =
+    providerIds.length > 0
+      ? await prisma.provider.findMany({ where: { id: { in: providerIds } } })
+      : [];
+  const providerMap = new Map(providers.map((p) => [p.id, toProvider(p)]));
+
+  return rows.map((row) => ({
+    quote: toQuoteRequest(row),
+    offers: row.offers.map((o) => mapOfferFromRow(o, providerMap.get(o.providerId))),
+    tab: classifyCustomerQuoteTab(
+      { status: row.status },
+      row.offers.map((o) => mapOfferFromRow(o, providerMap.get(o.providerId)))
+    ),
+  }));
+}
+
+function filterCustomerItemsByTab(
+  items: Awaited<ReturnType<typeof listCustomerQuoteItemsForTabs>>,
+  tab?: CustomerQuoteTab
+) {
+  if (!tab) return items;
+  return items.filter((item) => item.tab === tab);
+}
+
 export async function countCustomerQuotesByPhone(
   phone: string,
   filter?: CustomerQuotesListFilter
 ): Promise<number> {
+  if (filter?.tab === "offers" || filter?.tab === "negotiating") {
+    const items = filterCustomerItemsByTab(
+      await listCustomerQuoteItemsForTabs(phone, filter.search),
+      filter.tab
+    );
+    return items.length;
+  }
   return prisma.quoteRequest.count({ where: buildCustomerQuotesWhere(phone, filter) });
 }
 
 export async function getCustomerQuoteTabCounts(phone: string): Promise<{
   waiting: number;
   offers: number;
+  negotiating: number;
   finished: number;
   total: number;
 }> {
-  const normalized = normalizeProviderPhone(phone);
-  const [total, waiting, finished, offers] = await Promise.all([
-    prisma.quoteRequest.count({ where: { phone: normalized } }),
-    prisma.quoteRequest.count({
-      where: {
-        phone: normalized,
-        status: { in: ["open", "awaiting_review"] },
-        offers: { none: {} },
-      },
-    }),
-    prisma.quoteRequest.count({
-      where: {
-        phone: normalized,
-        status: { in: ["accepted", "completed", "cancelled"] },
-      },
-    }),
-    prisma.quoteRequest.count({
-      where: {
-        phone: normalized,
-        status: { in: ["open", "awaiting_review"] },
-        offers: { some: {} },
-      },
-    }),
-  ]);
-  return { total, waiting, offers, finished };
+  const items = await listCustomerQuoteItemsForTabs(phone);
+  let waiting = 0;
+  let offers = 0;
+  let negotiating = 0;
+  let finished = 0;
+  for (const item of items) {
+    if (item.tab === "waiting") waiting++;
+    else if (item.tab === "offers") offers++;
+    else if (item.tab === "negotiating") negotiating++;
+    else finished++;
+  }
+  return { total: items.length, waiting, offers, negotiating, finished };
 }
 
 export async function getQuoteRequestsByPhone(
   phone: string,
   options?: CustomerQuotesListFilter
 ): Promise<QuoteRequest[]> {
-  const normalized = normalizeProviderPhone(phone);
+  if (options?.tab === "offers" || options?.tab === "negotiating") {
+    const items = filterCustomerItemsByTab(
+      await listCustomerQuoteItemsForTabs(phone, options.search),
+      options.tab
+    );
+    const offset = options.offset ?? 0;
+    const slice =
+      options.limit !== undefined
+        ? items.slice(offset, offset + options.limit)
+        : items.slice(offset);
+    return slice.map((item) => item.quote);
+  }
+
   const rows = await prisma.quoteRequest.findMany({
     where: buildCustomerQuotesWhere(phone, options),
     orderBy: { createdAt: "desc" },
@@ -529,6 +593,81 @@ export async function updateProvider(
     include: providerInclude,
   });
   return toProvider(row);
+}
+
+export type AdminGiftCreditGrantResult = {
+  granted: Array<{
+    id: string;
+    name: string;
+    previousBalance: number;
+    newBalance: number;
+  }>;
+  failed: Array<{ id: string; error: string }>;
+};
+
+export async function grantAdminGiftCreditsToProviders(input: {
+  providerIds?: string[];
+  allApproved?: boolean;
+  credits: number;
+  note?: string;
+}): Promise<AdminGiftCreditGrantResult> {
+  const { isValidAdminGiftCreditAmount } = await import("./admin-gift-credits");
+  if (!isValidAdminGiftCreditAmount(input.credits)) {
+    return { granted: [], failed: [{ id: "", error: "Geçersiz kontör miktarı." }] };
+  }
+
+  let ids = [...new Set((input.providerIds ?? []).filter(Boolean))];
+  if (input.allApproved) {
+    const rows = await prisma.provider.findMany({
+      where: { status: "approved" },
+      select: { id: true },
+    });
+    ids = rows.map((r) => r.id);
+  }
+
+  if (ids.length === 0) {
+    return { granted: [], failed: [{ id: "", error: "En az bir usta seçin." }] };
+  }
+
+  const { appendCreditLedger } = await import("./db-credits");
+  const batchId = generateId();
+  const description =
+    input.note?.trim() || `Admin hediye kontör (+${input.credits})`;
+
+  const granted: AdminGiftCreditGrantResult["granted"] = [];
+  const failed: AdminGiftCreditGrantResult["failed"] = [];
+
+  for (const id of ids) {
+    try {
+      const row = await prisma.$transaction(async (tx) => {
+        const provider = await tx.provider.findUnique({ where: { id } });
+        if (!provider) return null;
+        const updated = await tx.provider.update({
+          where: { id },
+          data: { creditBalance: { increment: input.credits } },
+        });
+        await appendCreditLedger(tx, {
+          type: "admin_adjustment",
+          creditsDelta: input.credits,
+          providerId: id,
+          referenceId: batchId,
+          description,
+        });
+        return {
+          id,
+          name: provider.name,
+          previousBalance: provider.creditBalance,
+          newBalance: updated.creditBalance,
+        };
+      });
+      if (!row) failed.push({ id, error: "Bulunamadı." });
+      else granted.push(row);
+    } catch {
+      failed.push({ id, error: "Kontör verilemedi." });
+    }
+  }
+
+  return { granted, failed };
 }
 
 export async function createProviderAdmin(
@@ -1691,12 +1830,11 @@ export async function getOpenQuotesForProvider(
   if (location.cityMode === "selected" && location.selectedCity) {
     const city = resolveCanonicalCityName(location.selectedCity);
     where.city = { equals: city, mode: "insensitive" };
-    if (location.selectedDistrict) where.district = location.selectedDistrict;
   } else if (location.cityMode === "provider" && provider.city) {
     const city = resolveCanonicalCityName(provider.city);
     where.city = { equals: city, mode: "insensitive" };
-    if (location.selectedDistrict) where.district = location.selectedDistrict;
   }
+  // İlçe eşleşmesi providerCanSeeQuote içinde (Türkçe karakter / yazım farkları için)
 
   const take = location.cityMode === "all" ? 200 : 500;
   const quoteRows = await prisma.quoteRequest.findMany({
@@ -1725,7 +1863,7 @@ export async function getOpenQuotesForProvider(
   return quotes
     .map((quote) => {
       const offerCount = countByQuote.get(quote.id) ?? 0;
-      return { ...toPublicQuoteListItem(quote, offerCount, false) };
+      return { ...toPublicQuoteListItem(quote, offerCount) };
     })
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
@@ -1874,8 +2012,12 @@ export async function submitProviderOffer(
 }
 
 export async function getOffersForQuoteRequest(quoteId: string): Promise<ProviderOffer[]> {
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
+  if (!quoteRow) return [];
+  const quote = toQuoteRequest(quoteRow);
+
   const rows = await prisma.providerOffer.findMany({
-    where: { quoteRequestId: quoteId, status: "pending" },
+    where: { quoteRequestId: quoteId, status: { in: ["pending", "accepted", "rejected"] } },
     orderBy: { price: "asc" },
   });
   const providers = await prisma.provider.findMany({
@@ -1883,7 +2025,8 @@ export async function getOffersForQuoteRequest(quoteId: string): Promise<Provide
   });
   const providerMap = new Map(providers.map((p) => [p.id, toProvider(p)]));
 
-  return rows.map((row) => mapOfferFromRow(row, providerMap.get(row.providerId)));
+  const offers = rows.map((row) => mapOfferFromRow(row, providerMap.get(row.providerId)));
+  return enrichCustomerOffersWithReviews(quote, offers);
 }
 
 export async function getProviderOffersForQuote(quoteId: string): Promise<ProviderOffer[]> {
@@ -1922,8 +2065,9 @@ export async function getProviderOffersByProviderId(
     const quote = quoteMap.get(row.quoteRequestId);
     if (!quote) continue;
     const escrowRow = escrowMap.get(row.quoteRequestId);
+    const mappedOffer = mapOfferFromRow(row, provider ?? undefined);
     items.push({
-      offer: mapOfferFromRow(row, provider ?? undefined),
+      offer: mappedOffer,
       quote: {
         id: quote.id,
         serviceName: quote.serviceName,
@@ -2127,13 +2271,66 @@ export async function agreeToOffer(
   };
 }
 
+export async function recordCustomerInitiatedContact(
+  quoteId: string,
+  offerId: string,
+  customerPhone: string
+): Promise<{ offer?: ProviderOffer; error?: string }> {
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
+  if (!quoteRow) return { error: "Talep bulunamadı." };
+  const quote = toQuoteRequest(quoteRow);
+  if (!phonesEqual(quote.phone, customerPhone)) {
+    return { error: "Bu talep size ait değil." };
+  }
+
+  const offerRow = await prisma.providerOffer.findUnique({ where: { id: offerId } });
+  if (!offerRow || offerRow.quoteRequestId !== quoteId) {
+    return { error: "Teklif bulunamadı." };
+  }
+
+  const offer = mapOfferFromRow(offerRow);
+  if (!canCustomerInitiateProviderCall(quote, offer)) {
+    return {
+      error: "Ustayı aramak için önce karşılıklı anlaşma sağlanmalı veya teklif kabul edilmiş olmalı.",
+    };
+  }
+
+  const now = new Date();
+  const updated = offerRow.customerInitiatedContactAt
+    ? offerRow
+    : await prisma.providerOffer.update({
+        where: { id: offerId },
+        data: { customerInitiatedContactAt: now },
+      });
+
+  const provider = await prisma.provider.findUnique({ where: { id: updated.providerId } });
+  return {
+    offer: mapOfferFromRow(updated, provider ? toProvider(provider) : undefined),
+  };
+}
+
 export async function getAcceptedContactDetails(quoteId: string) {
   const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
-  if (!quoteRow || quoteRow.status !== "accepted" || !quoteRow.matchedProviderId) {
-    return null;
+  if (!quoteRow) return null;
+
+  let providerId = quoteRow.matchedProviderId;
+  if (!providerId) {
+    const dualAgreed = await prisma.providerOffer.findFirst({
+      where: {
+        quoteRequestId: quoteId,
+        customerAgreedAt: { not: null },
+        providerAgreedAt: { not: null },
+        status: { in: ["pending", "accepted"] },
+      },
+      orderBy: { createdAt: "desc" },
+    });
+    providerId = dualAgreed?.providerId ?? null;
   }
+
+  if (!providerId) return null;
+
   const provider = await prisma.provider.findUnique({
-    where: { id: quoteRow.matchedProviderId },
+    where: { id: providerId },
   });
   if (!provider) return null;
   return {
@@ -2723,4 +2920,135 @@ export async function updateQuoteRequestLocation(
     data: { city, district },
   });
   return { quote: toQuoteRequest(updated) };
+}
+
+function toProviderOfferReviewSummary(row: {
+  id: string;
+  rating: number;
+  comment: string;
+  reviewerLabel: string;
+  createdAt: Date;
+}): ProviderOfferReviewSummary {
+  return {
+    id: row.id,
+    rating: row.rating,
+    comment: row.comment,
+    reviewerLabel: row.reviewerLabel,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+function toPublicProviderReview(row: {
+  id: string;
+  rating: number;
+  comment: string;
+  reviewerLabel: string;
+  serviceName: string;
+  createdAt: Date;
+}): PublicProviderReview {
+  return {
+    id: row.id,
+    rating: row.rating,
+    comment: row.comment,
+    reviewerLabel: row.reviewerLabel,
+    serviceName: row.serviceName,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export async function getProviderOfferReviewMapForQuote(
+  quoteId: string
+): Promise<Map<string, ProviderOfferReviewSummary>> {
+  const rows = await prisma.providerOfferReview.findMany({
+    where: { quoteRequestId: quoteId },
+  });
+  const map = new Map<string, ProviderOfferReviewSummary>();
+  for (const row of rows) {
+    map.set(row.offerId, toProviderOfferReviewSummary(row));
+  }
+  return map;
+}
+
+export async function enrichCustomerOffersWithReviews(
+  quote: QuoteRequest,
+  offers: ProviderOffer[]
+): Promise<ProviderOffer[]> {
+  const reviews = await getProviderOfferReviewMapForQuote(quote.id);
+  return attachReviewsToCustomerOffers(offers, quote, reviews);
+}
+
+export async function submitProviderOfferReview(
+  quoteId: string,
+  offerId: string,
+  customerPhone: string,
+  input: ProviderOfferReviewInput
+): Promise<{ review?: ProviderOfferReviewSummary; error?: string }> {
+  const validation = validateProviderOfferReviewInput(input);
+  if (validation) return { error: validation };
+
+  const quoteRow = await prisma.quoteRequest.findUnique({ where: { id: quoteId } });
+  if (!quoteRow) return { error: "Talep bulunamadı." };
+  const quote = toQuoteRequest(quoteRow);
+  if (!phonesEqual(quote.phone, customerPhone)) {
+    return { error: "Bu talep size ait değil." };
+  }
+
+  const offerRow = await prisma.providerOffer.findUnique({ where: { id: offerId } });
+  if (!offerRow || offerRow.quoteRequestId !== quoteId) {
+    return { error: "Teklif bulunamadı." };
+  }
+  if (!canCustomerReviewOffer(quote, mapOfferFromRow(offerRow))) {
+    return { error: "Bu teklif için değerlendirme yapılamaz." };
+  }
+
+  const existing = await prisma.providerOfferReview.findUnique({
+    where: { offerId },
+  });
+  if (existing) {
+    return { error: "Bu ustayı zaten değerlendirdiniz." };
+  }
+
+  const created = await prisma.providerOfferReview.create({
+    data: {
+      id: generateId(),
+      quoteRequestId: quoteId,
+      offerId,
+      providerId: offerRow.providerId,
+      customerPhone: normalizeProviderPhone(customerPhone),
+      rating: Math.round(input.rating),
+      comment: input.comment.trim(),
+      reviewerLabel: reviewerLabelFromCustomerName(quote.name),
+      serviceName: quote.serviceName,
+      createdAt: new Date(),
+    },
+  });
+
+  return { review: toProviderOfferReviewSummary(created) };
+}
+
+export async function getPublicProviderReviews(
+  providerId: string,
+  limit = 20
+): Promise<PublicProviderReview[]> {
+  const rows = await prisma.providerOfferReview.findMany({
+    where: { providerId },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+  return rows.map(toPublicProviderReview);
+}
+
+export async function getProviderReviewStats(
+  providerId: string
+): Promise<ProviderReviewStats> {
+  const agg = await prisma.providerOfferReview.aggregate({
+    where: { providerId },
+    _avg: { rating: true },
+    _count: { id: true },
+  });
+  const count = agg._count.id;
+  return {
+    reviewCount: count,
+    averageRating: count > 0 ? Math.round((agg._avg.rating ?? 0) * 10) / 10 : 0,
+  };
 }

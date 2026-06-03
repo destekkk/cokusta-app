@@ -2,8 +2,6 @@
 
 import type { ParamGuvendeBreakdown } from "@/lib/param-guvende";
 import { formatParamGuvendeFeeSummary } from "@/lib/param-guvende";
-import ParamGuvendePitch from "@/components/ParamGuvendePitch";
-
 type Props = {
   offerId: string;
   providerName: string;
@@ -23,7 +21,7 @@ export default function ParamGuvendePaymentOption({
 }: Props) {
   return (
     <label
-      className={`mt-3 block cursor-pointer rounded-lg border p-4 transition-colors ${
+      className={`block cursor-pointer rounded-lg border p-4 transition-colors ${
         selected
           ? "border-primary bg-primary/5 ring-1 ring-primary/30"
           : "border-border bg-card hover:border-primary/40"
@@ -67,7 +65,6 @@ export default function ParamGuvendePaymentOption({
           <p className="mt-2 text-xs text-muted-foreground">
             {formatParamGuvendeFeeSummary(breakdown)}
           </p>
-          <ParamGuvendePitch compact className="mt-2" />
         </div>
       </div>
     </label>

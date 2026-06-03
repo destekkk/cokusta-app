@@ -17,7 +17,9 @@ const statusLabels: Record<string, string> = {
 };
 
 function parseTab(value: string | null): CustomerQuoteTab | undefined {
-  if (value === "waiting" || value === "offers") return value;
+  if (value === "waiting" || value === "offers" || value === "negotiating" || value === "finished") {
+    return value;
+  }
   return undefined;
 }
 

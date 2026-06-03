@@ -164,18 +164,20 @@ async function main() {
   r = await api("POST", `/api/musteri/teklif/${quoteId}/pazarlik`, { offerId, action: "agree" });
   if (!ok("16. Müşteri Anlaştık (kabul)", r, r.data?.accepted ? "accepted" : "")) process.exit(1);
 
-  // 11. Usta bilgileri görünür mü?
+  // 11. Müşteri "Ustayı ara" → telefon açılır
+  r = await api("POST", `/api/musteri/teklif/${quoteId}/usta-ara`, { offerId });
+  const callOffer = r.data?.offer;
+  if (!ok("17. Müşteri ustayı ara", r, callOffer?.providerPhone ?? "")) process.exit(1);
+
   r = await api("GET", `/api/musteri/teklif/${quoteId}/teklifler`);
-  const hasContacts =
-    r.data?.contacts?.provider?.phone &&
-    r.data?.quote?.status === "accepted";
+  const listed = (r.data?.offers ?? []).find((o) => o.id === offerId);
+  const persisted =
+    listed?.providerPhone && r.data?.quote?.status === "accepted";
   console.log(
-    `${hasContacts ? "✓" : "✗"} 17. Müşteri usta iletişim bilgisi [${r.status}]`,
-    hasContacts
-      ? `— tel: ${r.data.contacts.provider.phone}, usta: ${r.data.contacts.provider.name}`
-      : ""
+    `${persisted ? "✓" : "✗"} 18. Usta telefonu listede [${r.status}]`,
+    persisted ? `— tel: ${listed.providerPhone}` : ""
   );
-  if (!hasContacts) {
+  if (!persisted) {
     console.log("   ", JSON.stringify(r.data)?.slice(0, 400));
     process.exit(1);
   }

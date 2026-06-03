@@ -21,6 +21,9 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [notes, setNotes] = useState("");
   const [urgent, setUrgent] = useState(defaultUrgent);
   const [loading, setLoading] = useState(false);
@@ -35,6 +38,7 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (!data?.profile) return;
+        setIsLoggedIn(true);
         if (!defaultCity && data.profile.city) setCity(data.profile.city);
         if (data.profile.district) setDistrict(data.profile.district);
       })
@@ -54,7 +58,13 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
 
   const validateStep2 = () => city.length > 0 && district.length > 0;
 
-  const validateStep3 = () => name.trim().length >= 2 && phone.trim().length >= 10;
+  const validateStep3 = () => {
+    if (name.trim().length < 2 || phone.trim().length < 10) return false;
+    if (isLoggedIn) return true;
+    if (!/^\d{4}$/.test(pin)) return false;
+    if (pin !== pinConfirm) return false;
+    return true;
+  };
 
   const handleNext = () => {
     setError("");
@@ -72,7 +82,13 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
   const handleSubmit = async () => {
     setError("");
     if (!validateStep3()) {
-      setError("Ad soyad ve geçerli bir telefon numarası girin.");
+      if (!isLoggedIn && pin !== pinConfirm) {
+        setError("Giriş şifreleri eşleşmiyor.");
+      } else if (!isLoggedIn && !/^\d{4}$/.test(pin)) {
+        setError("Tekliflerim paneline giriş için 4 haneli şifre belirleyin.");
+      } else {
+        setError("Ad soyad, geçerli telefon ve giriş şifresini girin.");
+      }
       return;
     }
     if (notes.trim().length < 15) {
@@ -85,6 +101,7 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
       const res = await fetch("/api/teklif", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({
           serviceSlug: service.slug,
           answers,
@@ -95,6 +112,7 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
           email,
           notes,
           urgent,
+          ...(!isLoggedIn ? { pin, pinConfirm } : {}),
         }),
       });
 
@@ -290,6 +308,50 @@ export default function QuoteForm({ service, defaultCity = "", defaultUrgent = f
                 className="w-full rounded-xl border border-border px-4 py-3 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
               />
             </div>
+
+            {!isLoggedIn && (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">
+                      Giriş şifresi (4 hane) *
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      maxLength={4}
+                      value={pin}
+                      onChange={(e) =>
+                        setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+                      }
+                      placeholder="••••"
+                      className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-foreground">
+                      Şifre tekrar *
+                    </label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      autoComplete="new-password"
+                      maxLength={4}
+                      value={pinConfirm}
+                      onChange={(e) =>
+                        setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))
+                      }
+                      placeholder="••••"
+                      className="w-full rounded-xl border border-border px-4 py-3 text-sm tracking-widest focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Tekliflerim paneline giriş için kullanılacak. 1234 ve 0000 kullanılamaz.
+                </p>
+              </>
+            )}
           </div>
         </div>
       )}

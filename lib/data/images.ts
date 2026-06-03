@@ -50,6 +50,8 @@ export const serviceImages: Record<string, string> = {
   "cim-bicme": "/images/services/cim-bicme.png",
   "havuz-bakimi": "/images/services/havuz-bakimi.png",
   "dis-cephe-boya": "/images/services/dis-cephe-boya.png",
+  "oto-tamir": "/images/services/oto-tamir.png",
+  "tekne-tamiri": "/images/services/tekne-tamiri.png",
 };
 
 /** Kategori vitrin hizmeti — özel görseli olmayan hizmetler bunu kullanır */
@@ -60,7 +62,7 @@ const categoryCoverService: Record<string, string> = {
   boya: "boya-badana",
   elektrik: "elektrik-tesisati",
   tesisat: "su-tesisati",
-  tamirat: "ev-aleti-servisi",
+  tamirat: "oto-tamir",
   bahce: "bahce-duzenleme",
   "ozel-ders": "ingilizce-ozel-ders",
 };
