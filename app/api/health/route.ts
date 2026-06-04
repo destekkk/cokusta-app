@@ -1,12 +1,30 @@
 import { NextResponse } from "next/server";
 import { pingDatabase } from "@/lib/db-status";
+import {
+  isAdminPasswordConfigured,
+  isAdminSessionConfigured,
+} from "@/lib/security-secrets";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const result = await pingDatabase();
+  const adminConfig = {
+    password: isAdminPasswordConfigured(),
+    sessionSecret: isAdminSessionConfigured(),
+  };
   if (result.ok) {
-    return NextResponse.json({ ok: true, db: "connected" });
+    const adminOk = adminConfig.password && adminConfig.sessionSecret;
+    return NextResponse.json({
+      ok: adminOk,
+      db: "connected",
+      admin: adminConfig,
+      ...(adminOk
+        ? {}
+        : {
+            hint: "Vercel → Settings → Environment Variables: ADMIN_PASSWORD (min 8 karakter) ve ADMIN_SESSION_SECRET (min 32 karakter), sonra Redeploy.",
+          }),
+    });
   }
   return NextResponse.json(
     {

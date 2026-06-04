@@ -1,12 +1,11 @@
 ﻿"use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import Logo from "@/components/Logo";
 import DbDownNotice from "@/components/DbDownNotice";
 
 export default function AdminLoginForm() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -21,6 +20,7 @@ export default function AdminLoginForm() {
       const res = await fetch("/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ password }),
       });
 
@@ -30,11 +30,11 @@ export default function AdminLoginForm() {
       }
 
       const redirect = searchParams.get("redirect") ?? "/sltn/panel";
-      router.push(redirect);
-      router.refresh();
+      // Tam sayfa: çerez sonrası panel hemen açılsın (router.push bazen yenileme ister)
+      window.location.assign(redirect);
+      return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Giriş başarısız");
-    } finally {
       setLoading(false);
     }
   };
