@@ -294,6 +294,7 @@ export default function CustomerManager({
                 İptal
               </button>
             </div>
+            </div>
           </div>
         </div>
       )}
