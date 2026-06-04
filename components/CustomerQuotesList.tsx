@@ -399,13 +399,9 @@ export default function CustomerQuotesList() {
 
       <SheetTabs
         activeId={tab}
-        onChange={(id) => setTab(id as CustomerQuoteTab)}
-        tabs={[
-          { id: "offers", label: "Gelen Teklifler", count: tabCounts.offers },
-          { id: "negotiating", label: "Pazarlık", count: tabCounts.negotiating },
-          { id: "waiting", label: "Teklif Bekleyen", count: tabCounts.waiting },
-          { id: "finished", label: "Bitmiş İşler", count: tabCounts.finished },
-        ]}
+        onChange={() => {}}
+        tabs={[]}
+        hideTabBar
       >
         <p className="mb-4 text-sm text-muted-foreground">
           {summaryHint}

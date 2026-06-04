@@ -23,6 +23,8 @@ type Props = {
   tabPosition?: "top" | "bottom";
   /** Admin paneli tarzı tıklanabilir özet kartları */
   variant?: "bar" | "cards";
+  /** Üstte PanelStatCard vb. varsa alt sekme çubuğunu gizle */
+  hideTabBar?: boolean;
 };
 
 const accentNumberClass: Record<SheetTabAccent, string> = {
@@ -174,7 +176,18 @@ export default function SheetTabs({
   className = "",
   tabPosition = "bottom",
   variant = "bar",
+  hideTabBar = false,
 }: Props) {
+  if (hideTabBar) {
+    return (
+      <div className={`min-w-0 ${className}`}>
+        <div className="min-h-[200px] min-w-0 rounded-xl border border-primary/15 bg-card p-4 sm:p-5">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
   const useCards = variant === "cards";
   const tabsOnTop = tabPosition === "top" || useCards;
 

@@ -12,7 +12,6 @@ import CurrencyInput from "@/components/CurrencyInput";
 import { parseTlDigits } from "@/lib/currency-input";
 import PanelStatCard from "@/components/panel/PanelStatCard";
 import SheetTabs from "@/components/panel/SheetTabs";
-import type { SheetTabItem } from "@/components/panel/SheetTabs";
 import type { ProviderOffer } from "@/lib/types";
 import { cities, getDistricts } from "@/lib/data/cities";
 import { resolveCanonicalCityName, type ProviderQuoteLocationFilter } from "@/lib/offer-utils";
@@ -128,28 +127,6 @@ export default function UstaOpenQuotesPanel() {
   const atDebtLimit = creditBalance < 1 && creditDebt >= MAX_CREDIT_DEBT;
   const canActivateDebt = canActivateBorcKredisi(creditBalance, creditDebt, borcKredisiAktif);
   const borcKredisiPending = borcKredisiAktif || creditDebt > 0;
-
-  const offerNavTabs: SheetTabItem[] = useMemo(
-    () => [
-      { id: "open", label: "Açık Talepler", count: quotes.length, accent: "amber" },
-      {
-        id: "mine",
-        label: "Benim Tekliflerim",
-        redBorder: true,
-        count: offerTabCounts.mine,
-        accent: "red",
-      },
-      {
-        id: "negotiating",
-        label: "Pazarlık",
-        count: offerTabCounts.negotiating,
-        accent: "orange",
-      },
-      { id: "escrow", label: "Param Güvende", count: offerTabCounts.escrow, accent: "primary" },
-      { id: "done", label: "Bitmiş İşler", count: offerTabCounts.done, accent: "emerald" },
-    ],
-    [quotes.length, offerTabCounts]
-  );
 
   const load = async (nextLocation: ProviderQuoteLocationFilter = location) => {
     const showFullLoader = quotes.length === 0 && !error;
@@ -373,8 +350,6 @@ export default function UstaOpenQuotesPanel() {
     }
   };
 
-  const onTabChange = (id: string) => setTab(id as ProviderOfferSheetTab);
-
   const tabSummary = useMemo(() => {
     if (tab === "mine") return "Verdiğiniz teklifler ve müşteri yanıtları";
     if (tab === "negotiating") return "Karşılıklı pazarlık süren işler";
@@ -507,7 +482,7 @@ export default function UstaOpenQuotesPanel() {
         </div>
       )}
 
-      <SheetTabs activeId={tab} onChange={onTabChange} tabs={offerNavTabs}>
+      <SheetTabs activeId={tab} onChange={() => {}} tabs={[]} hideTabBar>
         <p className="mb-4 text-sm text-muted-foreground">
           {tabSummary}
           {tab === "open" && !refreshing && locationSummary(location, providerCity) ? (
