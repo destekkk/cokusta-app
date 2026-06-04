@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { revalidateAdminPages } from "@/lib/admin-revalidate";
 
+/** Admin API yanıtı — tam layout revalidate kaldırıldı (panel yavaşlatıyordu). */
 export function adminMutationJson<T extends object>(body: T, init?: ResponseInit) {
-  revalidateAdminPages();
   return NextResponse.json(body, init);
 }

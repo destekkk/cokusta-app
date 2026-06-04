@@ -1528,45 +1528,54 @@ export async function getStats() {
 
 export async function getAdminStats() {
   const commissionRate = getCommissionRate();
-  const quotes = (await prisma.quoteRequest.findMany()).map(toQuoteRequest);
-  const providers = await prisma.provider.findMany();
-
-  const openQuotes = quotes.filter((r) => r.status === "open");
-  const awaitingReviewQuotes = quotes.filter((r) => r.status === "awaiting_review");
-  const matchedQuotes = quotes.filter((r) => r.status === "accepted");
-  const completedQuotes = quotes.filter((r) => r.status === "completed");
-
-  const pendingProviders = providers.filter((p) => p.status === "pending");
-  const approvedProviders = providers.filter((p) => p.status === "approved");
-  const rejectedProviders = providers.filter((p) => p.status === "rejected");
-
-  const totalRevenue = completedQuotes.reduce((sum, q) => sum + (q.commissionAmount ?? 0), 0);
-  const totalJobVolume = completedQuotes.reduce((sum, q) => sum + (q.jobValue ?? 0), 0);
-
   const thisMonth = new Date();
   thisMonth.setDate(1);
   thisMonth.setHours(0, 0, 0, 0);
 
-  const monthlyRevenue = completedQuotes
-    .filter((q) => q.completedAt && new Date(q.completedAt) >= thisMonth)
-    .reduce((sum, q) => sum + (q.commissionAmount ?? 0), 0);
-
-  const pendingOfferReviews = await countPendingOfferReviews();
+  const [
+    openQuotes,
+    awaitingReviewQuotes,
+    matchedQuotes,
+    completedQuotes,
+    pendingProviders,
+    approvedProviders,
+    rejectedProviders,
+    pendingOfferReviews,
+    revenueTotals,
+    monthlyRevenueAgg,
+  ] = await Promise.all([
+    prisma.quoteRequest.count({ where: { status: "open" } }),
+    prisma.quoteRequest.count({ where: { status: "awaiting_review" } }),
+    prisma.quoteRequest.count({ where: { status: "accepted" } }),
+    prisma.quoteRequest.count({ where: { status: "completed" } }),
+    prisma.provider.count({ where: { status: "pending" } }),
+    prisma.provider.count({ where: { status: "approved" } }),
+    prisma.provider.count({ where: { status: "rejected" } }),
+    countPendingOfferReviews(),
+    prisma.quoteRequest.aggregate({
+      where: { status: "completed" },
+      _sum: { commissionAmount: true, jobValue: true },
+    }),
+    prisma.quoteRequest.aggregate({
+      where: { status: "completed", completedAt: { gte: thisMonth } },
+      _sum: { commissionAmount: true },
+    }),
+  ]);
 
   return {
     commissionRate,
-    openQuotes: openQuotes.length,
-    awaitingReviewQuotes: awaitingReviewQuotes.length,
+    openQuotes,
+    awaitingReviewQuotes,
     pendingOfferReviews,
-    matchedQuotes: matchedQuotes.length,
-    pendingQuotes: openQuotes.length,
-    completedQuotes: completedQuotes.length,
-    pendingProviders: pendingProviders.length,
-    approvedProviders: approvedProviders.length,
-    rejectedProviders: rejectedProviders.length,
-    totalRevenue,
-    totalJobVolume,
-    monthlyRevenue,
+    matchedQuotes,
+    pendingQuotes: openQuotes,
+    completedQuotes,
+    pendingProviders,
+    approvedProviders,
+    rejectedProviders,
+    totalRevenue: revenueTotals._sum.commissionAmount ?? 0,
+    totalJobVolume: revenueTotals._sum.jobValue ?? 0,
+    monthlyRevenue: monthlyRevenueAgg._sum.commissionAmount ?? 0,
   };
 }
 
@@ -1895,9 +1904,10 @@ export async function getMonthlyLeaderboard(limit = 5) {
 
 export async function getOpenQuotesForProvider(
   providerId: string,
-  location: ProviderQuoteLocationFilter = { cityMode: "provider" }
+  location: ProviderQuoteLocationFilter = { cityMode: "provider" },
+  preloadedProvider?: ProviderRegistration
 ) {
-  const provider = await getProviderById(providerId);
+  const provider = preloadedProvider ?? (await getProviderById(providerId));
   if (!provider || provider.status !== "approved") return [];
 
   const categorySlugs = Array.isArray(provider.categorySlugs) ? provider.categorySlugs : [];
@@ -1927,7 +1937,7 @@ export async function getOpenQuotesForProvider(
   }
   // İlçe eşleşmesi providerCanSeeQuote içinde (Türkçe karakter / yazım farkları için)
 
-  const take = location.cityMode === "all" ? 200 : 500;
+  const take = location.cityMode === "all" ? 120 : 150;
   const quoteRows = await prisma.quoteRequest.findMany({
     where,
     orderBy: { createdAt: "desc" },
@@ -2442,6 +2452,25 @@ export async function getQuoteOfferCounts(): Promise<Record<string, number>> {
   const rows = await prisma.providerOffer.groupBy({
     by: ["quoteRequestId"],
     where: { status: { not: "withdrawn" } },
+    _count: { id: true },
+  });
+  const counts: Record<string, number> = {};
+  for (const row of rows) {
+    counts[row.quoteRequestId] = row._count.id;
+  }
+  return counts;
+}
+
+export async function getQuoteOfferCountsForIds(
+  quoteIds: string[],
+): Promise<Record<string, number>> {
+  if (quoteIds.length === 0) return {};
+  const rows = await prisma.providerOffer.groupBy({
+    by: ["quoteRequestId"],
+    where: {
+      quoteRequestId: { in: quoteIds },
+      status: { not: "withdrawn" },
+    },
     _count: { id: true },
   });
   const counts: Record<string, number> = {};

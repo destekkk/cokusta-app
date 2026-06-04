@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const quotes = await getOpenQuotesForProvider(providerId, location);
+  const quotes = await getOpenQuotesForProvider(providerId, location, provider);
   const creditDebt = provider.creditDebt ?? 0;
   return NextResponse.json({
     quotes,

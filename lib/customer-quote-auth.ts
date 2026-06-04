@@ -1,5 +1,6 @@
 import { normalizeProviderPhone, phonesEqual } from "@/lib/phone-utils";
 import { getCustomerSessionPhone } from "@/lib/customer-auth";
+import { getAdminSessionSecret } from "@/lib/security-secrets";
 import { cookies } from "next/headers";
 
 const SESSION_MAX_AGE = 60 * 60 * 24 * 7;
@@ -9,7 +10,7 @@ function cookieName(quoteId: string) {
 }
 
 function getSecret(): string {
-  return process.env.ADMIN_SESSION_SECRET ?? "cokusta-dev-secret-change-me";
+  return getAdminSessionSecret();
 }
 
 async function sign(message: string): Promise<string> {

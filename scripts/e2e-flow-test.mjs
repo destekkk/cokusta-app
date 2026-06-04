@@ -3,7 +3,11 @@
  * Kullanım: node scripts/e2e-flow-test.mjs [baseUrl]
  */
 const BASE = process.argv[2] ?? "http://localhost:3000";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "Btl.2012";
+if (!process.env.ADMIN_PASSWORD?.trim()) {
+  console.error("ADMIN_PASSWORD ortam değişkeni gerekli (ör. .env.local).");
+  process.exit(1);
+}
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD.trim();
 const PIN = "5678";
 
 const suffix = String(Date.now()).slice(-7);

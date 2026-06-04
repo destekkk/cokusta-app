@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { findProviderByPhone } from "@/lib/db";
+import { loginRateLimitResponse } from "@/lib/login-rate-limit";
 import { attachCustomerSessionCookie } from "@/lib/customer-auth";
 import { getCustomerAuthByPhone } from "@/lib/customer-pin";
 import {
@@ -11,6 +12,9 @@ import {
 } from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
+  const limited = loginRateLimitResponse(request, "musteri");
+  if (limited) return limited;
+
   try {
     const { phone, pin } = await request.json();
 

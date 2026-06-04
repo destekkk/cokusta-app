@@ -1,9 +1,9 @@
 import {
-  getAdminStats,
   getAllQuoteRequests,
   getApprovedProviders,
   getQuoteOfferCounts,
 } from "@/lib/db";
+import { getCommissionRate } from "@/lib/admin-auth";
 import { isUrgentActive } from "@/lib/urgent";
 import AdminRejectedQuotesSection from "@/components/admin/AdminRejectedQuotesSection";
 import QuotesListTable from "@/components/admin/QuotesListTable";
@@ -29,12 +29,14 @@ export default async function AdminQuotesPage({ searchParams }: Props) {
       ? (params.status as QuoteRequest["status"] | "all")
       : "awaiting_review";
 
-  const [allQuotes, stats, approvedProviders, offerCounts] = await Promise.all([
+  const [allQuotes, approvedProviders, offerCounts] = await Promise.all([
     getAllQuoteRequests(),
-    getAdminStats(),
     getApprovedProviders(),
     getQuoteOfferCounts(),
   ]);
+  const commissionRate = getCommissionRate();
+  const awaitingReviewQuotes = allQuotes.filter((q) => q.status === "awaiting_review").length;
+  const pendingQuotes = allQuotes.filter((q) => q.status === "open").length;
 
   const activeQuotes = allQuotes.filter((q) => q.status !== "cancelled");
   const rejectedQuotes = allQuotes.filter((q) => q.status === "cancelled");
@@ -58,7 +60,7 @@ export default async function AdminQuotesPage({ searchParams }: Props) {
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground">Teklif Talepleri</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {stats.awaitingReviewQuotes} onay bekliyor · {stats.pendingQuotes} yayında
+        {awaitingReviewQuotes} onay bekliyor · {pendingQuotes} yayında
         {rejectedQuotes.length > 0 ? ` · ${rejectedQuotes.length} reddedilmiş (altta)` : ""}
       </p>
 
@@ -72,7 +74,7 @@ export default async function AdminQuotesPage({ searchParams }: Props) {
           quotes={quotes}
           offerCounts={offerCounts}
           approvedProviders={approvedProviders}
-          commissionRate={stats.commissionRate}
+          commissionRate={commissionRate}
           initialStatus={initialStatus === "cancelled" ? "awaiting_review" : initialStatus}
         />
       </div>

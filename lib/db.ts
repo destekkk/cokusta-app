@@ -97,6 +97,7 @@ export const counterOffer = delegate("counterOffer");
 export const agreeToOffer = delegate("agreeToOffer");
 export const withdrawCustomerAgreement = delegate("withdrawCustomerAgreement");
 export const getQuoteOfferCounts = delegate("getQuoteOfferCounts");
+export const getQuoteOfferCountsForIds = delegate("getQuoteOfferCountsForIds");
 export const deleteDemoQuoteRequests = delegate("deleteDemoQuoteRequests");
 export const adminMatchQuoteToProvider = delegate("adminMatchQuoteToProvider");
 export const autoMatchQuote = delegate("autoMatchQuote");

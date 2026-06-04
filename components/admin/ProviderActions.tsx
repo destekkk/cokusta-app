@@ -48,8 +48,9 @@ export default function ProviderActions({
         router.push(redirectTo);
       } else if (nextStatus === "rejected") {
         router.push("/sltn/ustalar#reddedilmis-ustalar");
+      } else if (!onActionComplete) {
+        router.refresh();
       }
-      router.refresh();
     } catch {
       alert("Güncelleme başarısız oldu.");
     } finally {

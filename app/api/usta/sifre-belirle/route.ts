@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import { findProviderByPhone, setProviderPinIfUnset } from "@/lib/db";
+import { loginRateLimitResponse } from "@/lib/login-rate-limit";
 import { hashProviderPin, isValidProviderPhone, validateNewPin } from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
+  const limited = loginRateLimitResponse(request, "usta");
+  if (limited) return limited;
+
   try {
     const { phone, pin, pinConfirm } = await request.json();
 

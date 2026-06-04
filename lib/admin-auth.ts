@@ -5,10 +5,7 @@ import {
   createSessionToken,
   isValidSessionToken,
 } from "@/lib/admin-session";
-
-function getAdminPassword(): string {
-  return process.env.ADMIN_PASSWORD ?? "Btl.2012";
-}
+import { getAdminPassword, isAdminPasswordConfigured } from "@/lib/security-secrets";
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -28,14 +25,19 @@ export function getCommissionRate(): number {
 }
 
 export { COOKIE_NAME, createSessionToken, isValidSessionToken };
+export { isAdminPasswordConfigured, isAdminSessionConfigured } from "@/lib/security-secrets";
 
 export function verifyPassword(password: string): boolean {
-  return timingSafeEqual(getAdminPassword(), password);
+  const expected = getAdminPassword();
+  if (!expected) return false;
+  return timingSafeEqual(expected, password);
 }
 
 export async function setAdminSession(): Promise<void> {
+  const token = await createSessionToken();
+  if (!token) return;
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, await createSessionToken(), {
+  cookieStore.set(COOKIE_NAME, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

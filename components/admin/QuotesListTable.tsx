@@ -484,6 +484,7 @@ export default function QuotesListTable({
                         <QuoteRow
                           quote={quote}
                           commissionRate={commissionRate}
+                          offerCount={offerCounts[quote.id] ?? 0}
                           onStatusChange={(id, status, extra) =>
                             applyQuotePatch(id, { status, ...extra })
                           }

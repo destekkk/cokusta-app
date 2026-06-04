@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { formatDateTime } from "@/lib/admin-labels";
 import { formatUrgentRemaining } from "@/lib/urgent";
@@ -47,17 +46,18 @@ function DetailItem({
 export default function QuoteRow({
   quote,
   commissionRate,
+  offerCount = 0,
   onStatusChange,
 }: {
   quote: QuoteRequest;
   commissionRate: number;
+  offerCount?: number;
   onStatusChange?: (
     id: string,
     status: QuoteRequest["status"],
     extra?: Partial<QuoteRequest>
   ) => void;
 }) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [jobValue, setJobValue] = useState("");
   const [showComplete, setShowComplete] = useState(false);
@@ -65,12 +65,30 @@ export default function QuoteRow({
 
   const answers = useMemo(() => getQuoteAnswers(quote), [quote]);
 
+  const shouldLoadOffers =
+    offerCount > 0 ||
+    quote.status === "open" ||
+    quote.status === "accepted" ||
+    quote.status === "completed";
+
   useEffect(() => {
+    if (!shouldLoadOffers) {
+      setOffers([]);
+      return;
+    }
+    let cancelled = false;
     fetch(`/api/admin/teklif/${quote.id}/offers`)
       .then((r) => r.json())
-      .then((d) => setOffers(d.offers ?? []))
-      .catch(() => setOffers([]));
-  }, [quote.id, quote.status]);
+      .then((d) => {
+        if (!cancelled) setOffers(d.offers ?? []);
+      })
+      .catch(() => {
+        if (!cancelled) setOffers([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [quote.id, quote.status, shouldLoadOffers]);
 
   const updateStatus = async (
     status: QuoteRequest["status"],
@@ -98,10 +116,6 @@ export default function QuoteRow({
         matchedProviderId: options?.matchedProviderId,
         matchedProviderName: options?.matchedProviderName,
       });
-      if (status === "cancelled") {
-        router.push("/sltn/teklifler#reddedilmis-teklifler");
-      }
-      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Güncelleme başarısız");
     } finally {

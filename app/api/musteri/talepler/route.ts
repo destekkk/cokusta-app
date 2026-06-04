@@ -4,7 +4,7 @@ import {
   countCustomerQuotesByPhone,
   getCustomerQuoteReviewFlags,
   getCustomerQuoteTabCounts,
-  getQuoteOfferCounts,
+  getQuoteOfferCountsForIds,
   getQuoteRequestsByPhone,
 } from "@/lib/db";
 import type { CustomerQuoteTab } from "@/lib/customer-quotes-filter";
@@ -42,12 +42,12 @@ export async function GET(request: Request) {
   const countFilter = { tab, search, city, district };
   const locationFilter = { city, district, search };
 
-  const [quotes, total, tabCounts, offerCounts] = await Promise.all([
+  const [quotes, total, tabCounts] = await Promise.all([
     getQuoteRequestsByPhone(phone, listFilter),
     countCustomerQuotesByPhone(phone, countFilter),
     getCustomerQuoteTabCounts(phone, locationFilter),
-    getQuoteOfferCounts(),
   ]);
+  const offerCounts = await getQuoteOfferCountsForIds(quotes.map((q) => q.id));
 
   const completedIds = quotes.filter((q) => q.status === "completed").map((q) => q.id);
   const reviewFlags =

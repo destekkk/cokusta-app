@@ -1,20 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
-/** Sunucudan gelen listeyi izler; silme/onay sonrası anında UI güncellemesi için setItems kullanın. */
+/** Sunucudan gelen listeyi izler; silme/onay sonrası setItems ile anında güncellenir. */
 export function useAdminList<T>(serverItems: T[]) {
   const [items, setItems] = useState(serverItems);
-  const router = useRouter();
 
   useEffect(() => {
     setItems(serverItems);
   }, [serverItems]);
 
+  /** Eski router.refresh() kaldırıldı — tam sayfa DB yenilemesi paneli yavaşlatıyordu. */
   const refreshAdmin = useCallback(async () => {
-    router.refresh();
-  }, [router]);
+    /* no-op: optimistic setItems yeterli */
+  }, []);
 
   return { items, setItems, refreshAdmin };
 }

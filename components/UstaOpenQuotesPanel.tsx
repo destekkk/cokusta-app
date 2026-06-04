@@ -172,8 +172,7 @@ export default function UstaOpenQuotesPanel() {
     if (!locationReady) return;
     let cancelled = false;
     void (async () => {
-      await load(location);
-      if (!cancelled) await refreshOfferMeta();
+      await Promise.all([load(location), refreshOfferMeta()]);
     })();
     return () => {
       cancelled = true;

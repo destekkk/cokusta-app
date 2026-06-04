@@ -1605,10 +1605,12 @@ export async function getMonthlyLeaderboard(limit = 5) {
 
 export async function getOpenQuotesForProvider(
   providerId: string,
-  location: import("./offer-utils").ProviderQuoteLocationFilter = { cityMode: "provider" }
+  location: import("./offer-utils").ProviderQuoteLocationFilter = { cityMode: "provider" },
+  preloadedProvider?: import("./types").ProviderRegistration
 ) {
   const store = await ensureStore();
-  const provider = store.providers.find((p) => p.id === providerId);
+  const provider =
+    preloadedProvider ?? store.providers.find((p) => p.id === providerId);
   if (!provider || provider.status !== "approved") return [];
 
   return store.quoteRequests
@@ -2230,6 +2232,20 @@ export async function getQuoteOfferCounts(): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
   for (const offer of store.providerOffers) {
     if (offer.status === "withdrawn") continue;
+    counts[offer.quoteRequestId] = (counts[offer.quoteRequestId] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export async function getQuoteOfferCountsForIds(
+  quoteIds: string[],
+): Promise<Record<string, number>> {
+  if (quoteIds.length === 0) return {};
+  const idSet = new Set(quoteIds);
+  const counts: Record<string, number> = {};
+  const store = await ensureStore();
+  for (const offer of store.providerOffers) {
+    if (offer.status === "withdrawn" || !idSet.has(offer.quoteRequestId)) continue;
     counts[offer.quoteRequestId] = (counts[offer.quoteRequestId] ?? 0) + 1;
   }
   return counts;

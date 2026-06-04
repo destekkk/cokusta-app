@@ -1,10 +1,12 @@
 /** Edge middleware — HMAC anahtarını her istekte yeniden import etme (panel gezinme hızı). */
 
+import { getAdminSessionSecret } from "@/lib/security-secrets";
+
 let cachedKey: CryptoKey | null = null;
 let cachedSecret: string | null = null;
 
 function getSecret(): string {
-  return process.env.ADMIN_SESSION_SECRET ?? "cokusta-dev-secret-change-me";
+  return getAdminSessionSecret();
 }
 
 async function getHmacKey(): Promise<CryptoKey> {
