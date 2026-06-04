@@ -22,6 +22,12 @@ export async function POST(request: Request) {
     if (pinReset.action === "error") {
       return NextResponse.json({ error: pinReset.error }, { status: 400 });
     }
+    if (pinReset.action === "skip") {
+      return NextResponse.json(
+        { error: "Yeni müşteri için 6 haneli giriş şifresi zorunludur." },
+        { status: 400 }
+      );
+    }
 
     const normalizedPhone = normalizeProviderPhone(String(phone));
     const customer = await createCustomer({
@@ -32,9 +38,7 @@ export async function POST(request: Request) {
       notes: notes ? String(notes) : "",
     });
 
-    if (pinReset.action === "set") {
-      await setCustomerPin(normalizedPhone, String(pin));
-    }
+    await setCustomerPin(normalizedPhone, String(pin));
 
     return NextResponse.json({ success: true, customer });
   } catch (error) {

@@ -21,8 +21,11 @@ export default function AdminPinFields({
     : `Giriş şifresi (${NEW_PIN_LENGTH} hane)${requiredMark}`;
 
   return (
-    <div className="space-y-2">
-      <div className="grid gap-3 sm:grid-cols-2">
+    <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+      <p className="text-sm font-semibold text-foreground">
+        Giriş şifresi{optional ? "" : " *"}
+      </p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <input
           type="password"
           inputMode="numeric"
