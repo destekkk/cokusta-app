@@ -27,24 +27,24 @@ export default function AdminPinFields({
       </p>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <input
-          type="password"
+          type="text"
           inputMode="numeric"
           autoComplete="new-password"
           placeholder={placeholder}
           maxLength={NEW_PIN_LENGTH}
           value={pin}
           onChange={(e) => onPinChange(sanitizePinDigits(e.target.value))}
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm tracking-widest"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm tracking-widest"
         />
         <input
-          type="password"
+          type="text"
           inputMode="numeric"
           autoComplete="new-password"
           placeholder={optional ? "Şifre tekrar" : "Şifre tekrar *"}
           maxLength={NEW_PIN_LENGTH}
           value={pinConfirm}
           onChange={(e) => onPinConfirmChange(sanitizePinDigits(e.target.value))}
-          className="w-full rounded-lg border border-border px-3 py-2 text-sm tracking-widest"
+          className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm tracking-widest"
         />
       </div>
       <p className="text-xs text-muted-foreground">

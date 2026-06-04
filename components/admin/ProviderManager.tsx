@@ -266,7 +266,8 @@ export default function ProviderManager({
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4">
-          <div className="my-8 w-full max-w-2xl rounded-2xl border border-border bg-card p-6 shadow-xl">
+          <div className="my-8 flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-border bg-card shadow-xl">
+            <div className="overflow-y-auto p-6">
             <h3 className="text-lg font-bold">{editing ? "Usta Düzenle" : "Yeni Usta"}</h3>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <input
@@ -324,16 +325,16 @@ export default function ProviderManager({
                 <option value="approved">Onaylı</option>
                 <option value="rejected">Reddedildi</option>
               </select>
-            </div>
 
-            <div className="mt-3">
-              <AdminPinFields
-                pin={pin}
-                pinConfirm={pinConfirm}
-                onPinChange={setPin}
-                onPinConfirmChange={setPinConfirm}
-                optional={Boolean(editing)}
-              />
+              <div className="sm:col-span-2">
+                <AdminPinFields
+                  pin={pin}
+                  pinConfirm={pinConfirm}
+                  onPinChange={setPin}
+                  onPinConfirmChange={setPinConfirm}
+                  optional={Boolean(editing)}
+                />
+              </div>
             </div>
 
             <div className="mt-3">
@@ -380,6 +381,7 @@ export default function ProviderManager({
               >
                 İptal
               </button>
+            </div>
             </div>
           </div>
         </div>
