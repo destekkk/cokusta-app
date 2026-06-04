@@ -226,7 +226,8 @@ export default function CustomerManager({
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/40 p-4">
-          <div className="my-8 w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-xl">
+          <div className="my-8 flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl border border-border bg-card shadow-xl">
+            <div className="overflow-y-auto p-6">
             <h3 className="text-lg font-bold">
               {editing ? "Müşteri Düzenle" : "Yeni Müşteri"}
             </h3>
@@ -261,19 +262,19 @@ export default function CustomerManager({
                   </option>
                 ))}
               </select>
-              <textarea
-                placeholder="Not"
-                value={form.notes}
-                onChange={(e) => setForm({ ...form, notes: e.target.value })}
-                rows={3}
-                className="w-full rounded-lg border border-border px-3 py-2 text-sm"
-              />
               <AdminPinFields
                 pin={pin}
                 pinConfirm={pinConfirm}
                 onPinChange={setPin}
                 onPinConfirmChange={setPinConfirm}
                 optional={Boolean(editing)}
+              />
+              <textarea
+                placeholder="Not"
+                value={form.notes}
+                onChange={(e) => setForm({ ...form, notes: e.target.value })}
+                rows={3}
+                className="w-full rounded-lg border border-border px-3 py-2 text-sm"
               />
             </div>
             <div className="mt-5 flex gap-2">
