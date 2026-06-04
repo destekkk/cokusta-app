@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { formatDateTime } from "@/lib/admin-labels";
 import type { ProviderRegistration } from "@/lib/types";
+import { useAdminList } from "@/lib/use-admin-list";
 
 type Props = {
   providers: ProviderRegistration[];
@@ -16,17 +17,18 @@ export default function AdminRejectedProvidersSection({
   detailBasePath = "/sltn/ustalar",
 }: Props) {
   const router = useRouter();
+  const { items: list, setItems, refreshAdmin } = useAdminList(providers);
   const [loadingId, setLoadingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
   const sorted = useMemo(
     () =>
-      [...providers].sort(
+      [...list].sort(
         (a, b) =>
           new Date(b.reviewedAt ?? b.createdAt).getTime() -
           new Date(a.reviewedAt ?? a.createdAt).getTime()
       ),
-    [providers]
+    [list]
   );
 
   const deleteOne = async (provider: ProviderRegistration) => {
@@ -38,7 +40,8 @@ export default function AdminRejectedProvidersSection({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Silinemedi");
       setMessage(`${provider.name} silindi.`);
-      router.refresh();
+      setItems((prev) => prev.filter((p) => p.id !== provider.id));
+      await refreshAdmin();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Silinemedi");
     } finally {

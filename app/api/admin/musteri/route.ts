@@ -3,6 +3,7 @@ import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { parseAdminPinReset } from "@/lib/admin-pin";
 import { setCustomerPin } from "@/lib/customer-pin";
 import { createCustomer } from "@/lib/db";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { normalizeProviderPhone } from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
 
     await setCustomerPin(normalizedPhone, String(pin));
 
-    return NextResponse.json({ success: true, customer });
+    return adminMutationJson({ success: true, customer });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Müşteri eklenemedi.";
     return NextResponse.json({ error: message }, { status: 500 });

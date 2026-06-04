@@ -7,6 +7,7 @@ import {
   updateProvider,
   updateProviderStatus,
 } from "@/lib/db";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { parseAdminPinReset } from "@/lib/admin-pin";
 
 type Props = { params: Promise<{ id: string }> };
@@ -25,7 +26,7 @@ export async function PATCH(request: Request, { params }: Props) {
       if (!updated) {
         return NextResponse.json({ error: "Usta bulunamadı." }, { status: 404 });
       }
-      return NextResponse.json({ success: true, provider: updated });
+      return adminMutationJson({ success: true, provider: updated });
     }
 
     const pinReset = parseAdminPinReset(body.pin, body.pinConfirm);
@@ -55,7 +56,7 @@ export async function PATCH(request: Request, { params }: Props) {
       }
     }
 
-    return NextResponse.json({ success: true, provider: updated });
+    return adminMutationJson({ success: true, provider: updated });
   } catch {
     return NextResponse.json({ error: "Güncelleme başarısız." }, { status: 500 });
   }
@@ -82,7 +83,7 @@ export async function DELETE(_request: Request, { params }: Props) {
     if (!deleted) {
       return NextResponse.json({ error: "Silinemedi." }, { status: 404 });
     }
-    return NextResponse.json({ success: true });
+    return adminMutationJson({ success: true });
   } catch {
     return NextResponse.json({ error: "Silme başarısız." }, { status: 500 });
   }

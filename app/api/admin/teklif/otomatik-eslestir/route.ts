@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { autoMatchQuotes } from "@/lib/db";
 
 export async function POST(request: Request) {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     }
 
     const result = await autoMatchQuotes(ids);
-    return NextResponse.json({ success: true, ...result });
+    return adminMutationJson({ success: true, ...result });
   } catch {
     return NextResponse.json({ error: "Otomatik eşleştirme başarısız." }, { status: 500 });
   }

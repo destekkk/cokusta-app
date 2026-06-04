@@ -9,6 +9,7 @@ import AdminPinFields from "@/components/admin/AdminPinFields";
 import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
 import type { ProviderSummary } from "@/lib/types";
 import { validatePinPairForForm } from "@/lib/provider-pin";
+import { useAdminList } from "@/lib/use-admin-list";
 
 const statusLabels: Record<ProviderSummary["status"], string> = {
   pending: "Bekliyor",
@@ -50,6 +51,7 @@ export default function ProviderManager({
   providers: ProviderSummary[];
 }) {
   const router = useRouter();
+  const { items: list, setItems, refreshAdmin } = useAdminList(providers);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
@@ -60,14 +62,14 @@ export default function ProviderManager({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase("tr-TR");
-    if (!q) return providers;
-    return providers.filter((p) =>
+    if (!q) return list;
+    return list.filter((p) =>
       [p.name, p.phone, p.email ?? "", p.city, p.status, ...p.categorySlugs]
         .join(" ")
         .toLocaleLowerCase("tr-TR")
         .includes(q)
     );
-  }, [providers, search]);
+  }, [list, search]);
 
   const toggleCategory = (slug: string) => {
     setForm((prev) => ({
@@ -141,7 +143,28 @@ export default function ProviderManager({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "İşlem başarısız");
       closeForm();
-      router.refresh();
+      if (!editing && data.provider) {
+        setItems((prev) => [data.provider as ProviderSummary, ...prev]);
+      } else if (editing) {
+        setItems((prev) =>
+          prev.map((p) =>
+            p.id === editing.id
+              ? {
+                  ...p,
+                  name: form.name,
+                  phone: form.phone,
+                  email: form.email,
+                  city: form.city,
+                  categorySlugs: form.categorySlugs,
+                  experience: form.experience,
+                  bio: form.bio,
+                  status: form.status,
+                }
+              : p
+          )
+        );
+      }
+      await refreshAdmin();
     } catch (error) {
       alert(error instanceof Error ? error.message : "İşlem başarısız");
     } finally {
@@ -157,7 +180,8 @@ export default function ProviderManager({
       const res = await fetch(`/api/admin/usta/${provider.id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Silme başarısız");
-      router.refresh();
+      setItems((prev) => prev.filter((p) => p.id !== provider.id));
+      await refreshAdmin();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Silme başarısız");
     } finally {
@@ -177,17 +201,17 @@ export default function ProviderManager({
         </button>
       </div>
 
-      {providers.length > 0 && (
+      {list.length > 0 && (
         <AdminTableToolbar
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Ad, telefon, şehir…"
-          total={providers.length}
+          total={list.length}
           shown={filtered.length}
         />
       )}
 
-      {providers.length === 0 ? (
+      {list.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 text-center text-muted-foreground">
           Henüz kayıtlı usta yok.
         </div>

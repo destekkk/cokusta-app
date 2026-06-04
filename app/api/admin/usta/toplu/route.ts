@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { getProviderById, updateProviderStatus } from "@/lib/db";
 
 export async function POST(request: Request) {
@@ -42,7 +43,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ succeeded, failed });
+    return adminMutationJson({ succeeded, failed });
   } catch {
     return NextResponse.json({ error: "Toplu işlem başarısız." }, { status: 500 });
   }

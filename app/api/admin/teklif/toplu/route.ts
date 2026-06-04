@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { bulkAdminQuoteAction } from "@/lib/db";
 
 export async function POST(request: Request) {
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
     }
 
     const result = await bulkAdminQuoteAction({ ids, action, providerId });
-    return NextResponse.json({ success: true, ...result });
+    return adminMutationJson({ success: true, ...result });
   } catch {
     return NextResponse.json({ error: "Toplu işlem başarısız." }, { status: 500 });
   }

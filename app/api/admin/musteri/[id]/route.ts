@@ -8,6 +8,7 @@ import {
   updateCustomer,
   updateCustomerByKey,
 } from "@/lib/db";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { normalizeProviderPhone } from "@/lib/provider-pin";
 
 type Props = { params: Promise<{ id: string }> };
@@ -43,7 +44,7 @@ export async function PATCH(request: Request, { params }: Props) {
       if (pinReset.action === "set") {
         await setCustomerPin(phone, String(body.pin));
       }
-      return NextResponse.json({ success: true });
+      return adminMutationJson({ success: true });
     }
 
     const updated = await updateCustomer(id, {
@@ -62,7 +63,7 @@ export async function PATCH(request: Request, { params }: Props) {
       await setCustomerPin(phone, String(body.pin));
     }
 
-    return NextResponse.json({ success: true, customer: updated });
+    return adminMutationJson({ success: true, customer: updated });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Güncelleme başarısız.";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -83,7 +84,7 @@ export async function DELETE(_request: Request, { params }: Props) {
       if (!deleted) {
         return NextResponse.json({ error: "Müşteri bulunamadı." }, { status: 404 });
       }
-      return NextResponse.json({ success: true });
+      return adminMutationJson({ success: true });
     }
 
     const deleted = await deleteCustomer(id);
@@ -91,7 +92,7 @@ export async function DELETE(_request: Request, { params }: Props) {
       return NextResponse.json({ error: "Müşteri bulunamadı." }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true });
+    return adminMutationJson({ success: true });
   } catch {
     return NextResponse.json({ error: "Silme başarısız." }, { status: 500 });
   }

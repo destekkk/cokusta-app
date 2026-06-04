@@ -9,6 +9,8 @@ type Props = {
   status: ProviderRegistration["status"];
   compact?: boolean;
   redirectTo?: string;
+  /** Liste satırını anında güncellemek için (onay/red sonrası) */
+  onActionComplete?: (providerId: string, nextStatus: "approved" | "rejected") => void;
 };
 
 export default function ProviderActions({
@@ -16,6 +18,7 @@ export default function ProviderActions({
   status,
   compact = false,
   redirectTo,
+  onActionComplete,
 }: Props) {
   const router = useRouter();
   const [loading, setLoading] = useState<"approved" | "rejected" | null>(null);
@@ -40,14 +43,13 @@ export default function ProviderActions({
       if (!res.ok) throw new Error("İşlem başarısız");
       setShowRejectForm(false);
       setRejectionReason("");
+      onActionComplete?.(providerId, nextStatus);
       if (redirectTo) {
         router.push(redirectTo);
       } else if (nextStatus === "rejected") {
         router.push("/sltn/ustalar#reddedilmis-ustalar");
-        router.refresh();
-      } else {
-        router.refresh();
       }
+      router.refresh();
     } catch {
       alert("Güncelleme başarısız oldu.");
     } finally {

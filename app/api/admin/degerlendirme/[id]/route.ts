@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { approveAdminOfferReview, deleteAdminOfferReview } from "@/lib/db";
 
 type Props = { params: Promise<{ id: string }> };
@@ -19,7 +20,7 @@ export async function PATCH(request: Request, { params }: Props) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error ?? "Onaylanamadı." }, { status: 400 });
   }
-  return NextResponse.json({ success: true });
+  return adminMutationJson({ success: true });
 }
 
 export async function DELETE(_request: Request, { params }: Props) {
@@ -32,5 +33,5 @@ export async function DELETE(_request: Request, { params }: Props) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error ?? "Silinemedi." }, { status: 404 });
   }
-  return NextResponse.json({ success: true });
+  return adminMutationJson({ success: true });
 }

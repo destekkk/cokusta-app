@@ -9,6 +9,7 @@ import QuoteRow from "@/components/admin/QuoteRow";
 import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
 import AdminProviderPicker from "@/components/admin/AdminProviderPicker";
 import type { ProviderRegistration, QuoteRequest } from "@/lib/types";
+import { useAdminList } from "@/lib/use-admin-list";
 
 const statusLabels: Record<QuoteRequest["status"], string> = {
   awaiting_review: "Onay Bekliyor",
@@ -63,6 +64,7 @@ export default function QuotesListTable({
   initialStatus = "awaiting_review",
 }: Props) {
   const router = useRouter();
+  const { items: quoteList, setItems: setQuoteList, refreshAdmin } = useAdminList(quotes);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<Filter>(initialStatus);
   const [search, setSearch] = useState("");
@@ -81,18 +83,31 @@ export default function QuotesListTable({
   }, [initialStatus]);
 
   const cities = useMemo(() => {
-    return [...new Set(quotes.map((q) => q.city))].sort((a, b) => a.localeCompare(b, "tr"));
-  }, [quotes]);
+    return [...new Set(quoteList.map((q) => q.city))].sort((a, b) => a.localeCompare(b, "tr"));
+  }, [quoteList]);
+
+  const applyQuotePatch = (id: string, patch: Partial<QuoteRequest>) => {
+    setQuoteList((prev) => {
+      const next = prev.map((q) => (q.id === id ? { ...q, ...patch } : q));
+      if (patch.status === "cancelled" && filter !== "cancelled" && filter !== "all") {
+        return next.filter((q) => q.id !== id);
+      }
+      if (patch.status === "open" && filter === "awaiting_review") {
+        return next.filter((q) => q.id !== id);
+      }
+      return next;
+    });
+  };
 
   const filtered = useMemo(() => {
-    return quotes.filter((q) => {
+    return quoteList.filter((q) => {
       if (filter !== "all" && q.status !== filter) return false;
       if (cityFilter && q.city !== cityFilter) return false;
       if (urgentOnly && !isUrgentActive(q)) return false;
       if (hasOffersOnly && (offerCounts[q.id] ?? 0) === 0) return false;
       return matchesSearch(q, search);
     });
-  }, [quotes, filter, search, cityFilter, urgentOnly, hasOffersOnly, offerCounts]);
+  }, [quoteList, filter, search, cityFilter, urgentOnly, hasOffersOnly, offerCounts]);
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, pageCount);
@@ -154,10 +169,24 @@ export default function QuotesListTable({
           : `${ok} başarılı${fail > 0 ? `, ${fail} başarısız` : ""}.`
       );
       setSelected(new Set());
+      const succeededIds: string[] = data.succeeded ?? [];
+      if (succeededIds.length > 0) {
+        setQuoteList((prev) => {
+          if (action === "approve") {
+            return prev.map((q) =>
+              succeededIds.includes(q.id) ? { ...q, status: "open" as const } : q
+            ).filter((q) => filter !== "awaiting_review" || !succeededIds.includes(q.id));
+          }
+          if (action === "reject") {
+            return prev.filter((q) => !succeededIds.includes(q.id));
+          }
+          return prev.filter((q) => !succeededIds.includes(q.id));
+        });
+      }
       if (action === "reject" && ok > 0) {
         router.push("/sltn/teklifler#reddedilmis-teklifler");
       }
-      router.refresh();
+      await refreshAdmin();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "İşlem başarısız");
     } finally {
@@ -193,7 +222,17 @@ export default function QuotesListTable({
       const fail = data.failed?.length ?? 0;
       setMessage(`Otomatik eşleştirme: ${ok} başarılı${fail > 0 ? `, ${fail} başarısız` : ""}.`);
       setSelected(new Set());
-      router.refresh();
+      const succeededIds: string[] = data.succeeded ?? [];
+      if (succeededIds.length > 0) {
+        setQuoteList((prev) =>
+          prev.map((q) =>
+            succeededIds.includes(q.id)
+              ? { ...q, status: "accepted" as const }
+              : q
+          )
+        );
+      }
+      await refreshAdmin();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Eşleştirme başarısız");
     } finally {
@@ -202,12 +241,12 @@ export default function QuotesListTable({
   };
 
   const filterCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: quotes.length };
-    for (const q of quotes) {
+    const counts: Record<string, number> = { all: quoteList.length };
+    for (const q of quoteList) {
       counts[q.status] = (counts[q.status] ?? 0) + 1;
     }
     return counts;
-  }, [quotes]);
+  }, [quoteList]);
 
   return (
     <div className="space-y-4">
@@ -442,7 +481,13 @@ export default function QuotesListTable({
                   {expandedId === quote.id && (
                     <tr>
                       <td colSpan={9} className="bg-muted/20 px-4 py-4">
-                        <QuoteRow quote={quote} commissionRate={commissionRate} />
+                        <QuoteRow
+                          quote={quote}
+                          commissionRate={commissionRate}
+                          onStatusChange={(id, status, extra) =>
+                            applyQuotePatch(id, { status, ...extra })
+                          }
+                        />
                       </td>
                     </tr>
                   )}

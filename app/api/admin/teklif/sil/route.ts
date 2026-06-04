@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { deleteRejectedQuoteRequest } from "@/lib/db";
 
 export async function POST(request: Request) {
@@ -23,7 +24,7 @@ export async function POST(request: Request) {
       else failed.push({ id, error: "Reddedilmiş değil veya bulunamadı" });
     }
 
-    return NextResponse.json({ succeeded, failed });
+    return adminMutationJson({ succeeded, failed });
   } catch {
     return NextResponse.json({ error: "Silme başarısız." }, { status: 500 });
   }

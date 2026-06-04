@@ -8,6 +8,7 @@ import { formatDateTime, formatExperience } from "@/lib/admin-labels";
 import ProviderActions from "@/components/admin/ProviderActions";
 import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
 import type { ProviderRegistration } from "@/lib/types";
+import { useAdminList } from "@/lib/use-admin-list";
 
 const statusLabels: Record<ProviderRegistration["status"], string> = {
   pending: "Bekliyor",
@@ -55,6 +56,7 @@ export default function ProviderApplicationsPanel({
   initialStatus = showAll ? "pending" : "pending",
 }: Props) {
   const router = useRouter();
+  const { items: list, setItems, refreshAdmin } = useAdminList(providers);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     showAll ? initialStatus : "pending"
@@ -64,7 +66,7 @@ export default function ProviderApplicationsPanel({
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
-  const baseList = showAll ? providers : providers.filter((p) => p.status === "pending");
+  const baseList = showAll ? list : list.filter((p) => p.status === "pending");
 
   const filtered = useMemo(() => {
     return baseList.filter((p) => {
@@ -128,10 +130,14 @@ export default function ProviderApplicationsPanel({
           : `${ok} başvuru güncellendi${fail > 0 ? `, ${fail} başarısız` : ""}.`
       );
       setSelected(new Set());
+      const succeededIds: string[] = data.succeeded ?? [];
+      if (succeededIds.length > 0) {
+        setItems((prev) => prev.filter((p) => !succeededIds.includes(p.id)));
+      }
       if (action === "reject" && ok > 0) {
         router.push("/sltn/ustalar#reddedilmis-ustalar");
       }
-      router.refresh();
+      await refreshAdmin();
     } catch (err) {
       setMessage(err instanceof Error ? err.message : "İşlem başarısız");
     } finally {
@@ -310,7 +316,14 @@ export default function ProviderApplicationsPanel({
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex flex-col gap-2">
-                      <ProviderActions providerId={provider.id} status={provider.status} compact />
+                      <ProviderActions
+                        providerId={provider.id}
+                        status={provider.status}
+                        compact
+                        onActionComplete={(id) =>
+                          setItems((prev) => prev.filter((p) => p.id !== id))
+                        }
+                      />
                       <Link
                         href={`${detailBasePath}/${provider.id}`}
                         className="text-xs font-medium text-muted-foreground hover:text-primary"

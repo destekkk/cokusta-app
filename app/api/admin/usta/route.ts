@@ -5,6 +5,7 @@ import {
   PROVIDER_PHONE_EXISTS,
   providerPhoneExistsUserMessage,
 } from "@/lib/provider-registration";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import {
   hashProviderPin,
   isValidProviderPhone,
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
       pinHash: hashProviderPin(String(pin)),
     });
 
-    return NextResponse.json({ success: true, provider });
+    return adminMutationJson({ success: true, provider });
   } catch (error) {
     if (error instanceof Error && error.message === PROVIDER_PHONE_EXISTS) {
       const status = (error as Error & { providerStatus?: string }).providerStatus as

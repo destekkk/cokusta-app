@@ -7,6 +7,7 @@ import AdminPinFields from "@/components/admin/AdminPinFields";
 import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
 import type { CustomerSummary } from "@/lib/types";
 import { validatePinPairForForm } from "@/lib/provider-pin";
+import { useAdminList } from "@/lib/use-admin-list";
 
 type FormData = {
   name: string;
@@ -35,6 +36,7 @@ export default function CustomerManager({
   customers: CustomerSummary[];
 }) {
   const router = useRouter();
+  const { items: list, setItems, refreshAdmin } = useAdminList(customers);
   const [form, setForm] = useState<FormData>(emptyForm);
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
@@ -45,14 +47,14 @@ export default function CustomerManager({
 
   const filtered = useMemo(() => {
     const q = search.trim().toLocaleLowerCase("tr-TR");
-    if (!q) return customers;
-    return customers.filter((c) =>
+    if (!q) return list;
+    return list.filter((c) =>
       [c.name, c.phone, c.email ?? "", c.city, String(c.requestCount)]
         .join(" ")
         .toLocaleLowerCase("tr-TR")
         .includes(q)
     );
-  }, [customers, search]);
+  }, [list, search]);
 
   const openCreate = () => {
     setEditing(null);
@@ -114,7 +116,19 @@ export default function CustomerManager({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "İşlem başarısız");
       closeForm();
-      router.refresh();
+      const apiId = getCustomerApiId(editing);
+      if (!editing && data.customer) {
+        setItems((prev) => [data.customer as CustomerSummary, ...prev]);
+      } else if (editing && apiId) {
+        setItems((prev) =>
+          prev.map((c) =>
+            (c.id ?? `quote-${c.key}`) === apiId
+              ? { ...c, ...form, notes: form.notes }
+              : c
+          )
+        );
+      }
+      await refreshAdmin();
     } catch (error) {
       alert(error instanceof Error ? error.message : "İşlem başarısız");
     } finally {
@@ -136,7 +150,11 @@ export default function CustomerManager({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Silme başarısız");
-      router.refresh();
+      const apiId = getCustomerApiId(customer);
+      setItems((prev) =>
+        prev.filter((c) => (c.id ?? `quote-${c.key}`) !== apiId)
+      );
+      await refreshAdmin();
     } catch (error) {
       alert(error instanceof Error ? error.message : "Silme başarısız");
     } finally {
@@ -156,17 +174,17 @@ export default function CustomerManager({
         </button>
       </div>
 
-      {customers.length > 0 && (
+      {list.length > 0 && (
         <AdminTableToolbar
           search={search}
           onSearchChange={setSearch}
           searchPlaceholder="Ad, telefon, e-posta, şehir…"
-          total={customers.length}
+          total={list.length}
           shown={filtered.length}
         />
       )}
 
-      {customers.length === 0 ? (
+      {list.length === 0 ? (
         <div className="rounded-xl border border-border bg-card p-12 text-center text-muted-foreground">
           Henüz müşteri kaydı yok.
         </div>

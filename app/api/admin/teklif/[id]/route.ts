@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { adminMutationJson } from "@/lib/admin-api-response";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { deleteRejectedQuoteRequest, getQuoteRequestById, updateQuoteRequestStatus } from "@/lib/db";
 import type { QuoteRequest } from "@/lib/types";
@@ -60,7 +61,7 @@ export async function PATCH(request: Request, { params }: Props) {
       return NextResponse.json({ error: "Teklif bulunamadı." }, { status: 404 });
     }
 
-    return NextResponse.json({ success: true, request: updated });
+    return adminMutationJson({ success: true, request: updated });
   } catch {
     return NextResponse.json({ error: "Güncelleme başarısız." }, { status: 500 });
   }
@@ -80,7 +81,7 @@ export async function DELETE(_request: Request, { params }: Props) {
         { status: 400 }
       );
     }
-    return NextResponse.json({ success: true });
+    return adminMutationJson({ success: true });
   } catch {
     return NextResponse.json({ error: "Silme başarısız." }, { status: 500 });
   }

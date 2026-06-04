@@ -58,8 +58,8 @@ export default function AdminOfferReviewsPanel({ initialReviews, initialFilter }
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Onaylanamadı");
+      setReviews((prev) => prev.filter((r) => r.id !== id));
       setMessage("Değerlendirme onaylandı.");
-      await reload(filter);
       router.refresh();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Onaylanamadı");
@@ -76,8 +76,8 @@ export default function AdminOfferReviewsPanel({ initialReviews, initialFilter }
       const res = await fetch(`/api/admin/degerlendirme/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Silinemedi");
+      setReviews((prev) => prev.filter((r) => r.id !== id));
       setMessage("Değerlendirme silindi.");
-      await reload(filter);
       router.refresh();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Silinemedi");

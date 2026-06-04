@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { formatDateTime } from "@/lib/admin-labels";
 import { quotePhoneForAdmin } from "@/lib/quote-privacy";
 import type { QuoteRequest } from "@/lib/types";
+import { useAdminList } from "@/lib/use-admin-list";
 
 type Props = {
   quotes: QuoteRequest[];
@@ -12,16 +13,17 @@ type Props = {
 
 export default function AdminRejectedQuotesSection({ quotes }: Props) {
   const router = useRouter();
+  const { items: list, setItems, refreshAdmin } = useAdminList(quotes);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
   const sorted = useMemo(
     () =>
-      [...quotes].sort(
+      [...list].sort(
         (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ),
-    [quotes]
+    [list]
   );
 
   const selectedIds = [...selected];
@@ -44,7 +46,8 @@ export default function AdminRejectedQuotesSection({ quotes }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Silinemedi");
       setMessage("Talep silindi.");
-      router.refresh();
+      setItems((prev) => prev.filter((q) => q.id !== id));
+      await refreshAdmin();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Silinemedi");
     } finally {
@@ -69,7 +72,11 @@ export default function AdminRejectedQuotesSection({ quotes }: Props) {
       const fail = data.failed?.length ?? 0;
       setMessage(`${ok} silindi${fail > 0 ? `, ${fail} başarısız` : ""}.`);
       setSelected(new Set());
-      router.refresh();
+      const succeededIds: string[] = data.succeeded ?? [];
+      if (succeededIds.length > 0) {
+        setItems((prev) => prev.filter((q) => !succeededIds.includes(q.id)));
+      }
+      await refreshAdmin();
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Silinemedi");
     } finally {

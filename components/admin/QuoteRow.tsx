@@ -47,9 +47,15 @@ function DetailItem({
 export default function QuoteRow({
   quote,
   commissionRate,
+  onStatusChange,
 }: {
   quote: QuoteRequest;
   commissionRate: number;
+  onStatusChange?: (
+    id: string,
+    status: QuoteRequest["status"],
+    extra?: Partial<QuoteRequest>
+  ) => void;
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -87,6 +93,11 @@ export default function QuoteRow({
         throw new Error(data.error ?? "İşlem başarısız");
       }
       setShowComplete(false);
+      onStatusChange?.(quote.id, status, {
+        jobValue: options?.jobValue,
+        matchedProviderId: options?.matchedProviderId,
+        matchedProviderName: options?.matchedProviderName,
+      });
       if (status === "cancelled") {
         router.push("/sltn/teklifler#reddedilmis-teklifler");
       }
