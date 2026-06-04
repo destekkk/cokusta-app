@@ -53,6 +53,7 @@ export const findApprovedProviderByPhone = delegate("findApprovedProviderByPhone
 export const findProviderByPhone = delegate("findProviderByPhone");
 export const getApprovedProviderAuthByPhone = delegate("getApprovedProviderAuthByPhone");
 export const setProviderPinIfUnset = delegate("setProviderPinIfUnset");
+export const setProviderPin = delegate("setProviderPin");
 export const addProviderPortfolioItem = delegate("addProviderPortfolioItem");
 export const removeProviderPortfolioItem = delegate("removeProviderPortfolioItem");
 export const getRecentPortfolioItems = delegate("getRecentPortfolioItems");

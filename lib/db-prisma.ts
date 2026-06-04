@@ -717,7 +717,9 @@ export async function grantAdminGiftCreditsToProviders(input: {
 }
 
 export async function createProviderAdmin(
-  data: Omit<ProviderRegistration, "id" | "createdAt" | "reviewedAt" | "rejectionReason">
+  data: Omit<ProviderRegistration, "id" | "createdAt" | "reviewedAt" | "rejectionReason"> & {
+    pinHash?: string;
+  }
 ): Promise<ProviderRegistration> {
   const phone = normalizeProviderPhone(data.phone);
   const existing = await findProviderByPhone(phone);
@@ -742,6 +744,7 @@ export async function createProviderAdmin(
       createdAt: new Date(),
       status: providerStatus(data.status),
       creditBalance: data.creditBalance ?? 0,
+      pinHash: data.pinHash ?? null,
     },
   });
 
@@ -1156,6 +1159,17 @@ export async function getApprovedProviderAuthByPhone(
 export async function setProviderPinIfUnset(providerId: string, pinHash: string): Promise<boolean> {
   const row = await prisma.provider.findUnique({ where: { id: providerId } });
   if (!row || row.status !== "approved" || row.pinHash) return false;
+
+  await prisma.provider.update({
+    where: { id: providerId },
+    data: { pinHash },
+  });
+  return true;
+}
+
+export async function setProviderPin(providerId: string, pinHash: string): Promise<boolean> {
+  const row = await prisma.provider.findUnique({ where: { id: providerId }, select: { id: true } });
+  if (!row) return false;
 
   await prisma.provider.update({
     where: { id: providerId },

@@ -3,8 +3,10 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { cities } from "@/lib/data/cities";
+import AdminPinFields from "@/components/admin/AdminPinFields";
 import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
 import type { CustomerSummary } from "@/lib/types";
+import { validatePinPairForForm } from "@/lib/provider-pin";
 
 type FormData = {
   name: string;
@@ -34,6 +36,8 @@ export default function CustomerManager({
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormData>(emptyForm);
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
   const [editing, setEditing] = useState<CustomerSummary | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -53,11 +57,15 @@ export default function CustomerManager({
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setPin("");
+    setPinConfirm("");
     setShowForm(true);
   };
 
   const openEdit = (customer: CustomerSummary) => {
     setEditing(customer);
+    setPin("");
+    setPinConfirm("");
     setForm({
       name: customer.name,
       phone: customer.phone,
@@ -72,6 +80,8 @@ export default function CustomerManager({
     setShowForm(false);
     setEditing(null);
     setForm(emptyForm);
+    setPin("");
+    setPinConfirm("");
   };
 
   const saveCustomer = async () => {
@@ -80,18 +90,25 @@ export default function CustomerManager({
       return;
     }
 
+    const pinError = validatePinPairForForm(pin, pinConfirm, true);
+    if (pinError) {
+      alert(pinError);
+      return;
+    }
+
     setLoading(true);
     try {
+      const payload = { ...form, pin, pinConfirm };
       const res = editing
         ? await fetch(`/api/admin/musteri/${getCustomerApiId(editing)}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form),
+            body: JSON.stringify(payload),
           })
         : await fetch("/api/admin/musteri", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form),
+            body: JSON.stringify(payload),
           });
 
       const data = await res.json();
@@ -250,6 +267,13 @@ export default function CustomerManager({
                 onChange={(e) => setForm({ ...form, notes: e.target.value })}
                 rows={3}
                 className="w-full rounded-lg border border-border px-3 py-2 text-sm"
+              />
+              <AdminPinFields
+                pin={pin}
+                pinConfirm={pinConfirm}
+                onPinChange={setPin}
+                onPinConfirmChange={setPinConfirm}
+                optional
               />
             </div>
             <div className="mt-5 flex gap-2">

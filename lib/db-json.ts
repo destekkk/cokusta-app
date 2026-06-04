@@ -513,7 +513,9 @@ export async function grantAdminGiftCreditsToProviders(input: {
 }
 
 export async function createProviderAdmin(
-  data: Omit<ProviderRegistration, "id" | "createdAt" | "reviewedAt" | "rejectionReason">
+  data: Omit<ProviderRegistration, "id" | "createdAt" | "reviewedAt" | "rejectionReason"> & {
+    pinHash?: string;
+  }
 ): Promise<ProviderRegistration> {
   const phone = normalizeProviderPhone(data.phone);
   const existing = await findProviderByPhone(phone);
@@ -524,19 +526,23 @@ export async function createProviderAdmin(
   }
 
   const store = await ensureStore();
-  const provider: ProviderRegistration = {
+  const provider = {
     ...data,
     phone,
     id: generateId(),
     createdAt: new Date().toISOString(),
     platformPurchases: data.platformPurchases ?? [],
     creditBalance: data.creditBalance ?? 0,
+  } as ProviderRegistration;
+  const stored: StoredProvider = {
+    ...provider,
+    pinHash: data.pinHash ?? null,
   };
-  assignProviderLaunchSlot(store, provider);
-  if (provider.status === "approved") {
-    grantProviderLaunchBonus(provider);
+  assignProviderLaunchSlot(store, stored);
+  if (stored.status === "approved") {
+    grantProviderLaunchBonus(stored);
   }
-  store.providers.unshift(provider);
+  store.providers.unshift(stored);
   await saveStore(store);
   return provider;
 }
@@ -882,6 +888,17 @@ export async function setProviderPinIfUnset(providerId: string, pinHash: string)
   const provider = store.providers[index] as StoredProvider;
   if (provider.status !== "approved" || provider.pinHash) return false;
 
+  store.providers[index] = { ...provider, pinHash } as StoredProvider;
+  await saveStore(store);
+  return true;
+}
+
+export async function setProviderPin(providerId: string, pinHash: string): Promise<boolean> {
+  const store = await ensureStore();
+  const index = store.providers.findIndex((provider) => provider.id === providerId);
+  if (index === -1) return false;
+
+  const provider = store.providers[index] as StoredProvider;
   store.providers[index] = { ...provider, pinHash } as StoredProvider;
   await saveStore(store);
   return true;

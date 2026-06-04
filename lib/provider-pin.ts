@@ -71,6 +71,25 @@ export function sanitizePinDigits(value: string, maxLen = NEW_PIN_LENGTH): strin
   return value.replace(/\D/g, "").slice(0, maxLen);
 }
 
+/** Admin formları: boş = değişiklik yok (optional), dolu = yeni şifre */
+export function validatePinPairForForm(
+  pin: string,
+  pinConfirm: string,
+  optional: boolean
+): string | null {
+  if (!pin && !pinConfirm) {
+    return optional ? null : `Giriş şifresi ${NEW_PIN_LENGTH} haneli olmalıdır.`;
+  }
+  if (pin.length !== NEW_PIN_LENGTH || pinConfirm.length !== NEW_PIN_LENGTH) {
+    return `Giriş şifresi ${NEW_PIN_LENGTH} haneli olmalıdır.`;
+  }
+  if (pin !== pinConfirm) {
+    return "Giriş şifreleri eşleşmiyor.";
+  }
+  const check = validateNewPin(pin);
+  return check.ok ? null : check.error;
+}
+
 export function hashProviderPin(pin: string): string {
   const salt = randomBytes(16).toString("hex");
   const hash = pbkdf2Sync(pin, salt, PBKDF2_ITERATIONS, 32, "sha256").toString("hex");

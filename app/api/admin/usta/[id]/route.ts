@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
-import { deleteProvider, getProviderById, updateProvider, updateProviderStatus } from "@/lib/db";
+import {
+  deleteProvider,
+  getProviderById,
+  setProviderPin,
+  updateProvider,
+  updateProviderStatus,
+} from "@/lib/db";
+import { parseAdminPinReset } from "@/lib/admin-pin";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -21,6 +28,11 @@ export async function PATCH(request: Request, { params }: Props) {
       return NextResponse.json({ success: true, provider: updated });
     }
 
+    const pinReset = parseAdminPinReset(body.pin, body.pinConfirm);
+    if (pinReset.action === "error") {
+      return NextResponse.json({ error: pinReset.error }, { status: 400 });
+    }
+
     const updated = await updateProvider(id, {
       name: body.name,
       phone: body.phone,
@@ -34,6 +46,13 @@ export async function PATCH(request: Request, { params }: Props) {
 
     if (!updated) {
       return NextResponse.json({ error: "Usta bulunamadı." }, { status: 404 });
+    }
+
+    if (pinReset.action === "set") {
+      const pinSaved = await setProviderPin(id, pinReset.pinHash);
+      if (!pinSaved) {
+        return NextResponse.json({ error: "Şifre kaydedilemedi." }, { status: 500 });
+      }
     }
 
     return NextResponse.json({ success: true, provider: updated });

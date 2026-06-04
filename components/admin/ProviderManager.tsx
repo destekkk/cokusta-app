@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { categories } from "@/lib/data/categories";
 import { cities } from "@/lib/data/cities";
+import AdminPinFields from "@/components/admin/AdminPinFields";
 import AdminTableToolbar from "@/components/admin/AdminTableToolbar";
 import type { ProviderSummary } from "@/lib/types";
+import { validatePinPairForForm } from "@/lib/provider-pin";
 
 const statusLabels: Record<ProviderSummary["status"], string> = {
   pending: "Bekliyor",
@@ -49,6 +51,8 @@ export default function ProviderManager({
 }) {
   const router = useRouter();
   const [form, setForm] = useState<FormData>(emptyForm);
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
   const [editing, setEditing] = useState<ProviderSummary | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -77,11 +81,15 @@ export default function ProviderManager({
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
+    setPin("");
+    setPinConfirm("");
     setShowForm(true);
   };
 
   const openEdit = (provider: ProviderSummary) => {
     setEditing(provider);
+    setPin("");
+    setPinConfirm("");
     setForm({
       name: provider.name,
       phone: provider.phone,
@@ -99,6 +107,8 @@ export default function ProviderManager({
     setShowForm(false);
     setEditing(null);
     setForm(emptyForm);
+    setPin("");
+    setPinConfirm("");
   };
 
   const saveProvider = async () => {
@@ -107,18 +117,25 @@ export default function ProviderManager({
       return;
     }
 
+    const pinError = validatePinPairForForm(pin, pinConfirm, Boolean(editing));
+    if (pinError) {
+      alert(pinError);
+      return;
+    }
+
     setLoading(true);
     try {
+      const payload = { ...form, pin, pinConfirm };
       const res = editing
         ? await fetch(`/api/admin/usta/${editing.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form),
+            body: JSON.stringify(payload),
           })
         : await fetch("/api/admin/usta", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(form),
+            body: JSON.stringify(payload),
           });
 
       const data = await res.json();
@@ -164,7 +181,7 @@ export default function ProviderManager({
         <AdminTableToolbar
           search={search}
           onSearchChange={setSearch}
-          searchPlaceholder="Ad, telefon, şehir, durum…"
+          searchPlaceholder="Ad, telefon, şehir…"
           total={providers.length}
           shown={filtered.length}
         />
@@ -307,6 +324,16 @@ export default function ProviderManager({
                 <option value="approved">Onaylı</option>
                 <option value="rejected">Reddedildi</option>
               </select>
+            </div>
+
+            <div className="mt-3">
+              <AdminPinFields
+                pin={pin}
+                pinConfirm={pinConfirm}
+                onPinChange={setPin}
+                onPinConfirmChange={setPinConfirm}
+                optional={Boolean(editing)}
+              />
             </div>
 
             <div className="mt-3">

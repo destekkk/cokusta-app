@@ -5,6 +5,12 @@ import {
   PROVIDER_PHONE_EXISTS,
   providerPhoneExistsUserMessage,
 } from "@/lib/provider-registration";
+import {
+  hashProviderPin,
+  isValidProviderPhone,
+  normalizeProviderPhone,
+  validateNewPin,
+} from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -22,6 +28,8 @@ export async function POST(request: Request) {
       experience,
       bio,
       status,
+      pin,
+      pinConfirm,
     } = body;
 
     if (!name || !phone || !city || !categorySlugs?.length) {
@@ -31,9 +39,22 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!isValidProviderPhone(String(phone))) {
+      return NextResponse.json({ error: "Geçerli telefon numarası girin." }, { status: 400 });
+    }
+
+    const pinCheck = validateNewPin(String(pin ?? ""));
+    if (!pinCheck.ok) {
+      return NextResponse.json({ error: pinCheck.error }, { status: 400 });
+    }
+
+    if (String(pin) !== String(pinConfirm ?? "")) {
+      return NextResponse.json({ error: "Giriş şifreleri eşleşmiyor." }, { status: 400 });
+    }
+
     const provider = await createProviderAdmin({
       name: String(name),
-      phone: String(phone),
+      phone: normalizeProviderPhone(String(phone)),
       email: String(email ?? ""),
       city: String(city),
       categorySlugs,
@@ -41,6 +62,7 @@ export async function POST(request: Request) {
       bio: String(bio ?? ""),
       status: status ?? "approved",
       platformPurchases: [],
+      pinHash: hashProviderPin(String(pin)),
     });
 
     return NextResponse.json({ success: true, provider });

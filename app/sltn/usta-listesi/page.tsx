@@ -3,8 +3,8 @@ import { getProviderSummaries } from "@/lib/db";
 import ProviderManager from "@/components/admin/ProviderManager";
 
 export default async function AdminProviderListPage() {
-  const providers = await getProviderSummaries();
-  const approved = providers.filter((provider) => provider.status === "approved");
+  const allProviders = await getProviderSummaries();
+  const providers = allProviders.filter((provider) => provider.status === "approved");
 
   const totals = providers.reduce(
     (acc, provider) => ({
@@ -18,7 +18,7 @@ export default async function AdminProviderListPage() {
     <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
       <h1 className="text-2xl font-bold text-foreground">Usta Listesi</h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        {providers.length} usta · {approved.length} onaylı · Toplam iş kazancı{" "}
+        {providers.length} onaylı usta · Toplam iş kazancı{" "}
         {totals.jobEarnings.toLocaleString("tr-TR")} ₺ · Platform hizmet{" "}
         {totals.platformSpend.toLocaleString("tr-TR")} ₺
       </p>

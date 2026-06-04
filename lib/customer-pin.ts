@@ -62,6 +62,29 @@ export async function getCustomerAuthByPhone(phone: string): Promise<{
   };
 }
 
+export async function setCustomerPin(phone: string, pin: string): Promise<void> {
+  const check = validateNewPin(pin);
+  if (!check.ok) throw new Error(check.error);
+
+  const normalized = normalizeProviderPhone(phone);
+  const pinHash = hashProviderPin(pin);
+
+  if (isDatabaseEnabled()) {
+    await getOrCreateCustomerWallet(normalized);
+    const wallet = await prisma.customerWallet.findFirstOrThrow({ where: { phone: normalized } });
+    await prisma.customerWallet.update({
+      where: { id: wallet.id },
+      data: { pinHash, updatedAt: new Date() },
+    });
+    return;
+  }
+
+  const store = await readJsonStore();
+  store.customerPinHashes = store.customerPinHashes ?? {};
+  store.customerPinHashes[normalized] = pinHash;
+  await writeJsonStore(store);
+}
+
 export async function setCustomerPinIfUnset(phone: string, pin: string): Promise<boolean> {
   const check = validateNewPin(pin);
   if (!check.ok) throw new Error(check.error);

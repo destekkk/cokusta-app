@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
+import { parseAdminPinReset } from "@/lib/admin-pin";
+import { setCustomerPin } from "@/lib/customer-pin";
 import { createCustomer } from "@/lib/db";
+import { normalizeProviderPhone } from "@/lib/provider-pin";
 
 export async function POST(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -9,22 +12,33 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const { name, phone, email, city, notes } = body;
+    const { name, phone, email, city, notes, pin, pinConfirm } = body;
 
     if (!name || !phone || !city) {
       return NextResponse.json({ error: "Ad, telefon ve şehir zorunlu." }, { status: 400 });
     }
 
+    const pinReset = parseAdminPinReset(pin, pinConfirm);
+    if (pinReset.action === "error") {
+      return NextResponse.json({ error: pinReset.error }, { status: 400 });
+    }
+
+    const normalizedPhone = normalizeProviderPhone(String(phone));
     const customer = await createCustomer({
       name: String(name),
-      phone: String(phone),
+      phone: normalizedPhone,
       email: String(email ?? ""),
       city: String(city),
       notes: notes ? String(notes) : "",
     });
 
+    if (pinReset.action === "set") {
+      await setCustomerPin(normalizedPhone, String(pin));
+    }
+
     return NextResponse.json({ success: true, customer });
-  } catch {
-    return NextResponse.json({ error: "Müşteri eklenemedi." }, { status: 500 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Müşteri eklenemedi.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
