@@ -23,17 +23,42 @@ type Props = {
   initialBalance: number;
   initialCreditDebt: number;
   borcKredisiAktif?: boolean;
+  paymentsOnline?: boolean;
 };
 
 export default function UstaCreditShop({
   initialBalance,
   initialCreditDebt,
   borcKredisiAktif = false,
+  paymentsOnline = false,
 }: Props) {
   const searchParams = useSearchParams();
   const noCredit = searchParams.get("reason") === "no-credit";
   const [balance] = useState(initialBalance);
   const [creditDebt] = useState(initialCreditDebt);
+  const [checkingOut, setCheckingOut] = useState<string | null>(null);
+  const [checkoutError, setCheckoutError] = useState("");
+
+  const startCheckout = async (packageSlug: string) => {
+    setCheckingOut(packageSlug);
+    setCheckoutError("");
+    try {
+      const res = await fetch("/api/payments/create-checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ packageSlug, orderType: "provider_credit" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Ödeme başlatılamadı");
+      const url = data.checkoutUrl ?? data.url;
+      if (!url) throw new Error("Ödeme adresi alınamadı.");
+      window.location.href = url;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : "Ödeme başlatılamadı");
+      setCheckingOut(null);
+    }
+  };
 
   const bulkPackages = creditPackages.filter((p) => p.credits > 1);
   const singlePackage = creditPackages.find((p) => p.slug === "kontor-tek");
@@ -60,7 +85,18 @@ export default function UstaCreditShop({
         }}
       />
 
-      <OnlinePaymentsNotice variant="usta-kontor" />
+      {!paymentsOnline ? <OnlinePaymentsNotice variant="usta-kontor" /> : null}
+
+      {paymentsOnline ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <p className="font-semibold">Güvenli online ödeme aktif</p>
+          <p className="mt-1">Paket seçin; Lemon Squeezy ödeme sayfasına yönlendirilirsiniz.</p>
+        </div>
+      ) : null}
+
+      {checkoutError ? (
+        <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{checkoutError}</p>
+      ) : null}
 
       <div className="rounded-xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-end justify-between gap-4">
@@ -87,8 +123,10 @@ export default function UstaCreditShop({
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
         <p className="font-semibold text-primary">Güncel fiyat listesi</p>
         <p className="mt-1 text-muted-foreground">
-          Tek kontör {COKUSTA_CREDIT_PRICE} ₺. Toplu paketlerde kontör başı maliyet düşer. Satın alma
-          işlemi destek ekibi üzerinden yapılır.
+          Tek kontör {COKUSTA_CREDIT_PRICE} ₺. Toplu paketlerde kontör başı maliyet düşer.
+          {paymentsOnline
+            ? " Kart ile anında satın alabilirsiniz."
+            : " Satın alma işlemi destek ekibi üzerinden yapılır."}
         </p>
       </div>
 
@@ -139,6 +177,16 @@ export default function UstaCreditShop({
                   </span>
                 )}
               </p>
+              {paymentsOnline ? (
+                <button
+                  type="button"
+                  disabled={!!checkingOut}
+                  onClick={() => void startCheckout(pkg.slug)}
+                  className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+                >
+                  {checkingOut === pkg.slug ? "Yönlendiriliyor…" : "Satın Al"}
+                </button>
+              ) : null}
             </article>
           );
         })}
@@ -161,6 +209,16 @@ export default function UstaCreditShop({
                 {pkg.unitLabel && (
                   <p className="mt-1 text-xs text-muted-foreground">{pkg.unitLabel} abonelik</p>
                 )}
+                {paymentsOnline ? (
+                  <button
+                    type="button"
+                    disabled={!!checkingOut}
+                    onClick={() => void startCheckout(pkg.slug)}
+                    className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+                  >
+                    {checkingOut === pkg.slug ? "Yönlendiriliyor…" : "Satın Al"}
+                  </button>
+                ) : null}
               </article>
             ))}
           </div>
@@ -182,6 +240,16 @@ export default function UstaCreditShop({
               {formatCreditPrice(singleCheckout.debtAmount)} borç bakiyesi
             </p>
           )}
+          {paymentsOnline ? (
+            <button
+              type="button"
+              disabled={!!checkingOut}
+              onClick={() => void startCheckout(singlePackage.slug)}
+              className="mt-4 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+            >
+              {checkingOut === singlePackage.slug ? "Yönlendiriliyor…" : "Satın Al"}
+            </button>
+          ) : null}
         </article>
       )}
 

@@ -3,6 +3,7 @@ import Footer from "@/components/Footer";
 import UstaCreditShopWrapper from "@/components/UstaCreditShopWrapper";
 import UstaPanelHeader from "@/components/UstaPanelHeader";
 import { getProviderById } from "@/lib/db";
+import { isLemonSqueezyConfigured } from "@/lib/lemonsqueezy/config";
 import { getProviderSessionId } from "@/lib/provider-auth";
 import { redirect } from "next/navigation";
 
@@ -34,6 +35,7 @@ export default async function UstaCreditPage() {
             initialBalance={provider.creditBalance ?? 0}
             initialCreditDebt={provider.creditDebt ?? 0}
             borcKredisiAktif={provider.borcKredisiAktif ?? false}
+            paymentsOnline={isLemonSqueezyConfigured()}
           />
         </div>
       </div>

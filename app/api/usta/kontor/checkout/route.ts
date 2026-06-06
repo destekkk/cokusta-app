@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { getProviderSessionIdFromRequest } from "@/lib/mobile-auth";
+import { getProviderSessionId } from "@/lib/provider-auth";
 import { startProviderCreditCheckout } from "@/lib/provider-credit-checkout";
 
+/** Web usta paneli — kontör checkout (Lemon Squeezy veya manuel akış). */
 export async function POST(request: Request) {
-  const providerId = await getProviderSessionIdFromRequest(request);
+  const providerId = await getProviderSessionId();
   if (!providerId) {
     return NextResponse.json({ error: "Giriş gerekli." }, { status: 401 });
   }
 
-  let packageSlug: string;
+  let packageSlug = "";
   try {
     const body = await request.json();
-    packageSlug = String(body.packageSlug ?? "");
+    packageSlug = String(body.packageSlug ?? "").trim();
   } catch {
     return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   }
@@ -20,14 +21,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Paket seçin." }, { status: 400 });
   }
 
-  const auth = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
-  const started = await startProviderCreditCheckout(providerId, packageSlug, {
-    accessToken: auth,
-  });
-
+  const started = await startProviderCreditCheckout(providerId, packageSlug);
   if (started.error || !started.result) {
     return NextResponse.json(
-      { error: started.error ?? "Sipariş oluşturulamadı." },
+      { error: started.error ?? "Ödeme başlatılamadı." },
       { status: 400 },
     );
   }
@@ -35,11 +32,10 @@ export async function POST(request: Request) {
   const { result } = started;
   return NextResponse.json({
     orderId: result.orderId,
-    paymentUrl: result.checkoutUrl,
+    packageName: result.packageName,
+    amount: result.amount,
+    mode: result.mode,
     checkoutUrl: result.checkoutUrl,
     url: result.checkoutUrl,
-    amount: result.amount,
-    packageName: result.packageName,
-    mode: result.mode,
   });
 }

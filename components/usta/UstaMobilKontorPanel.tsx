@@ -71,6 +71,12 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Ödeme başlatılamadı");
 
+      const checkoutUrl = data.checkoutUrl ?? data.paymentUrl ?? data.url;
+      if (data.mode === "lemon" && checkoutUrl) {
+        window.location.href = checkoutUrl;
+        return;
+      }
+
       const whatsapp = `https://wa.me/${companyInfo.whatsapp}?text=${encodeURIComponent(
         `Merhaba, mobil uygulamadan kontör ödemesi yapmak istiyorum. Sipariş: ${data.orderId}, Paket: ${data.packageName}, Tutar: ${data.amount} ₺`
       )}`;
