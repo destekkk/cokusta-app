@@ -5,6 +5,7 @@ import {
   getLemonVariantId,
   isLemonTestMode,
 } from "@/lib/lemonsqueezy/config";
+import { getCheckoutProductOptions } from "@/lib/lemonsqueezy/product-media";
 import type { CreditPurchaseOrder } from "@/lib/types";
 
 const API_BASE = "https://api.lemonsqueezy.com/v1";
@@ -40,6 +41,7 @@ export async function createProviderCreditCheckout(
   }
 
   const site = resolveSiteUrl();
+  const productOptions = getCheckoutProductOptions(order.packageSlug);
   const successUrl = new URL("/usta/kontor/sonuc", site);
   successUrl.searchParams.set("status", "success");
   successUrl.searchParams.set("order", order.id);
@@ -68,8 +70,13 @@ export async function createProviderCreditCheckout(
           },
         },
         product_options: {
+          name: productOptions.name,
+          description: productOptions.description,
+          media: productOptions.media,
           redirect_url: successUrl.toString(),
           receipt_button_text: "Usta paneline dön",
+          receipt_link_url: `${site}/usta/teklifler`,
+          receipt_thank_you_note: productOptions.receipt_thank_you_note,
           enabled_variants: [Number(variantId)],
         },
         ...(isLemonTestMode() ? { test_mode: true } : {}),

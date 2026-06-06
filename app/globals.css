@@ -1,19 +1,20 @@
 @import "tailwindcss";
 
 :root {
-  --background: hsl(140 20% 98%);
-  --foreground: hsl(155 25% 12%);
+  --background: hsl(195 22% 98%);
+  --foreground: hsl(200 22% 12%);
   --card: hsl(0 0% 100%);
-  --card-foreground: hsl(155 25% 12%);
+  --card-foreground: hsl(200 22% 12%);
   --primary: hsl(148 100% 33%);
   --primary-dark: hsl(148 100% 27%);
   --primary-light: hsl(145 60% 95%);
-  --secondary: hsl(155 42% 20%);
-  --secondary-light: hsl(155 36% 28%);
-  --muted: hsl(140 16% 94%);
-  --muted-foreground: hsl(150 12% 42%);
-  --accent: hsl(145 30% 96%);
-  --border: hsl(140 18% 90%);
+  /* Kurumsal bant, footer, panel üst şerit — turkuaz */
+  --secondary: hsl(192 58% 28%);
+  --secondary-light: hsl(192 52% 36%);
+  --muted: hsl(195 16% 94%);
+  --muted-foreground: hsl(195 12% 42%);
+  --accent: hsl(195 28% 96%);
+  --border: hsl(195 18% 90%);
   --ring: hsl(148 100% 33%);
 }
 
