@@ -8,9 +8,14 @@
   --primary: hsl(148 100% 33%);
   --primary-dark: hsl(148 100% 27%);
   --primary-light: hsl(145 60% 95%);
-  /* Kurumsal bant, footer, panel üst şerit — turkuaz */
+  /* Kurumsal hero bandı, panel üst şerit — turkuaz */
   --secondary: hsl(192 58% 28%);
   --secondary-light: hsl(192 52% 36%);
+  /* Footer — açık turkuaz / açık mavi */
+  --footer-bg: hsl(198 68% 93%);
+  --footer-fg: hsl(200 28% 16%);
+  --footer-muted: hsl(200 14% 38%);
+  --footer-border: hsl(198 32% 80%);
   --muted: hsl(195 16% 94%);
   --muted-foreground: hsl(195 12% 42%);
   --accent: hsl(195 28% 96%);
@@ -28,6 +33,10 @@
   --color-primary-light: var(--primary-light);
   --color-secondary: var(--secondary);
   --color-secondary-light: var(--secondary-light);
+  --color-footer: var(--footer-bg);
+  --color-footer-foreground: var(--footer-fg);
+  --color-footer-muted: var(--footer-muted);
+  --color-footer-border: var(--footer-border);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
