@@ -45,7 +45,9 @@ if (!process.env.DIRECT_URL?.trim() && process.env.DATABASE_URL?.trim()) {
 
 run("npx prisma generate");
 
-const pushed = run("npx prisma db push --skip-generate", { allowFail: true });
+const pushed = run("npx prisma db push --skip-generate --accept-data-loss", {
+  allowFail: true,
+});
 if (!pushed) {
   console.warn(
     "[vercel-build] prisma db push başarısız — build devam ediyor. Ana sayfa DB yedekleriyle açılır; şemayı Neon'da elle senkronlayın."
