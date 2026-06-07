@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
       allow: "/",
       disallow: ["/admin", "/admin/", "/sltn/", "/api/admin/", "/teklif-al/onay", "/usta-ol/onay"],
     },
-    sitemap: `${base}/sitemap.xml`,
+    sitemap: `${base}/sitemap-index.xml`,
   };
 }

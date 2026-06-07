@@ -2,17 +2,21 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Logo from "@/components/Logo";
+import KontorDebtCheckoutDialog from "@/components/KontorDebtCheckoutDialog";
+import { loadLemonSqueezyScript, openLemonCheckout } from "@/lib/lemonsqueezy/lemon-script";
 import { companyInfo } from "@/lib/data/company";
 
 type Package = {
   slug: string;
   name: string;
   credits: number;
+  price: number;
   formattedPrice: string;
   description: string;
   perCredit: number;
   savingsPercent: number;
   badge: string | null;
+  debtAmount?: number;
 };
 
 type Props = {
@@ -30,6 +34,7 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
   const [packages, setPackages] = useState<Package[]>([]);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [message, setMessage] = useState("");
+  const [pendingCheckout, setPendingCheckout] = useState<Package | null>(null);
 
   const headers = {
     Authorization: `Bearer ${accessToken}`,
@@ -58,7 +63,11 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
     void load();
   }, [load]);
 
-  const startCheckout = async (slug: string) => {
+  useEffect(() => {
+    void loadLemonSqueezyScript();
+  }, []);
+
+  const runCheckout = async (slug: string) => {
     setCheckingOut(slug);
     setMessage("");
     setError("");
@@ -73,7 +82,8 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
 
       const checkoutUrl = data.checkoutUrl ?? data.paymentUrl ?? data.url;
       if (data.mode === "lemon" && checkoutUrl) {
-        window.location.href = checkoutUrl;
+        await openLemonCheckout(checkoutUrl, { onClose: () => setCheckingOut(null) });
+        setCheckingOut(null);
         return;
       }
 
@@ -90,6 +100,14 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
     } finally {
       setCheckingOut(null);
     }
+  };
+
+  const requestCheckout = (pkg: Package) => {
+    if (creditDebt > 0) {
+      setPendingCheckout(pkg);
+      return;
+    }
+    void runCheckout(pkg.slug);
   };
 
   return (
@@ -115,9 +133,13 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
           <p className="text-sm text-muted-foreground">Mevcut bakiye</p>
           <p className="text-3xl font-bold text-primary">{creditBalance} kontör</p>
           {creditDebt > 0 && debtSettlementFormatted ? (
-            <p className="mt-2 text-sm text-amber-700">
-              Borç kredisi: {creditDebt} kontör (+{debtSettlementFormatted} tahsil edilir)
-            </p>
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="font-semibold">Borç kredisi: {creditDebt} kontör</p>
+              <p className="mt-1">
+                Kontör alırken paket ücretine <strong>{debtSettlementFormatted}</strong> borç tahsilatı
+                eklenir. Ödeme öncesi toplam tutar gösterilir.
+              </p>
+            </div>
           ) : null}
         </div>
 
@@ -135,6 +157,11 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
                 <h2 className="font-bold">{pkg.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{pkg.description}</p>
                 <p className="mt-3 text-2xl font-bold text-foreground">{pkg.formattedPrice}</p>
+                {creditDebt > 0 && pkg.debtAmount ? (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Paket + borç kredisi tahsilatı dahil
+                  </p>
+                ) : null}
                 <p className="text-xs text-muted-foreground">
                   Kontör başı {pkg.perCredit} ₺
                   {pkg.savingsPercent > 0 ? ` · %${pkg.savingsPercent} tasarruf` : ""}
@@ -142,7 +169,7 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
                 <button
                   type="button"
                   disabled={!!checkingOut}
-                  onClick={() => void startCheckout(pkg.slug)}
+                  onClick={() => requestCheckout(pkg)}
                   className="mt-4 w-full rounded-xl bg-primary py-3 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
                 >
                   {checkingOut === pkg.slug ? "Hazırlanıyor…" : "Ödeme Yap"}
@@ -162,6 +189,22 @@ export default function UstaMobilKontorPanel({ accessToken, orderId, embedded = 
           {companyInfo.email} · {companyInfo.phone}
         </p>
       </main>
+
+      <KontorDebtCheckoutDialog
+        open={!!pendingCheckout}
+        packageName={pendingCheckout?.name ?? ""}
+        packagePrice={pendingCheckout?.price ?? 0}
+        creditDebt={creditDebt}
+        confirming={!!checkingOut}
+        onConfirm={() => {
+          if (!pendingCheckout) return;
+          void runCheckout(pendingCheckout.slug);
+          setPendingCheckout(null);
+        }}
+        onCancel={() => {
+          if (!checkingOut) setPendingCheckout(null);
+        }}
+      />
     </div>
   );
 }

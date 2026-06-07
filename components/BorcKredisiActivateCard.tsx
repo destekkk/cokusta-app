@@ -23,7 +23,7 @@ type Props = {
   className?: string;
 };
 
-/** Kontör bitince borç kredisi — usta onayı ile tanımlanır */
+/** Kontör bitince isteğe bağlı borç kredisi — usta onayı ile tanımlanır */
 export default function BorcKredisiActivateCard({
   creditBalance,
   creditDebt,
@@ -65,8 +65,8 @@ export default function BorcKredisiActivateCard({
         <div>
           <p className="text-sm font-semibold text-amber-950">Kontörünüz bitti</p>
           <p className="mt-1 text-sm text-amber-900/90">
-            En fazla {MAX_CREDIT_DEBT} kontör borç kredisi ile teklif verebilirsiniz. Tanımlamak için
-            onayınız gerekir.
+            İsterseniz en fazla {MAX_CREDIT_DEBT} kontör borç kredisi tanımlayabilirsiniz. Kullanmak
+            tamamen sizin tercihinizdir; kontör alırken borç paket ücretine eklenir.
           </p>
         </div>
         <button
@@ -91,9 +91,9 @@ export default function BorcKredisiActivateCard({
               <strong>{debtSettlement}</strong>) paket fiyatına eklenerek tahsil edilir.
             </p>
             <ul className="mt-3 list-inside list-disc text-sm text-muted-foreground">
-              <li>Tek seferlik tanımlama; onayınız olmadan işlem yapılmaz</li>
+              <li>İsteğe bağlıdır; her teklifte ayrıca onayınız istenir</li>
               <li>En fazla {MAX_CREDIT_DEBT} teklif hakkı (her teklif 1 kontör)</li>
-              <li>Mevcut hediye kontörünüz bittikten sonra geçerlidir</li>
+              <li>Kontör satın alırken borç tutarı paket fiyatına eklenerek tahsil edilir</li>
             </ul>
             {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
             <div className="mt-6 flex flex-col gap-2 sm:flex-row-reverse">

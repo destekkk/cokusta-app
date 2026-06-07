@@ -55,7 +55,7 @@ export async function createProviderCreditCheckout(
       attributes: {
         custom_price: order.amount * 100,
         checkout_options: {
-          embed: false,
+          embed: true,
           media: true,
           logo: true,
         },

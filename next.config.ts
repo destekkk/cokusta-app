@@ -33,6 +33,14 @@ const nextConfig: NextConfig = {
         source: "/sitemap.xml",
         destination: "/sitemap-index",
       },
+      {
+        source: "/sitemap-index.xml",
+        destination: "/sitemap-index",
+      },
+      {
+        source: "/google-sitemap.xml",
+        destination: "/sitemap-index",
+      },
     ];
   },
   images: {

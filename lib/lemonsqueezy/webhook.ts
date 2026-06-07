@@ -32,6 +32,7 @@ export type LemonWebhookPayload = {
       status?: string;
       identifier?: string;
       order_number?: number;
+      test_mode?: boolean;
     };
   };
 };

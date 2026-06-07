@@ -7,7 +7,6 @@ type Props = {
   initialBalance: number;
   initialCreditDebt: number;
   borcKredisiAktif?: boolean;
-  paymentsOnline?: boolean;
 };
 
 function Shop(props: Props) {

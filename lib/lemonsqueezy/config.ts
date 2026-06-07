@@ -27,3 +27,16 @@ export function getLemonVariantId(packageSlug: string): string | null {
   const id = process.env[envKey]?.trim();
   return id && /^\d+$/.test(id) ? id : null;
 }
+
+/** Mağaza slug — lemon.js doğrudan buy linki için (ör. magazan) */
+export function getLemonStoreSlug(): string {
+  return process.env.LEMONSQUEEZY_STORE_SLUG?.trim() ?? "";
+}
+
+/** Statik variant buy URL — API olmadan embed buton için */
+export function getLemonVariantBuyUrl(packageSlug: string): string | null {
+  const variantId = getLemonVariantId(packageSlug);
+  const storeSlug = getLemonStoreSlug();
+  if (!variantId || !storeSlug) return null;
+  return `https://${storeSlug}.lemonsqueezy.com/checkout/buy/${variantId}`;
+}

@@ -5,9 +5,15 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LAUNCH_CAMPAIGN } from "@/lib/campaigns";
 import { getCategoryName } from "@/lib/data/categories";
-import { MAX_CREDIT_DEBT, canActivateBorcKredisi, canSubmitOffer } from "@/lib/credit-debt";
+import {
+  MAX_CREDIT_DEBT,
+  canActivateBorcKredisi,
+  canSubmitOffer,
+  willUseDebtCredit,
+} from "@/lib/credit-debt";
 import UstaMyOffersPanel from "@/components/UstaMyOffersPanel";
 import BorcKredisiActivateCard from "@/components/BorcKredisiActivateCard";
+import BorcKredisiOfferConfirmDialog from "@/components/BorcKredisiOfferConfirmDialog";
 import CurrencyInput from "@/components/CurrencyInput";
 import { parseTlDigits } from "@/lib/currency-input";
 import PanelStatCard from "@/components/panel/PanelStatCard";
@@ -87,6 +93,7 @@ export default function UstaOpenQuotesPanel() {
   const [creditBalance, setCreditBalance] = useState(0);
   const [creditDebt, setCreditDebt] = useState(0);
   const [borcKredisiAktif, setBorcKredisiAktif] = useState(false);
+  const [pendingDebtOfferId, setPendingDebtOfferId] = useState<string | null>(null);
   const [escrowBalanceTl, setEscrowBalanceTl] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -126,8 +133,6 @@ export default function UstaOpenQuotesPanel() {
   const canOffer = canSubmitOffer(creditBalance, creditDebt, borcKredisiAktif);
   const atDebtLimit = creditBalance < 1 && creditDebt >= MAX_CREDIT_DEBT;
   const canActivateDebt = canActivateBorcKredisi(creditBalance, creditDebt, borcKredisiAktif);
-  const borcKredisiPending = borcKredisiAktif || creditDebt > 0;
-
   const load = async (nextLocation: ProviderQuoteLocationFilter = location) => {
     const showFullLoader = quotes.length === 0 && !error;
     if (showFullLoader) setLoading(true);
@@ -278,9 +283,16 @@ export default function UstaOpenQuotesPanel() {
     setActiveId(quoteId);
   };
 
-  const submitOffer = async (quoteRequestId: string) => {
+  const submitOffer = async (quoteRequestId: string, skipDebtConfirm = false) => {
     if (!canOffer) {
       goBuyCredits();
+      return;
+    }
+    if (
+      !skipDebtConfirm &&
+      willUseDebtCredit(creditBalance, creditDebt, borcKredisiAktif)
+    ) {
+      setPendingDebtOfferId(quoteRequestId);
       return;
     }
     setSubmitting(true);
@@ -581,11 +593,12 @@ export default function UstaOpenQuotesPanel() {
 
           {error && <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{error}</p>}
 
-          {tab === "open" && borcKredisiPending && creditDebt === 0 && !canActivateDebt && (
+          {tab === "open" && borcKredisiAktif && creditDebt === 0 && creditBalance < 1 && (
             <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               <p className="font-semibold">Borç krediniz aktif</p>
               <p className="mt-1 text-xs text-amber-900/90">
-                Teklif verirken borç kredisi kullanabilirsiniz (en fazla {MAX_CREDIT_DEBT} kontör).
+                Kontörünüz bittiğinde teklif gönderirken onayınızla borç kredisi kullanılır (en fazla{" "}
+                {MAX_CREDIT_DEBT} kontör). Borç, kontör satın alırken paket ücretine eklenir.
               </p>
             </div>
           )}
@@ -856,6 +869,21 @@ export default function UstaOpenQuotesPanel() {
             )}
         </div>
       </SheetTabs>
+
+      <BorcKredisiOfferConfirmDialog
+        open={!!pendingDebtOfferId}
+        creditDebt={creditDebt}
+        confirming={submitting}
+        onConfirm={() => {
+          if (!pendingDebtOfferId) return;
+          const id = pendingDebtOfferId;
+          setPendingDebtOfferId(null);
+          void submitOffer(id, true);
+        }}
+        onCancel={() => {
+          if (!submitting) setPendingDebtOfferId(null);
+        }}
+      />
     </div>
   );
 }

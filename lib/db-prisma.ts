@@ -2028,7 +2028,7 @@ export async function submitProviderOffer(
 
   const balance = provider.creditBalance ?? 0;
   const debt = provider.creditDebt ?? 0;
-  const borcAktif = provider.borcKredisiAktif ?? false;
+  const borcAktif = provider.borcKredisiAktif === true;
   const useBalance = balance >= 1;
   const useDebt = !useBalance && borcAktif && debt < MAX_CREDIT_DEBT;
 

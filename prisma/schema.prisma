@@ -289,6 +289,32 @@ model CreditPurchaseOrder {
   @@map("credit_purchase_orders")
 }
 
+model LemonWebhookLog {
+  id                   String   @id @db.VarChar(64)
+  eventName            String   @map("event_name") @db.VarChar(64)
+  conversationId       String?  @map("conversation_id") @db.VarChar(64)
+  orderId              String?  @map("order_id") @db.VarChar(64)
+  lemonOrderId         String?  @map("lemon_order_id") @db.VarChar(64)
+  providerId           String?  @map("provider_id") @db.VarChar(64)
+  testMode             Boolean  @default(false) @map("test_mode")
+  outcome              String   @db.VarChar(32)
+  orderStatusBefore    String?  @map("order_status_before") @db.VarChar(32)
+  orderStatusAfter     String?  @map("order_status_after") @db.VarChar(32)
+  creditsGranted       Int?     @map("credits_granted")
+  providerCreditBefore Int?     @map("provider_credit_before")
+  providerCreditAfter  Int?     @map("provider_credit_after")
+  dbVerified           Boolean  @default(false) @map("db_verified")
+  errorMessage         String?  @map("error_message") @db.Text
+  responseSummary      String?  @map("response_summary") @db.Text
+  createdAt            DateTime @map("created_at")
+
+  @@index([conversationId])
+  @@index([orderId])
+  @@index([outcome])
+  @@index([createdAt])
+  @@map("lemon_webhook_logs")
+}
+
 model ProviderPortfolioItem {
   id          String   @id @db.VarChar(64)
   providerId  String   @map("provider_id") @db.VarChar(64)

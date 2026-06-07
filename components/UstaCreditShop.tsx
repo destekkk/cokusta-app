@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { loadLemonSqueezyScript, openLemonCheckout } from "@/lib/lemonsqueezy/lemon-script";
 import {
   creditPackages,
   formatCreditPrice,
@@ -17,20 +18,18 @@ import {
   MAX_CREDIT_DEBT,
 } from "@/lib/credit-debt";
 import BorcKredisiActivateCard from "@/components/BorcKredisiActivateCard";
-import OnlinePaymentsNotice from "@/components/OnlinePaymentsNotice";
+import KontorDebtCheckoutDialog from "@/components/KontorDebtCheckoutDialog";
 
 type Props = {
   initialBalance: number;
   initialCreditDebt: number;
   borcKredisiAktif?: boolean;
-  paymentsOnline?: boolean;
 };
 
 export default function UstaCreditShop({
   initialBalance,
   initialCreditDebt,
   borcKredisiAktif = false,
-  paymentsOnline = false,
 }: Props) {
   const searchParams = useSearchParams();
   const noCredit = searchParams.get("reason") === "no-credit";
@@ -38,8 +37,17 @@ export default function UstaCreditShop({
   const [creditDebt] = useState(initialCreditDebt);
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState("");
+  const [pendingCheckout, setPendingCheckout] = useState<{
+    slug: string;
+    name: string;
+    price: number;
+  } | null>(null);
 
-  const startCheckout = async (packageSlug: string) => {
+  useEffect(() => {
+    void loadLemonSqueezyScript();
+  }, []);
+
+  const runCheckout = async (packageSlug: string) => {
     setCheckingOut(packageSlug);
     setCheckoutError("");
     try {
@@ -53,11 +61,20 @@ export default function UstaCreditShop({
       if (!res.ok) throw new Error(data.error ?? "Ödeme başlatılamadı");
       const url = data.checkoutUrl ?? data.url;
       if (!url) throw new Error("Ödeme adresi alınamadı.");
-      window.location.href = url;
+      await openLemonCheckout(url, { onClose: () => setCheckingOut(null) });
+      setCheckingOut(null);
     } catch (err) {
       setCheckoutError(err instanceof Error ? err.message : "Ödeme başlatılamadı");
       setCheckingOut(null);
     }
+  };
+
+  const requestCheckout = (slug: string, name: string, price: number) => {
+    if (creditDebt > 0) {
+      setPendingCheckout({ slug, name, price });
+      return;
+    }
+    void runCheckout(slug);
   };
 
   const bulkPackages = creditPackages.filter((p) => p.credits > 1);
@@ -71,8 +88,8 @@ export default function UstaCreditShop({
     <div className="space-y-6">
       {noCredit && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <strong>Kontörünüz bitti.</strong> Yeni kontör için aşağıdaki iletişim kanallarından bize
-          ulaşın; admin panelinden hesabınıza yüklenebilir.
+          <strong>Kontörünüz bitti.</strong> Aşağıdan bir paket seçerek kart ile anında kontör
+          yükleyebilirsiniz.
         </div>
       )}
 
@@ -85,14 +102,21 @@ export default function UstaCreditShop({
         }}
       />
 
-      {!paymentsOnline ? <OnlinePaymentsNotice variant="usta-kontor" /> : null}
-
-      {paymentsOnline ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
-          <p className="font-semibold">Güvenli online ödeme aktif</p>
-          <p className="mt-1">Paket seçin; Lemon Squeezy ödeme sayfasına yönlendirilirsiniz.</p>
+      {creditDebt > 0 ? (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
+          <p className="font-semibold">Borç kredisi bakiyeniz: {creditDebt} kontör</p>
+          <p className="mt-1 leading-relaxed">
+            Kontör satın alırken paket ücretine{" "}
+            <strong>{formatCreditPrice(computeDebtSettlementAmount(creditDebt))}</strong> borç tahsilatı
+            eklenir. Ödeme öncesi toplam tutar size ayrıca gösterilir.
+          </p>
         </div>
       ) : null}
+
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+        <p className="font-semibold">Güvenli online ödeme</p>
+        <p className="mt-1">Paket seçin; Lemon Squeezy ödeme penceresi açılır.</p>
+      </div>
 
       {checkoutError ? (
         <p className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">{checkoutError}</p>
@@ -123,10 +147,8 @@ export default function UstaCreditShop({
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-sm">
         <p className="font-semibold text-primary">Güncel fiyat listesi</p>
         <p className="mt-1 text-muted-foreground">
-          Tek kontör {COKUSTA_CREDIT_PRICE} ₺. Toplu paketlerde kontör başı maliyet düşer.
-          {paymentsOnline
-            ? " Kart ile anında satın alabilirsiniz."
-            : " Satın alma işlemi destek ekibi üzerinden yapılır."}
+          Tek kontör {COKUSTA_CREDIT_PRICE} ₺. Toplu paketlerde kontör başı maliyet düşer. Kart ile
+          anında satın alabilirsiniz.
         </p>
       </div>
 
@@ -177,16 +199,14 @@ export default function UstaCreditShop({
                   </span>
                 )}
               </p>
-              {paymentsOnline ? (
-                <button
-                  type="button"
-                  disabled={!!checkingOut}
-                  onClick={() => void startCheckout(pkg.slug)}
-                  className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
-                >
-                  {checkingOut === pkg.slug ? "Yönlendiriliyor…" : "Satın Al"}
-                </button>
-              ) : null}
+              <button
+                type="button"
+                disabled={!!checkingOut}
+                onClick={() => requestCheckout(pkg.slug, pkg.name, pkg.price)}
+                className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+              >
+                {checkingOut === pkg.slug ? "Yönlendiriliyor…" : "Satın Al"}
+              </button>
             </article>
           );
         })}
@@ -197,7 +217,7 @@ export default function UstaCreditShop({
           <div>
             <h2 className="text-lg font-bold text-foreground">Platform hizmetleri</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Profil öne çıkarma ve doğrulanmış rozet — satın alma için iletişime geçin.
+              Profil öne çıkarma ve doğrulanmış rozet — kart ile satın alın.
             </p>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
@@ -209,16 +229,14 @@ export default function UstaCreditShop({
                 {pkg.unitLabel && (
                   <p className="mt-1 text-xs text-muted-foreground">{pkg.unitLabel} abonelik</p>
                 )}
-                {paymentsOnline ? (
-                  <button
-                    type="button"
-                    disabled={!!checkingOut}
-                    onClick={() => void startCheckout(pkg.slug)}
-                    className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
-                  >
-                    {checkingOut === pkg.slug ? "Yönlendiriliyor…" : "Satın Al"}
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  disabled={!!checkingOut}
+                  onClick={() => requestCheckout(pkg.slug, pkg.name, pkg.price)}
+                  className="mt-4 w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+                >
+                  {checkingOut === pkg.slug ? "Yönlendiriliyor…" : "Satın Al"}
+                </button>
               </article>
             ))}
           </div>
@@ -240,16 +258,14 @@ export default function UstaCreditShop({
               {formatCreditPrice(singleCheckout.debtAmount)} borç bakiyesi
             </p>
           )}
-          {paymentsOnline ? (
-            <button
-              type="button"
-              disabled={!!checkingOut}
-              onClick={() => void startCheckout(singlePackage.slug)}
-              className="mt-4 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
-            >
-              {checkingOut === singlePackage.slug ? "Yönlendiriliyor…" : "Satın Al"}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            disabled={!!checkingOut}
+            onClick={() => requestCheckout(singlePackage.slug, singlePackage.name, singlePackage.price)}
+            className="mt-4 rounded-xl bg-primary px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+          >
+            {checkingOut === singlePackage.slug ? "Yönlendiriliyor…" : "Satın Al"}
+          </button>
         </article>
       )}
 
@@ -261,6 +277,22 @@ export default function UstaCreditShop({
           ← Açık Taleplere Dön
         </Link>
       </div>
+
+      <KontorDebtCheckoutDialog
+        open={!!pendingCheckout}
+        packageName={pendingCheckout?.name ?? ""}
+        packagePrice={pendingCheckout?.price ?? 0}
+        creditDebt={creditDebt}
+        confirming={!!checkingOut}
+        onConfirm={() => {
+          if (!pendingCheckout) return;
+          void runCheckout(pendingCheckout.slug);
+          setPendingCheckout(null);
+        }}
+        onCancel={() => {
+          if (!checkingOut) setPendingCheckout(null);
+        }}
+      />
     </div>
   );
 }

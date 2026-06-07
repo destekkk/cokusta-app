@@ -17,6 +17,15 @@ export function canSubmitOffer(
   return (creditDebt ?? 0) < MAX_CREDIT_DEBT;
 }
 
+/** Kontör bitmiş ve usta borç kredisi kullanmayı onaylamışsa teklif borçtan düşer */
+export function willUseDebtCredit(
+  creditBalance: number,
+  creditDebt: number,
+  borcKredisiAktif = false
+): boolean {
+  return (creditBalance ?? 0) < 1 && Boolean(borcKredisiAktif) && (creditDebt ?? 0) < MAX_CREDIT_DEBT;
+}
+
 export function canActivateBorcKredisi(
   creditBalance: number,
   creditDebt: number,
