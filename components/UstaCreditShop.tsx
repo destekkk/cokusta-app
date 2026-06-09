@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { loadLemonSqueezyScript, openLemonCheckout } from "@/lib/lemonsqueezy/lemon-script";
+import { loadLemonSqueezyScript } from "@/lib/lemonsqueezy/lemon-script";
+import { startLemonProviderCheckout } from "@/lib/lemonsqueezy/start-checkout";
 import {
   creditPackages,
   formatCreditPrice,
@@ -21,12 +22,14 @@ import BorcKredisiActivateCard from "@/components/BorcKredisiActivateCard";
 import KontorDebtCheckoutDialog from "@/components/KontorDebtCheckoutDialog";
 
 type Props = {
+  userId: string;
   initialBalance: number;
   initialCreditDebt: number;
   borcKredisiAktif?: boolean;
 };
 
 export default function UstaCreditShop({
+  userId,
   initialBalance,
   initialCreditDebt,
   borcKredisiAktif = false,
@@ -51,17 +54,7 @@ export default function UstaCreditShop({
     setCheckingOut(packageSlug);
     setCheckoutError("");
     try {
-      const res = await fetch("/api/payments/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ packageSlug, orderType: "provider_credit" }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Ödeme başlatılamadı");
-      const url = data.checkoutUrl ?? data.url;
-      if (!url) throw new Error("Ödeme adresi alınamadı.");
-      await openLemonCheckout(url, { onClose: () => setCheckingOut(null) });
+      await startLemonProviderCheckout({ packageSlug, userId });
       setCheckingOut(null);
     } catch (err) {
       setCheckoutError(err instanceof Error ? err.message : "Ödeme başlatılamadı");

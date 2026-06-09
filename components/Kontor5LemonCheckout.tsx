@@ -2,20 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { formatCreditPrice, getShopPackage } from "@/lib/credit-packages";
-import { loadLemonSqueezyScript, openLemonCheckout } from "@/lib/lemonsqueezy/lemon-script";
+import {
+  LEMON_VARIANT_KONTOR_5,
+  startLemonProviderCheckout,
+} from "@/lib/lemonsqueezy/start-checkout";
+import { loadLemonSqueezyScript } from "@/lib/lemonsqueezy/lemon-script";
 
 type Props = {
-  /** Lemon mağaza buy linki — test için; üretimde API checkout tercih edilir */
-  directCheckoutUrl?: string | null;
+  /** Oturumdaki usta ID — Lemon checkout_data.custom.user_id olarak gider */
+  userId: string;
   creditDebt?: number;
   className?: string;
 };
 
 const PACKAGE_SLUG = "kontor-5";
 
-/** 5 Kontör Paketi — Lemon Squeezy overlay ödeme */
+/** 5 Kontör — variant {LEMON_VARIANT_KONTOR_5} (1758264) */
 export default function Kontor5LemonCheckout({
-  directCheckoutUrl = null,
+  userId,
   creditDebt = 0,
   className = "",
 }: Props) {
@@ -33,20 +37,10 @@ export default function Kontor5LemonCheckout({
     setLoading(true);
     setError("");
     try {
-      let checkoutUrl = directCheckoutUrl?.trim() || "";
-      if (!checkoutUrl) {
-        const res = await fetch("/api/payments/create-checkout", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          body: JSON.stringify({ packageSlug: PACKAGE_SLUG, orderType: "provider_credit" }),
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Ödeme başlatılamadı");
-        checkoutUrl = data.checkoutUrl ?? data.url ?? "";
-      }
-      if (!checkoutUrl) throw new Error("Ödeme adresi alınamadı.");
-      await openLemonCheckout(checkoutUrl);
+      await startLemonProviderCheckout({
+        packageSlug: PACKAGE_SLUG,
+        userId,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ödeme başlatılamadı");
     } finally {
@@ -59,6 +53,9 @@ export default function Kontor5LemonCheckout({
       <h3 className="text-lg font-bold">{pkg.name}</h3>
       <p className="mt-1 text-sm text-muted-foreground">{pkg.description}</p>
       <p className="mt-4 text-2xl font-bold">{formatCreditPrice(pkg.price)}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Lemon variant: {LEMON_VARIANT_KONTOR_5}
+      </p>
       {creditDebt > 0 ? (
         <p className="mt-1 text-xs text-amber-700">
           Borç bakiyeniz varsa ödeme özetinde paket + borç birlikte gösterilir.

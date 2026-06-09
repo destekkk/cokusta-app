@@ -6,6 +6,7 @@ import {
   isLemonTestMode,
 } from "@/lib/lemonsqueezy/config";
 import { getCheckoutProductOptions } from "@/lib/lemonsqueezy/product-media";
+import { buildProviderCreditCheckoutCustom } from "@/lib/lemonsqueezy/checkout-custom";
 import type { CreditPurchaseOrder } from "@/lib/types";
 
 const API_BASE = "https://api.lemonsqueezy.com/v1";
@@ -61,13 +62,7 @@ export async function createProviderCreditCheckout(
         },
         checkout_data: {
           email: providerEmail ?? undefined,
-          custom: {
-            order_type: "provider_credit",
-            order_id: order.id,
-            conversation_id: order.conversationId,
-            provider_id: order.providerId,
-            package_slug: order.packageSlug,
-          },
+          custom: buildProviderCreditCheckoutCustom(order, order.providerId),
         },
         product_options: {
           name: productOptions.name,

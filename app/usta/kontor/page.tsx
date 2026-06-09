@@ -31,6 +31,7 @@ export default async function UstaCreditPage() {
         />
         <div className="mt-8">
           <UstaCreditShopWrapper
+            userId={providerId}
             initialBalance={provider.creditBalance ?? 0}
             initialCreditDebt={provider.creditDebt ?? 0}
             borcKredisiAktif={provider.borcKredisiAktif === true}

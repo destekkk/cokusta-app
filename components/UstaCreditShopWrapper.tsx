@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import UstaCreditShop from "@/components/UstaCreditShop";
 
 type Props = {
+  userId: string;
   initialBalance: number;
   initialCreditDebt: number;
   borcKredisiAktif?: boolean;
