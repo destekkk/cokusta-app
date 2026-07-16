@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { Suspense } from "react";
 import { SITE_NAME, SITE_URL } from "@/lib/seo/metadata";
 import WhatsAppChat from "@/components/WhatsAppChat";
+import WelcomeGuide from "@/components/WelcomeGuide";
 import "./globals.css";
 
 const inter = Inter({
@@ -41,6 +42,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
         <Suspense fallback={null}>
+          <WelcomeGuide />
           <WhatsAppChat />
         </Suspense>
       </body>
