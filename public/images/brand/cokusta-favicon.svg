@@ -9,25 +9,9 @@
     <rect width="512" height="512" fill="#0F6B7C"/>
   </g>
 
-  <!-- yellow hard hat -->
-  <path fill="#FFD100" d="M118 220c0-72 62-128 138-128s138 56 138 128v16H118v-16z"/>
-  <path fill="#FFD100" d="M86 224c0-11 9-20 20-20h300c11 0 20 9 20 20 0 18-15 32-32 32H118c-17 0-32-14-32-32z"/>
-  <rect x="230" y="100" width="52" height="34" rx="10" fill="#E6B800"/>
-  <rect x="238" y="208" width="36" height="11" rx="5.5" fill="#0F6B7C"/>
-
-  <!-- wrench — bottom left, large -->
-  <g transform="translate(150 400) rotate(-35)">
-    <rect x="0" y="-18" width="175" height="36" rx="18" fill="#FFFFFF"/>
-    <circle cx="-36" cy="0" r="46" fill="#FFFFFF"/>
-    <circle cx="-36" cy="0" r="18" fill="#0F6B7C"/>
-    <rect x="-82" y="-16" width="34" height="32" fill="#0F6B7C"/>
-  </g>
-
-  <!-- screwdriver — bottom right, large -->
-  <g transform="translate(362 400) rotate(35)">
-    <rect x="-15" y="-22" width="30" height="165" rx="11" fill="#FFFFFF"/>
-    <path d="M-13 140 h26 l-9 44 h-8 z" fill="#FFFFFF"/>
-    <rect x="-26" y="-78" width="52" height="68" rx="13" fill="#FFFFFF"/>
-    <rect x="-15" y="-62" width="30" height="13" rx="4" fill="#FFD100"/>
-  </g>
+  <!-- yellow hard hat only -->
+  <path fill="#FFD100" d="M96 290c0-92 72-164 160-164s160 72 160 164v20H96v-20z"/>
+  <path fill="#FFD100" d="M64 296c0-14 11-25 25-25h334c14 0 25 11 25 25 0 22-18 40-40 40H104c-22 0-40-18-40-40z"/>
+  <rect x="224" y="136" width="64" height="42" rx="12" fill="#E6B800"/>
+  <rect x="234" y="276" width="44" height="14" rx="7" fill="#0F6B7C"/>
 </svg>
