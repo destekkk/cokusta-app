@@ -4,14 +4,26 @@
       <rect width="512" height="512" rx="112"/>
     </clipPath>
   </defs>
-
   <g clip-path="url(#round)">
-    <rect width="512" height="512" fill="#0F6B7C"/>
+    <rect width="512" height="256" fill="#1d4d3c"/>
+    <rect y="256" width="512" height="256" fill="#00a86b"/>
   </g>
-
-  <!-- yellow hard hat only -->
-  <path fill="#FFD100" d="M96 290c0-92 72-164 160-164s160 72 160 164v20H96v-20z"/>
-  <path fill="#FFD100" d="M64 296c0-14 11-25 25-25h334c14 0 25 11 25 25 0 22-18 40-40 40H104c-22 0-40-18-40-40z"/>
-  <rect x="224" y="136" width="64" height="42" rx="12" fill="#E6B800"/>
-  <rect x="234" y="276" width="44" height="14" rx="7" fill="#0F6B7C"/>
+  <text
+    x="256" y="168"
+    text-anchor="middle"
+    font-family="Inter, Segoe UI, Arial, sans-serif"
+    font-size="118"
+    font-weight="700"
+    fill="#ffffff"
+    letter-spacing="0.02em"
+  >cok</text>
+  <text
+    x="256" y="392"
+    text-anchor="middle"
+    font-family="Inter, Segoe UI, Arial, sans-serif"
+    font-size="112"
+    font-weight="700"
+    fill="#ffffff"
+    letter-spacing="0.02em"
+  >usta</text>
 </svg>
