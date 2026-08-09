@@ -23,11 +23,11 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
   icons: {
     icon: [
-      { url: "/favicon-v3.png?v=4", sizes: "48x48", type: "image/png" },
-      { url: "/favicon.ico?v=4", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-v3.png?v=5", sizes: "48x48", type: "image/png" },
+      { url: "/favicon.ico?v=5", sizes: "32x32", type: "image/png" },
     ],
-    apple: [{ url: "/apple-icon.png?v=4", sizes: "180x180", type: "image/png" }],
-    shortcut: ["/favicon-v3.png?v=4"],
+    apple: [{ url: "/apple-icon.png?v=5", sizes: "180x180", type: "image/png" }],
+    shortcut: ["/favicon-v3.png?v=5"],
   },
   verification: {
     google: "vVMBJfyCZHCxXulXHot9d73US5sTTbrJfT_nZdU4vtw",
