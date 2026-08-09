@@ -2292,16 +2292,37 @@ export async function adminMatchQuoteToProvider(
 
   if (!quote) return { error: "Talep bulunamadı." };
   if (!provider || provider.status !== "approved") return { error: "Usta bulunamadı." };
-  if (quote.status !== "open" && quote.status !== "awaiting_review") {
-    return { error: "Bu talep eşleştirilemez." };
+  if (
+    quote.status !== "open" &&
+    quote.status !== "awaiting_review" &&
+    quote.status !== "accepted"
+  ) {
+    return { error: "Bu talep eşleştirilemez veya ustası değiştirilemez." };
+  }
+  if (quote.status === "accepted" && quote.matchedProviderId === provider.id) {
+    return { error: "Bu usta zaten eşleştirilmiş." };
   }
 
   quote.status = "accepted";
   quote.matchedProviderId = provider.id;
   quote.matchedProviderName = provider.name;
 
+  const existingOffer = store.providerOffers
+    .filter(
+      (o) =>
+        o.quoteRequestId === quoteId &&
+        o.providerId === provider.id &&
+        (o.status === "pending" || o.status === "rejected" || o.status === "accepted")
+    )
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
   for (const offer of store.providerOffers) {
-    if (offer.quoteRequestId === quoteId && offer.status === "pending") {
+    if (offer.quoteRequestId !== quoteId) continue;
+    if (existingOffer && offer.id === existingOffer.id) {
+      offer.status = "accepted";
+      continue;
+    }
+    if (offer.status === "pending" || offer.status === "accepted") {
       offer.status = "rejected";
     }
   }

@@ -5,10 +5,11 @@ import { formatDateTime } from "@/lib/admin-labels";
 import { formatUrgentRemaining } from "@/lib/urgent";
 import { getQuoteAnswers } from "@/lib/quote-answers";
 import InvoiceButton from "@/components/admin/InvoiceButton";
+import AdminProviderPicker from "@/components/admin/AdminProviderPicker";
 import CurrencyInput from "@/components/CurrencyInput";
 import { parseTlDigits } from "@/lib/currency-input";
 import { quotePhoneForAdmin } from "@/lib/quote-privacy";
-import type { ProviderOffer, QuoteRequest } from "@/lib/types";
+import type { ProviderOffer, ProviderRegistration, QuoteRequest } from "@/lib/types";
 
 const statusLabels: Record<QuoteRequest["status"], string> = {
   awaiting_review: "Onay Bekliyor",
@@ -47,11 +48,13 @@ export default function QuoteRow({
   quote,
   commissionRate,
   offerCount = 0,
+  approvedProviders = [],
   onStatusChange,
 }: {
   quote: QuoteRequest;
   commissionRate: number;
   offerCount?: number;
+  approvedProviders?: ProviderRegistration[];
   onStatusChange?: (
     id: string,
     status: QuoteRequest["status"],
@@ -61,6 +64,8 @@ export default function QuoteRow({
   const [loading, setLoading] = useState(false);
   const [jobValue, setJobValue] = useState("");
   const [showComplete, setShowComplete] = useState(false);
+  const [showRematch, setShowRematch] = useState(false);
+  const [rematchProviderId, setRematchProviderId] = useState("");
   const [offers, setOffers] = useState<ProviderOffer[]>([]);
 
   const answers = useMemo(() => getQuoteAnswers(quote), [quote]);
@@ -118,6 +123,44 @@ export default function QuoteRow({
       });
     } catch (err) {
       alert(err instanceof Error ? err.message : "Güncelleme başarısız");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rematchProvider = async () => {
+    if (!rematchProviderId) {
+      alert("Yeni usta seçin.");
+      return;
+    }
+    if (rematchProviderId === quote.matchedProviderId) {
+      alert("Bu usta zaten eşleştirilmiş.");
+      return;
+    }
+    const provider = approvedProviders.find((p) => p.id === rematchProviderId);
+    if (
+      !confirm(
+        `${quote.matchedProviderName ?? "Mevcut usta"} yerine ${provider?.name ?? "yeni usta"} atanacak. Devam?`
+      )
+    ) {
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/admin/teklif/${quote.id}/eslestir`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerId: rematchProviderId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Eşleştirme başarısız");
+      setShowRematch(false);
+      onStatusChange?.(quote.id, "accepted", {
+        matchedProviderId: data.request?.matchedProviderId ?? rematchProviderId,
+        matchedProviderName: data.request?.matchedProviderName ?? provider?.name,
+      });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Eşleştirme başarısız");
     } finally {
       setLoading(false);
     }
@@ -185,9 +228,73 @@ export default function QuoteRow({
         </div>
       )}
 
-      {quote.matchedProviderName && (
+      {(quote.matchedProviderName || quote.status === "accepted" || quote.status === "open") && (
         <div className="mt-4 rounded-lg border border-primary/20 bg-primary/5 p-4 text-sm text-foreground">
-          <strong>Eşleştirilen usta:</strong> {quote.matchedProviderName}
+          {quote.matchedProviderName ? (
+            <p>
+              <strong>Eşleştirilen usta:</strong> {quote.matchedProviderName}
+            </p>
+          ) : (
+            <p className="text-muted-foreground">Henüz usta eşleştirilmedi.</p>
+          )}
+
+          {(quote.status === "accepted" || quote.status === "open") && (
+              <div className="mt-3 space-y-3 border-t border-primary/15 pt-3">
+                {approvedProviders.filter((p) => p.id !== quote.matchedProviderId).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Değiştirilecek başka onaylı usta yok.
+                  </p>
+                ) : !showRematch ? (
+                  <button
+                    type="button"
+                    disabled={loading}
+                    onClick={() => {
+                      const alternatives = approvedProviders.filter(
+                        (p) => p.id !== quote.matchedProviderId
+                      );
+                      setRematchProviderId(alternatives[0]?.id ?? "");
+                      setShowRematch(true);
+                    }}
+                    className="rounded-lg border border-primary/30 bg-white px-3 py-2 text-sm font-medium text-primary hover:bg-primary/10 disabled:opacity-60"
+                  >
+                    {quote.matchedProviderId ? "Ustayı değiştir" : "Usta eşleştir"}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      {quote.matchedProviderId
+                        ? "Yanlış usta seçildiyse başka bir onaylı usta atayın."
+                        : "Bu talebe onaylı bir usta atayın."}
+                    </p>
+                    <AdminProviderPicker
+                      providers={approvedProviders.filter(
+                        (p) => p.id !== quote.matchedProviderId
+                      )}
+                      value={rematchProviderId}
+                      onChange={setRematchProviderId}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={loading || !rematchProviderId}
+                        onClick={rematchProvider}
+                        className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary-dark disabled:opacity-60"
+                      >
+                        {loading ? "Kaydediliyor…" : "Ustayı kaydet"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={loading}
+                        onClick={() => setShowRematch(false)}
+                        className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-60"
+                      >
+                        Vazgeç
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
         </div>
       )}
 

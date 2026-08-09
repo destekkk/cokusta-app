@@ -376,7 +376,7 @@ export default function QuotesListTable({
             onClick={() => runBulk("match", matchProviderId)}
             className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
           >
-            {loading === "match" ? "…" : "Usta ile Eşleştir"}
+            {loading === "match" ? "…" : "Usta ile Eşleştir / Değiştir"}
           </button>
           <button
             type="button"
@@ -485,6 +485,7 @@ export default function QuotesListTable({
                           quote={quote}
                           commissionRate={commissionRate}
                           offerCount={offerCounts[quote.id] ?? 0}
+                          approvedProviders={approvedProviders}
                           onStatusChange={(id, status, extra) =>
                             applyQuotePatch(id, { status, ...extra })
                           }

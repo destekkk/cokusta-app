@@ -2517,9 +2517,25 @@ export async function adminMatchQuoteToProvider(
   if (!quoteRow) return { error: "Talep bulunamadı." };
   if (!provider || provider.status !== "approved") return { error: "Usta bulunamadı." };
   const quote = toQuoteRequest(quoteRow);
-  if (quote.status !== "open" && quote.status !== "awaiting_review") {
-    return { error: "Bu talep eşleştirilemez." };
+  if (
+    quote.status !== "open" &&
+    quote.status !== "awaiting_review" &&
+    quote.status !== "accepted"
+  ) {
+    return { error: "Bu talep eşleştirilemez veya ustası değiştirilemez." };
   }
+  if (quote.status === "accepted" && quote.matchedProviderId === provider.id) {
+    return { error: "Bu usta zaten eşleştirilmiş." };
+  }
+
+  const existingOffer = await prisma.providerOffer.findFirst({
+    where: {
+      quoteRequestId: quoteId,
+      providerId: provider.id,
+      status: { in: ["pending", "rejected", "accepted"] },
+    },
+    orderBy: { createdAt: "desc" },
+  });
 
   await prisma.$transaction([
     prisma.quoteRequest.update({
@@ -2531,9 +2547,29 @@ export async function adminMatchQuoteToProvider(
       },
     }),
     prisma.providerOffer.updateMany({
-      where: { quoteRequestId: quoteId, status: "pending" },
+      where: {
+        quoteRequestId: quoteId,
+        status: "accepted",
+        ...(existingOffer ? { id: { not: existingOffer.id } } : {}),
+      },
       data: { status: "rejected" },
     }),
+    prisma.providerOffer.updateMany({
+      where: {
+        quoteRequestId: quoteId,
+        status: "pending",
+        ...(existingOffer ? { id: { not: existingOffer.id } } : {}),
+      },
+      data: { status: "rejected" },
+    }),
+    ...(existingOffer
+      ? [
+          prisma.providerOffer.update({
+            where: { id: existingOffer.id },
+            data: { status: "accepted" },
+          }),
+        ]
+      : []),
   ]);
 
   const updated = await prisma.quoteRequest.findUniqueOrThrow({ where: { id: quoteId } });
